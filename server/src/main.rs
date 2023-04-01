@@ -41,7 +41,8 @@ impl FromStr for Order {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Alert {
     side: Side,
-    order: Order
+    order: Order,
+    timestamp: i64,
 }
 
 #[actix_web::main]
@@ -73,6 +74,8 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
     match serde_json::from_slice::<Alert>(&body) {
         Ok(alert) => {
             println!("Alert: {:?}", alert);
+            let now = chrono::Utc::now().timestamp_millis();
+            println!("Latency: {}ms", now - alert.timestamp);
             Ok(HttpResponse::Ok().json(alert))
         },
         Err(e) => {
