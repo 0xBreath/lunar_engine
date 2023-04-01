@@ -15,12 +15,15 @@ struct Alert {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let bind_address = format!("0.0.0.0:{}", port);
+
     HttpServer::new(|| {
         App::new()
           .service(alert)
           .route("/", web::get().to(test))
     })
-      .bind(("0.0.0.0", 8080))?
+      .bind(bind_address)?
       .run()
       .await
 }
