@@ -41,7 +41,7 @@ impl FromStr for Order {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Timestamp {
     time: i64,
-};
+}
 impl FromStr for Timestamp {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
