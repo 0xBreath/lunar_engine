@@ -27,6 +27,7 @@ async fn main() -> std::io::Result<()> {
 
 #[post("/alert")]
 async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
+    println!("Alert received");
     let mut body = web::BytesMut::new();
     while let Some(chunk) = payload.next().await {
         let chunk = chunk?;
