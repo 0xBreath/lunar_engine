@@ -39,12 +39,14 @@ impl FromStr for Order {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Timestamp(i64);
+struct Timestamp {
+    time: i64,
+};
 impl FromStr for Timestamp {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse::<i64>() {
-            Ok(i) => Ok(Timestamp(i)),
+            Ok(i) => Ok(Timestamp { time: i }),
             Err(_) => Err(()),
         }
     }
@@ -85,9 +87,9 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
     }
     match serde_json::from_slice::<Alert>(&body) {
         Ok(alert) => {
-            println!("Alert: {:?}", alert);
+            println!("{:?}", alert);
             let now = chrono::Utc::now().timestamp_millis();
-            println!("Latency: {}ms", now - alert.timestamp.0);
+            println!("Latency: {}ms", now - alert.timestamp.time);
             Ok(HttpResponse::Ok().json(alert))
         },
         Err(e) => {
