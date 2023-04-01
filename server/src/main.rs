@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Error, Result};
 use serde::{Serialize, Deserialize};
 use futures::StreamExt;
@@ -6,11 +7,41 @@ use futures::StreamExt;
 const MAX_SIZE: usize = 262_144;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+enum Side {
+    Long,
+    Short
+}
+impl FromStr for Side {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Long" => Ok(Side::Long),
+            "Short" => Ok(Side::Short),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum Order {
+    Enter,
+    Exit
+}
+impl FromStr for Order {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Enter" => Ok(Order::Enter),
+            "Exit" => Ok(Order::Exit),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Alert {
-    entry: f64,
-    stop_loss: f64,
-    trailing_pips: u32,
-    trailing_offset: u32,
+    side: Side,
+    order: Order
 }
 
 #[actix_web::main]
@@ -30,7 +61,6 @@ async fn main() -> std::io::Result<()> {
 
 #[post("/alert")]
 async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
-    println!("Alert received");
     let mut body = web::BytesMut::new();
     while let Some(chunk) = payload.next().await {
         let chunk = chunk?;
@@ -40,9 +70,16 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         }
         body.extend_from_slice(&chunk);
     }
-    let obj = serde_json::from_slice::<Alert>(&body)?;
-    println!("Alert: {:?}", obj);
-    Ok(HttpResponse::Ok().json(obj))
+    match serde_json::from_slice::<Alert>(&body) {
+        Ok(alert) => {
+            println!("Alert: {:?}", alert);
+            Ok(HttpResponse::Ok().json(alert))
+        },
+        Err(e) => {
+            println!("Error: {:?}", e);
+            Err(error::ErrorBadRequest("invalid json"))
+        }
+    }
 }
 
 async fn test() -> impl Responder {
