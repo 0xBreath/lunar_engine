@@ -20,7 +20,7 @@ async fn main() -> std::io::Result<()> {
           .service(alert)
           .route("/", web::get().to(test))
     })
-      .bind(("lunar-engine.herokuapp.com", 8080))?
+      .bind(("0.0.0.0", 8080))?
       .run()
       .await
 }
