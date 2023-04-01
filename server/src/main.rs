@@ -39,24 +39,10 @@ impl FromStr for Order {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Timestamp {
-    time: i64,
-}
-impl FromStr for Timestamp {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.parse::<i64>() {
-            Ok(i) => Ok(Timestamp { time: i }),
-            Err(_) => Err(()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Alert {
     side: Side,
     order: Order,
-    timestamp: Timestamp,
+    timestamp: String,
 }
 
 #[actix_web::main]
@@ -89,7 +75,7 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         Ok(alert) => {
             println!("{:?}", alert);
             let now = chrono::Utc::now().timestamp_millis();
-            println!("Latency: {}ms", now - alert.timestamp.time);
+            println!("Latency: {}ms", now - alert.timestamp.parse::<i64>().unwrap());
             Ok(HttpResponse::Ok().json(alert))
         },
         Err(e) => {
