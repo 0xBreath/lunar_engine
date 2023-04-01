@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "bin/astrology",
+    "bin/fractals",
+    "bin/pfs",
+    "bin/hda",
+    "ephemeris",
+    "time_series",
+    "dataframe",
+    "server"
+]

@@ -1,0 +1,20 @@
+[package]
+name = "time_series"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# external deps
+csv = "1.1.6"
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11.6", features = ["json"] } # reqwest with JSON parsing support
+tokio = { version = "1.24.2", features = ["full"] } # for our async runtime
+chrono = "0.4.22"
+plotters = "0.3.4"
+
+[dev-dependencies]
+futures = "0.3.24" # for our async / await blocks

@@ -1,0 +1,7 @@
+export START_YEAR=2023
+export START_MONTH=3
+export START_DAY=20
+export END_YEAR=2023
+export END_MONTH=4
+export END_DAY=20
+export PATH_TO_DIR=/Users/riester/LIFE/Coding/lunar_engine

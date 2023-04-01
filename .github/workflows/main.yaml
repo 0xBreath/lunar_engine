@@ -1,0 +1,24 @@
+name: CI/CD Main Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'master'
+
+jobs:
+
+  ci-build-binary:
+    name: Build binaries
+    steps:
+      - uses: actions/checkout@v3
+      - id: build-binary
+        uses: ./.github/actions/build-binary
+
+  ci-release-lunar-engine:
+    name: Release Lunar Engine
+    needs: [ci-build-binary]
+    steps:
+      - uses: actions/checkout@v3
+      - id: release-lunar-engine
+        uses: ./.github/actions/release-lunar-engine

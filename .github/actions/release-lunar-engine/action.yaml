@@ -1,0 +1,23 @@
+name: 'Release Lunar Engine binary'
+description: 'Builds the Rust binary'
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: lunar-engine
+
+    - name: Setting version variable
+      shell: bash
+      run: echo "VER=$(cat server/Cargo.toml | grep -m 1 "^version" | cut -d"=" -f 2 | xargs )" >> $GITHUB_ENV
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Lunar Engine v${{ env.VER }}
+        tag_name: lunar-engine-v${{ env.VER }}
+        files: |
+          lunar-engine
