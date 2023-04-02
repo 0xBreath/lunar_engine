@@ -5,19 +5,6 @@ use std::env;
 use std::path::PathBuf;
 use time_series::*;
 
-// // SPX
-// const SPX_PFS_10_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_pfs_10.png";
-// const SPX_PFS_19_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_pfs_19.png";
-// const SPX_PFS_20_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_pfs_20.png";
-// const SPX_DAILY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/1960_2023.csv";
-// const SPX_HISTORY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_history.csv";
-// // BTCUSD
-// const BTC_DAILY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_daily.csv";
-// const BTC_HISTORY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_history.csv";
-// const BTC_PFS_10_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_pfs_10.png";
-// const BTC_PFS_19_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_pfs_19.png";
-// const BTC_PFS_20_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_pfs_20.png";
-
 #[tokio::main]
 async fn main() {
     init_logger();
@@ -48,18 +35,18 @@ async fn main() {
       .expect("END_DAY not a number");
     let path_to_dir = env::var("PATH_TO_DIR").expect("PATH_TO_DIR not set");
 
+    let pfs_cycle_years = env::var("PFS_CYCLE_YEARS")
+      .expect("PFS_CYCLE_YEARS not set");
+    let btc_pfs_file = path_to_dir.clone() + "/data/BTCUSD/BTC_pfs_" + &pfs_cycle_years + ".png";
+    let spx_pfs_file = path_to_dir.clone() + "/data/SPX/SPX_pfs_" + &pfs_cycle_years + ".png";
+    let cycle_years = pfs_cycle_years.parse::<u32>().expect("PFS_CYCLE_YEARS not a number");
+
     // SPX
-    let spx_pfs_10_file = path_to_dir.clone() + "/data/SPX/SPX_pfs_10.png";
-    let spx_pfs_19_file = path_to_dir.clone() + "/data/SPX/SPX_pfs_19.png";
-    let spx_pfs_20_file = path_to_dir.clone() + "/data/SPX/SPX_pfs_20.png";
     let spx_daily = path_to_dir.clone() + "/data/SPX/1960_2023.csv";
     let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
     // BTCUSD
     let btc_daily = path_to_dir.clone() + "/data/BTCUSD/BTC_daily.csv";
     let btc_history = path_to_dir.clone() + "/data/BTCUSD/BTC_history.csv";
-    let btc_pfs_10_file = path_to_dir.clone() + "/data/BTCUSD/BTC_pfs_10.png";
-    let btc_pfs_19_file = path_to_dir.clone() + "/data/BTCUSD/BTC_pfs_19.png";
-    let btc_pfs_20_file = path_to_dir.clone() + "/data/BTCUSD/BTC_pfs_20.png";
 
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
     let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
@@ -69,18 +56,16 @@ async fn main() {
         end_date,
         btc_daily,
         btc_history,
-        btc_pfs_10_file,
-        btc_pfs_19_file,
-        btc_pfs_20_file,
+        btc_pfs_file,
+        cycle_years
     ).await;
     spx(
         start_date,
         end_date,
         spx_daily,
         spx_history,
-        spx_pfs_10_file,
-        spx_pfs_19_file,
-        spx_pfs_20_file,
+        spx_pfs_file,
+        cycle_years
     ).await;
 }
 
@@ -96,18 +81,17 @@ pub fn init_logger() {
 
 #[allow(dead_code)]
 async fn spx(
-    pfs_start_date: Time,
-    pfs_end_date: Time,
-    spx_daily: String,
-    spx_history: String,
-    spx_pfs_10_file: String,
-    spx_pfs_19_file: String,
-    spx_pfs_20_file: String,
+    start_date: Time,
+    end_date: Time,
+    daily_ticker: String,
+    full_history_file: String,
+    pfs_file: String,
+    pfs_cycle_years: u32,
 ) {
     // load TickerData with SPX price history
     let mut ticker_data = TickerData::new();
     ticker_data
-      .add_csv_series(&PathBuf::from(spx_daily))
+      .add_csv_series(&PathBuf::from(daily_ticker))
       .expect("Failed to add CSV to TickerData");
 
     // TODO: subscribe to RapidAPI
@@ -118,56 +102,35 @@ async fn spx(
     //   .add_series(candles)
     //   .expect("Failed to add API series to TickerData");
     // write full ticker_data history to CSV
-    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(spx_history));
+    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
 
     // ======================== Polarity Factor System ============================
     // TODO: plot all PFS in one chart
-    let pfs_10 = PlotPFS::new(10, pfs_start_date, pfs_end_date);
-    let daily_pfs_10 = pfs_10.pfs(&ticker_data);
-    pfs_10.plot_pfs(
-        &daily_pfs_10,
-        &spx_pfs_10_file,
-        "SPX - PFS 10",
+    let pfs = PlotPFS::new(pfs_cycle_years, start_date, end_date);
+    let daily_pfs = pfs.pfs(&ticker_data);
+    let title = format!("SPX - PFS {}", pfs_cycle_years);
+    pfs.plot_pfs(
+        &daily_pfs,
+        &pfs_file,
+        &title,
         &GREEN,
-        (97.0, 103.0),
-    );
-
-    let pfs_19 = PlotPFS::new(19, pfs_start_date, pfs_end_date);
-    let daily_pfs_19 = pfs_19.pfs(&ticker_data);
-    pfs_19.plot_pfs(
-        &daily_pfs_19,
-        &spx_pfs_19_file,
-        "SPX - PFS 19",
-        &BLUE,
-        (97.0, 103.0),
-    );
-
-    let pfs_20 = PlotPFS::new(20, pfs_start_date, pfs_end_date);
-    let daily_pfs_20 = pfs_20.pfs(&ticker_data);
-    pfs_20.plot_pfs(
-        &daily_pfs_20,
-        &spx_pfs_20_file,
-        "SPX - PFS 20",
-        &RED,
         (97.0, 103.0),
     );
 }
 
 #[allow(dead_code)]
 async fn btcusd(
-    pfs_start_date: Time,
-    pfs_end_date: Time,
-    btc_daily: String,
-    btc_history: String,
-    btc_pfs_10_file: String,
-    btc_pfs_19_file: String,
-    btc_pfs_20_file: String,
+    start_date: Time,
+    end_date: Time,
+    daily_ticker: String,
+    full_history_file: String,
+    pfs_file: String,
+    pfs_cycle_years: u32,
 ) {
     // load TickerData with SPX price history
-    let btc_daily = &PathBuf::from(btc_daily);
     let mut ticker_data = TickerData::new();
     ticker_data
-      .add_csv_series(&PathBuf::from(btc_daily))
+      .add_csv_series(&PathBuf::from(daily_ticker))
       .expect("Failed to add CSV to TickerData");
 
     // TODO: subscribe to RapidAPI
@@ -176,37 +139,17 @@ async fn btcusd(
     // let candles = rapid_api.query(Interval::Daily).await;
     // ticker_data.add_series(candles).expect("Failed to add API series to TickerData");
     // write full ticker_data history to CSV
-    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(btc_history));
+    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
 
     // ======================== Polarity Factor System ============================
-    // TODO: plot all PFS in one chart
-    let pfs_10 = PlotPFS::new(10, pfs_start_date, pfs_end_date);
-    let daily_pfs_10 = pfs_10.pfs(&ticker_data);
-    pfs_10.plot_pfs(
-        &daily_pfs_10,
-        &btc_pfs_10_file,
-        "BTCUSD - PFS 10",
+    let pfs = PlotPFS::new(pfs_cycle_years, start_date, end_date);
+    let daily_pfs = pfs.pfs(&ticker_data);
+    let title = format!("BTCUSD - PFS {}", pfs_cycle_years);
+    pfs.plot_pfs(
+        &daily_pfs,
+        &pfs_file,
+        &title,
         &GREEN,
-        (90.0, 120.0),
-    );
-
-    let pfs_19 = PlotPFS::new(19, pfs_start_date, pfs_end_date);
-    let daily_pfs_19 = pfs_19.pfs(&ticker_data);
-    pfs_19.plot_pfs(
-        &daily_pfs_19,
-        &btc_pfs_19_file,
-        "BTCUSD - PFS 19",
-        &BLUE,
-        (90.0, 120.0),
-    );
-
-    let pfs_20 = PlotPFS::new(20, pfs_start_date, pfs_end_date);
-    let daily_pfs_20 = pfs_20.pfs(&ticker_data);
-    pfs_20.plot_pfs(
-        &daily_pfs_20,
-        &btc_pfs_20_file,
-        "BTCUSD - PFS 20",
-        &RED,
         (90.0, 120.0),
     );
 }
