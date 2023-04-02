@@ -13,3 +13,10 @@ web: target/release/server
 The Heroku app should be set up to deploy with every push to `main` branch.
 If it does not, navigate to the Heroku website and manually deploy the app.
 Avoid deploying from the CLI to keep things simple.
+
+### Steps to automate trade alerts
+Add strategy to Tradingview chart
+
+Add this webhook to the alert: `https://lunar-engine.herokuapp.com/trade`
+
+Add this to the message field of the alert: `{{strategy.order.alert_message}}`
