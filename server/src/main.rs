@@ -1,55 +1,31 @@
-use std::str::FromStr;
+mod trade;
+mod alert;
+mod client;
+mod api;
+mod errors;
+mod account;
+mod response;
+
+use alert::*;
+use client::Client;
+use trade::Trade;
+
 use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Error, Result};
-use serde::{Serialize, Deserialize};
 use futures::StreamExt;
-// import Regex
 use regex::Regex;
 
-// 256k bytes
+// Message buffer max size is 256k bytes
 const MAX_SIZE: usize = 262_144;
+
 // Binance US API endpoint
 // Data returned in ascending order, oldest first
 // Timestamps are in milliseconds
 const BINANCE_API: &str = "https://api.binance.us";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum Side {
-    Long,
-    Short
-}
-impl FromStr for Side {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Long" => Ok(Side::Long),
-            "Short" => Ok(Side::Short),
-            _ => Err(()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum Order {
-    Enter,
-    Exit
-}
-impl FromStr for Order {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Enter" => Ok(Order::Enter),
-            "Exit" => Ok(Order::Exit),
-            _ => Err(()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Alert {
-    side: Side,
-    order: Order,
-    timestamp: i64,
-}
+// Binance Spot Test Network API credentials
+const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
+const BINANCE_TEST_API_KEY: &str = "hrCcYjjRCW6jCCOVGiOOXve1UVLK8jbYd08WyKQjuUI63VNmcuR0EDBtDsrW9KBJ";
+const BINANCE_TEST_API_SECRET: &str = "XGKu8AelLejzC6R5ZBWvbNzy4NC7d78ckU0sOJk3VeFRsWnJTajCfcFsArnPFEjP";
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -58,7 +34,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-          .service(alert)
+          .service(post_alert)
           .route("/", web::get().to(test))
     })
       .bind(bind_address)?
@@ -67,7 +43,7 @@ async fn main() -> std::io::Result<()> {
 }
 
 #[post("/alert")]
-async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
+async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
     let mut body = web::BytesMut::new();
     while let Some(chunk) = payload.next().await {
         let chunk = chunk?;
@@ -81,14 +57,79 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
     if let Some(captures) = re.captures(&msg) {
         let side = captures.get(1).unwrap().as_str();
         let order = captures.get(2).unwrap().as_str();
-        let timestamp = captures.get(3).unwrap().as_str().parse::<i64>().unwrap();
-        println!("Latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
+        let timestamp = captures.get(3).unwrap().as_str().parse::<i64>().expect("invalid timestamp");
+        println!("From Tradingview latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
         let alert = Alert {
-            side: side.parse().unwrap(),
-            order: order.parse().unwrap(),
+            side: side.parse().expect("invalid side"),
+            order: order.parse().expect("invalid order"),
             timestamp,
         };
         println!("{:?}", alert);
+
+        let client = Client::new(
+            Some(BINANCE_TEST_API_KEY.to_string()),
+            Some(BINANCE_TEST_API_SECRET.to_string()),
+            BINANCE_TEST_API.to_string()
+        );
+        let account = account::Account::new(client, 5000);
+        let symbol = "BTCBUSD".to_string();
+        let qty = 1000.0;
+
+        match alert.order {
+            Order::Enter => {
+                match alert.side {
+                    Side::Long => {
+                        println!("Enter Long");
+                        let trade = Trade::new(
+                            symbol,
+                            alert.side.clone(),
+                            OrderType::Market,
+                            qty
+                        );
+                        let res = account.test_market_buy(trade);
+                        println!("{:?}", res);
+                    },
+                    Side::Short => {
+                        println!("Enter Short");
+                        let trade = Trade::new(
+                            symbol,
+                            alert.side.clone(),
+                            OrderType::Market,
+                            qty
+                        );
+                        let res = account.test_market_sell(trade);
+                        println!("{:?}", res);
+                    },
+                }
+            },
+            Order::Exit => {
+                match alert.side {
+                    Side::Long => {
+                        println!("Exit Long");
+                        let trade = Trade::new(
+                            symbol,
+                            Side::Short,
+                            OrderType::Market,
+                            qty
+                        );
+                        let res = account.test_market_sell(trade);
+                        println!("{:?}", res);
+                    },
+                    Side::Short => {
+                        println!("Exit Short");
+                        let trade = Trade::new(
+                            symbol,
+                            Side::Long,
+                            OrderType::Market,
+                            qty
+                        );
+                        let res = account.test_market_buy(trade);
+                        println!("{:?}", res);
+                    },
+                }
+            },
+        }
+
         Ok(HttpResponse::Ok().json(alert))
     } else {
         Err(error::ErrorBadRequest("invalid json"))
