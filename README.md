@@ -20,3 +20,7 @@ Add strategy to Tradingview chart
 Add this webhook to the alert: `https://lunar-engine.herokuapp.com/alert`
 
 Add this to the message field of the alert: `{{strategy.order.alert_message}}`
+
+The server expects the alert message in string format, NOT JSON.
+Example:
+`{side: Long, order: Enter, timestamp: 1680381231283}`

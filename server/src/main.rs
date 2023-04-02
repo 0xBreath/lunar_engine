@@ -7,6 +7,10 @@ use regex::Regex;
 
 // 256k bytes
 const MAX_SIZE: usize = 262_144;
+// Binance US API endpoint
+// Data returned in ascending order, oldest first
+// Timestamps are in milliseconds
+const BINANCE_API: &str = "https://api.binance.us";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum Side {
@@ -67,20 +71,18 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
     let mut body = web::BytesMut::new();
     while let Some(chunk) = payload.next().await {
         let chunk = chunk?;
-        println!("Chunk: {:?}", chunk);
         if (body.len() + chunk.len()) > MAX_SIZE {
             return Err(error::ErrorBadRequest("overflow"));
         }
         body.extend_from_slice(&chunk);
     }
     let msg = String::from_utf8(body.to_vec()).unwrap();
-    println!("Body: {:?}", msg);
     let re = Regex::new(r"\{side: (\w+), order: (\w+), timestamp: (\d+)\}").unwrap();
     if let Some(captures) = re.captures(&msg) {
         let side = captures.get(1).unwrap().as_str();
         let order = captures.get(2).unwrap().as_str();
         let timestamp = captures.get(3).unwrap().as_str().parse::<i64>().unwrap();
-        println!("side: {}, order: {}, timestamp: {}", side, order, timestamp);
+        println!("Latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
         let alert = Alert {
             side: side.parse().unwrap(),
             order: order.parse().unwrap(),
@@ -91,19 +93,6 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
     } else {
         Err(error::ErrorBadRequest("invalid json"))
     }
-
-    // match serde_json::from_str::<Alert>(&msg) {
-    //     Ok(alert) => {
-    //         println!("{:?}", alert);
-    //         let now = chrono::Utc::now().timestamp_millis();
-    //         println!("Latency: {}ms", now - alert.timestamp);
-    //         Ok(HttpResponse::Ok().json(alert))
-    //     },
-    //     Err(e) => {
-    //         println!("Error: {:?}", e);
-    //         Err(error::ErrorBadRequest("invalid json"))
-    //     }
-    // }
 }
 
 async fn test() -> impl Responder {
