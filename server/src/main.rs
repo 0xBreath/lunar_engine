@@ -42,7 +42,7 @@ impl FromStr for Order {
 struct Alert {
     side: Side,
     order: Order,
-    timestamp: i64,
+    timestamp: String,
 }
 
 #[actix_web::main]
@@ -75,7 +75,7 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         Ok(alert) => {
             println!("{:?}", alert);
             let now = chrono::Utc::now().timestamp_millis();
-            println!("Latency: {}ms", now - alert.timestamp);
+            println!("Latency: {}ms", now - alert.timestamp.parse::<i64>().unwrap());
             Ok(HttpResponse::Ok().json(alert))
         },
         Err(e) => {
