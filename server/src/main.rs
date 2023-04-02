@@ -2,6 +2,8 @@ use std::str::FromStr;
 use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Error, Result};
 use serde::{Serialize, Deserialize};
 use futures::StreamExt;
+// import Regex
+use regex::Regex;
 
 // 256k bytes
 const MAX_SIZE: usize = 262_144;
@@ -42,7 +44,7 @@ impl FromStr for Order {
 struct Alert {
     side: Side,
     order: Order,
-    timestamp: String,
+    timestamp: i64,
 }
 
 #[actix_web::main]
@@ -71,18 +73,37 @@ async fn alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         }
         body.extend_from_slice(&chunk);
     }
-    match serde_json::from_slice::<Alert>(&body) {
-        Ok(alert) => {
-            println!("{:?}", alert);
-            let now = chrono::Utc::now().timestamp_millis();
-            println!("Latency: {}ms", now - alert.timestamp.parse::<i64>().unwrap());
-            Ok(HttpResponse::Ok().json(alert))
-        },
-        Err(e) => {
-            println!("Error: {:?}", e);
-            Err(error::ErrorBadRequest("invalid json"))
-        }
+    let msg = String::from_utf8(body.to_vec()).unwrap();
+    println!("Body: {:?}", msg);
+    let re = Regex::new(r"\{side: (\w+), order: (\w+), timestamp: (\d+)\}").unwrap();
+    if let Some(captures) = re.captures(&msg) {
+        let side = captures.get(1).unwrap().as_str();
+        let order = captures.get(2).unwrap().as_str();
+        let timestamp = captures.get(3).unwrap().as_str().parse::<i64>().unwrap();
+        println!("side: {}, order: {}, timestamp: {}", side, order, timestamp);
+        let alert = Alert {
+            side: side.parse().unwrap(),
+            order: order.parse().unwrap(),
+            timestamp,
+        };
+        println!("{:?}", alert);
+        Ok(HttpResponse::Ok().json(alert))
+    } else {
+        Err(error::ErrorBadRequest("invalid json"))
     }
+
+    // match serde_json::from_str::<Alert>(&msg) {
+    //     Ok(alert) => {
+    //         println!("{:?}", alert);
+    //         let now = chrono::Utc::now().timestamp_millis();
+    //         println!("Latency: {}ms", now - alert.timestamp);
+    //         Ok(HttpResponse::Ok().json(alert))
+    //     },
+    //     Err(e) => {
+    //         println!("Error: {:?}", e);
+    //         Err(error::ErrorBadRequest("invalid json"))
+    //     }
+    // }
 }
 
 async fn test() -> impl Responder {

@@ -17,6 +17,6 @@ Avoid deploying from the CLI to keep things simple.
 ### Steps to automate trade alerts
 Add strategy to Tradingview chart
 
-Add this webhook to the alert: `https://lunar-engine.herokuapp.com/trade`
+Add this webhook to the alert: `https://lunar-engine.herokuapp.com/alert`
 
 Add this to the message field of the alert: `{{strategy.order.alert_message}}`

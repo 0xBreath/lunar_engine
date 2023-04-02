@@ -1870,6 +1870,7 @@ dependencies = [
  "actix-web",
  "chrono",
  "futures",
+ "regex",
  "serde",
  "serde_json",
 ]
