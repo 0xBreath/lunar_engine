@@ -1,16 +1,17 @@
-mod trade;
+mod builder;
 mod alert;
 mod client;
 mod api;
 mod errors;
 mod account;
 mod response;
+mod model;
 
 use alert::*;
 use client::Client;
-use trade::Trade;
+use builder::trade::Trade;
 
-use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Error, Result};
+use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Error, Result, get};
 use futures::StreamExt;
 use regex::Regex;
 
@@ -20,6 +21,7 @@ const MAX_SIZE: usize = 262_144;
 // Binance US API endpoint
 // Data returned in ascending order, oldest first
 // Timestamps are in milliseconds
+#[allow(dead_code)]
 const BINANCE_API: &str = "https://api.binance.us";
 
 // Binance Spot Test Network API credentials
@@ -35,6 +37,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
           .service(post_alert)
+          .service(get_assets)
           .route("/", web::get().to(test))
     })
       .bind(bind_address)?
@@ -53,19 +56,24 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         body.extend_from_slice(&chunk);
     }
     let msg = String::from_utf8(body.to_vec()).unwrap();
-    let re = Regex::new(r"\{side: (\w+), order: (\w+), timestamp: (\d+)\}").unwrap();
+    let re = Regex::new(r"\{side: (\w+), order: (\w+), price: (\d+\.\d+), stop_loss: (\d+\.\d+), timestamp: (\d+)}").unwrap();
     if let Some(captures) = re.captures(&msg) {
         let side = captures.get(1).unwrap().as_str();
         let order = captures.get(2).unwrap().as_str();
-        let timestamp = captures.get(3).unwrap().as_str().parse::<i64>().expect("invalid timestamp");
-        println!("From Tradingview latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
+        let entry_price = captures.get(3).unwrap().as_str().parse::<f64>().expect("invalid price");
+        let stop_loss = captures.get(4).unwrap().as_str().parse::<f64>().expect("invalid stop loss");
+        let timestamp = captures.get(5).unwrap().as_str().parse::<i64>().expect("invalid timestamp");
+        println!("Tradingview latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
         let alert = Alert {
             side: side.parse().expect("invalid side"),
             order: order.parse().expect("invalid order"),
-            timestamp,
+            price: entry_price,
+            stop_loss,
+            timestamp
         };
         println!("{:?}", alert);
 
+        // init Binance client
         let client = Client::new(
             Some(BINANCE_TEST_API_KEY.to_string()),
             Some(BINANCE_TEST_API_SECRET.to_string()),
@@ -73,32 +81,56 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         );
         let account = account::Account::new(client, 5000);
         let symbol = "BTCBUSD".to_string();
-        let qty = 1000.0;
+        let quote_asset_symbol = "BUSD".to_string();
 
-        match alert.order {
+        // let cancel = account.cancel_all_open_orders(symbol.clone()).expect("failed to cancel orders");
+
+        // get account token balances
+        let account_info = account.account_info().expect("failed to get account info");
+        let busd_balance = &account_info.balances.iter().find(|&x| x.asset == quote_asset_symbol).unwrap().free;
+        println!("BUSD balance: {}", busd_balance);
+        // balance is busd_balance parsed to f64
+        let balance = busd_balance.parse::<f64>().unwrap();
+
+        // get current price of symbol
+        let ticker_price = account.get_price(symbol.clone()).expect("failed to get price");
+        println!("Current price: {}", ticker_price);
+
+        // calculate quantity of base asset to trade
+        let qty = quantity(ticker_price, balance, 25.0);
+        println!("Quantity: {}", qty);
+
+        let pre_trade_time = chrono::Utc::now().timestamp_millis();
+        let res = match alert.order {
             Order::Enter => {
                 match alert.side {
                     Side::Long => {
                         println!("Enter Long");
                         let trade = Trade::new(
                             symbol,
-                            alert.side.clone(),
-                            OrderType::Market,
-                            qty
+                            alert.side,
+                            OrderType::StopLossLimit,
+                            qty,
+                            Some(alert.price),
+                            Some(alert.stop_loss),
                         );
-                        let res = account.test_market_buy(trade);
+                        let res = account.trade(trade);
                         println!("{:?}", res);
+                        res
                     },
                     Side::Short => {
                         println!("Enter Short");
                         let trade = Trade::new(
                             symbol,
-                            alert.side.clone(),
-                            OrderType::Market,
-                            qty
+                            alert.side,
+                            OrderType::StopLossLimit,
+                            qty,
+                            Some(alert.price),
+                            Some(alert.stop_loss),
                         );
-                        let res = account.test_market_sell(trade);
+                        let res = account.trade(trade);
                         println!("{:?}", res);
+                        res
                     },
                 }
             },
@@ -110,10 +142,13 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                             symbol,
                             Side::Short,
                             OrderType::Market,
-                            qty
+                            qty,
+                            None,
+                            None,
                         );
-                        let res = account.test_market_sell(trade);
+                        let res = account.trade(trade);
                         println!("{:?}", res);
+                        res
                     },
                     Side::Short => {
                         println!("Exit Short");
@@ -121,19 +156,42 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                             symbol,
                             Side::Long,
                             OrderType::Market,
-                            qty
+                            qty,
+                            None,
+                            None,
                         );
-                        let res = account.test_market_buy(trade);
+                        let res = account.trade(trade);
                         println!("{:?}", res);
+                        res
                     },
                 }
             },
-        }
+        };
+        println!("Binance latency: {}ms", chrono::Utc::now().timestamp_millis() - pre_trade_time);
 
-        Ok(HttpResponse::Ok().json(alert))
+        Ok(HttpResponse::Ok().json(res.expect("failed to trade")))
     } else {
         Err(error::ErrorBadRequest("invalid json"))
     }
+}
+
+fn quantity(price: f64, balance: f64, pct_equity: f64) -> f64 {
+    let busd_qty = ((balance * (pct_equity/100.0)) * 100.0).round() / 100.0;
+    ((busd_qty / price) * 1000000.0).round() / 1000000.0
+}
+
+#[get("/assets")]
+async fn get_assets() -> Result<HttpResponse, Error> {
+    println!("get_assets");
+    let client = Client::new(
+        Some(BINANCE_TEST_API_KEY.to_string()),
+        Some(BINANCE_TEST_API_SECRET.to_string()),
+        BINANCE_TEST_API.to_string()
+    );
+    let account = account::Account::new(client, 5000);
+    let res = account.account_info().expect("failed to get account info");
+    println!("{:?}", res);
+    Ok(HttpResponse::Ok().json(res))
 }
 
 async fn test() -> impl Responder {

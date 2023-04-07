@@ -45,16 +45,18 @@ impl FromStr for Order {
 pub struct Alert {
   pub side: Side,
   pub order: Order,
+  pub price: f64,
+  pub stop_loss: f64,
   pub timestamp: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum OrderType {
   Limit,
   Market,
   StopLossLimit,
-  TakeProfitLimit,
-  LimitMaker
+  StopLoss,
+  TakeProfitLimit
 }
 impl OrderType {
   pub fn fmt_binance(&self) -> &str {
@@ -62,8 +64,8 @@ impl OrderType {
       OrderType::Limit => "LIMIT",
       OrderType::Market => "MARKET",
       OrderType::StopLossLimit => "STOP_LOSS_LIMIT",
+      OrderType::StopLoss => "STOP_LOSS",
       OrderType::TakeProfitLimit => "TAKE_PROFIT_LIMIT",
-      OrderType::LimitMaker => "LIMIT_MAKER",
     }
   }
 }

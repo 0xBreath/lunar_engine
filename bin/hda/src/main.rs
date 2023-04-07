@@ -5,15 +5,6 @@ use std::env;
 use std::path::PathBuf;
 use time_series::*;
 
-// // SPX
-// const SPX_HDA_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_hda.png";
-// const SPX_DAILY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/1960_2023.csv";
-// const SPX_HISTORY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_history.csv";
-// // BTCUSD
-// const BTC_DAILY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_daily.csv";
-// const BTC_HISTORY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_history.csv";
-// const BTC_HDA_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_hda.png";
-
 #[tokio::main]
 async fn main() {
     init_logger();

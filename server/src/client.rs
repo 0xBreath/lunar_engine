@@ -1,5 +1,3 @@
-use actix::ActorTryFutureExt;
-use error_chain::bail;
 use hex::encode as hex_encode;
 use hmac::{Hmac, Mac};
 use reqwest::StatusCode;
@@ -48,7 +46,6 @@ impl Client {
 
   pub fn post_signed<T: DeserializeOwned>(&self, endpoint: API, request: String) -> Result<T> {
     let url = self.sign_request(endpoint, Some(request));
-    println!("url: {}", url);
     let client = &self.inner_client;
     let response = client
       .post(url.as_str())
@@ -60,6 +57,7 @@ impl Client {
     self.handler(response)
   }
 
+  #[allow(dead_code)]
   pub fn delete_signed<T: DeserializeOwned>(
     &self, endpoint: API, request: Option<String>,
   ) -> Result<T> {
@@ -91,6 +89,7 @@ impl Client {
     self.handler(response)
   }
 
+  #[allow(dead_code)]
   pub fn post<T: DeserializeOwned>(&self, endpoint: API) -> Result<T> {
     let url: String = format!("{}{}", self.host, String::from(endpoint));
 
@@ -121,6 +120,7 @@ impl Client {
     self.handler(response)
   }
 
+  #[allow(dead_code)]
   pub fn delete<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
     let url: String = format!("{}{}", self.host, String::from(endpoint));
     let data: String = format!("listenKey={}", listen_key);
@@ -137,7 +137,6 @@ impl Client {
     self.handler(response)
   }
 
-  // Request must be signed
   fn sign_request(&self, endpoint: API, request: Option<String>) -> String {
     if let Some(request) = request {
       let mut signed_key =
@@ -196,7 +195,7 @@ impl Client {
         })?;
         Err(BinanceError::Content(error))
       }
-      s => {
+      _s => {
         Err(BinanceError::Other(response.error_for_status().unwrap_err().to_string()))
       }
     }

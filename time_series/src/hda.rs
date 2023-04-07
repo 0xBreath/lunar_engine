@@ -176,24 +176,36 @@ impl PlotHDA {
     // PFS start date
     let from_date_index = self.find_date_index(&data, &self.start_date);
     let from_date = self.parse_time(&data[from_date_index].0);
-    // let from_date = from_date_input - Duration::days(1);
     println!("HDA Start Date: {}", from_date);
     // PFS end date
     let to_date_index = self.find_date_index(&data, &self.end_date);
     let to_date = self.parse_time(&data[to_date_index].0);
-    // let to_date = to_date_input + Duration::days(1);
     println!("HDA End Date: {}", to_date);
+
+    // find minimum value in data
+    let min = data.iter().fold(100f32, |min, x| min.min(x.1));
+    let max = data.iter().fold(0f32, |max, x| max.max(x.1));
+
     // label chart
     let mut chart = ChartBuilder::on(&root)
       .x_label_area_size(40)
       .y_label_area_size(40)
       .caption(plot_title, ("sans-serif", 50.0).into_font())
-      .build_cartesian_2d(from_date..to_date, 0f32..20f32).unwrap();
-    chart.configure_mesh().light_line_style(WHITE).draw().unwrap();
+      .build_cartesian_2d(from_date..to_date, min..max).unwrap();
+    chart.configure_mesh()
+      .light_line_style(WHITE)
+      .draw().unwrap();
+
     // plot PFS values
     chart.draw_series(
-      LineSeries::new(data.iter().map(|x| (self.parse_time(&x.0), x.1)), plot_color)
+      LineSeries::new(data.iter().map(|x| (self.parse_time(&x.0), x.1)), ShapeStyle {
+        color: RGBAColor::from(*plot_color),
+        filled: true,
+        stroke_width: 2,
+      })
+        .point_size(5)
     ).unwrap();
+
     // To avoid the IO failure being ignored silently, we manually call the present function
     root.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
     println!("Result has been saved to {}", out_file);
