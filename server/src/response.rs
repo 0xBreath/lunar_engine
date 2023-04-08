@@ -15,6 +15,7 @@ pub struct OrderResponse {
   pub cummulative_quote_qty: String,
   pub status: String,
   pub time_in_force: String,
+  #[serde(rename = "type")]
   pub type_: String,
   pub side: String,
   pub working_time: u64,

@@ -10,10 +10,10 @@ use crate::errors::{BinanceError, BinanceContentError, Result};
 
 #[derive(Clone)]
 pub struct Client {
-  api_key: String,
-  secret_key: String,
-  host: String,
-  inner_client: reqwest::blocking::Client,
+  pub api_key: String,
+  pub secret_key: String,
+  pub host: String,
+  pub inner_client: reqwest::blocking::Client,
 }
 
 impl Client {

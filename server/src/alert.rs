@@ -45,8 +45,6 @@ impl FromStr for Order {
 pub struct Alert {
   pub side: Side,
   pub order: Order,
-  pub price: f64,
-  pub stop_loss: f64,
   pub timestamp: i64,
 }
 

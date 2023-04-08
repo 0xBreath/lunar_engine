@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::alert::*;
 use std::io::Result;
 
+#[derive(Debug, Clone)]
 pub struct Trade {
   /// Ticker symbol (e.g. BTCUSDC
   pub symbol: String,
