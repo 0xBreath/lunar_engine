@@ -20,6 +20,11 @@ use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Erro
 use futures::StreamExt;
 use regex::Regex;
 use std::sync::Mutex;
+use log::*;
+use simplelog::{
+    ColorChoice, Config as SimpleLogConfig,
+    TermLogger, TerminalMode,
+};
 
 // Message buffer max size is 256k bytes
 const MAX_SIZE: usize = 262_144;
@@ -52,6 +57,8 @@ lazy_static! {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    init_logger();
+
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let bind_address = format!("0.0.0.0:{}", port);
 
@@ -64,6 +71,15 @@ async fn main() -> std::io::Result<()> {
       .bind(bind_address)?
       .run()
       .await
+}
+
+fn init_logger() {
+    TermLogger::init(
+        LevelFilter::Info,
+        SimpleLogConfig::default(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    ).expect("Failed to initialize logger");
 }
 
 #[post("/alert")]
@@ -82,13 +98,13 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         let side = captures.get(1).unwrap().as_str();
         let order = captures.get(2).unwrap().as_str();
         let timestamp = captures.get(3).unwrap().as_str().parse::<i64>().expect("invalid timestamp");
-        println!("Tradingview latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
+        debug!("Tradingview latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
         let alert = Alert {
             side: side.parse().expect("invalid side"),
             order: order.parse().expect("invalid order"),
             timestamp
         };
-        println!("{:?}", alert);
+        info!("{:?}", alert);
 
         let mut account = ACCOUNT.lock().unwrap();
 
@@ -101,19 +117,19 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                 // get account token balances
                 let account_info = account.account_info().expect("failed to get account info");
                 let busd_balance = &account_info.balances.iter().find(|&x| x.asset == account.quote_asset).unwrap().free;
-                println!("BUSD balance: {}", busd_balance);
+                info!("BUSD balance: {}", busd_balance);
                 // balance is busd_balance parsed to f64
                 let balance = busd_balance.parse::<f64>().unwrap();
                 // get current price of symbol
                 let ticker_price = account.get_price(account.ticker.clone()).expect("failed to get price");
-                println!("Current price: {}", ticker_price);
+                info!("Current price: {}", ticker_price);
                 // calculate quantity of base asset to trade
                 let qty = quantity(ticker_price, balance, 25.0);
-                println!("Enter Quantity: {}", qty);
+                info!("Enter Quantity: {}", qty);
 
                 match alert.side {
                     Side::Long => {
-                        println!("Enter Long");
+                        info!("Enter Long");
                         let trade = Trade::new(
                             account.ticker.clone(),
                             alert.side,
@@ -124,13 +140,13 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                         );
                         let res = account.trade::<OrderResponse>(trade)
                           .expect("failed to enter long");
-                        println!("{:?}", res);
+                        debug!("{:?}", res);
                         let active_order = res.clone();
                         account.set_active_order(Some(active_order));
                         res
                     },
                     Side::Short => {
-                        println!("Enter Short");
+                        info!("Enter Short");
                         let trade = Trade::new(
                             account.ticker.clone(),
                             alert.side,
@@ -141,7 +157,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                         );
                         let res = account.trade::<OrderResponse>(trade)
                           .expect("failed to enter short");
-                        println!("{:?}", res);
+                        debug!("{:?}", res);
                         let active_order = res.clone();
                         account.set_active_order(Some(active_order));
                         res
@@ -155,11 +171,11 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                   .executed_qty
                   .parse::<f64>()
                   .expect("failed to parse executed quantity to f64");
-                println!("Exit Quantity: {}", qty);
+                info!("Exit Quantity: {}", qty);
 
                 match alert.side {
                     Side::Long => {
-                        println!("Exit Long");
+                        info!("Exit Long");
                         let trade = Trade::new(
                             account.ticker.clone(),
                             Side::Short,
@@ -170,12 +186,12 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                         );
                         let res = account.trade::<OrderResponse>(trade)
                           .expect("failed to exit long");
-                        println!("{:?}", res);
+                        debug!("{:?}", res);
                         account.set_active_order(None);
                         res
                     },
                     Side::Short => {
-                        println!("Exit Short");
+                        info!("Exit Short");
                         let trade = Trade::new(
                             account.ticker.clone(),
                             Side::Long,
@@ -186,14 +202,14 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                         );
                         let res = account.trade::<OrderResponse>(trade)
                           .expect("failed to exit short");
-                        println!("{:?}", res);
+                        debug!("{:?}", res);
                         account.set_active_order(None);
                         res
                     },
                 }
             },
         };
-        println!("Binance latency: {}ms", chrono::Utc::now().timestamp_millis() - pre_trade_time);
+        debug!("Binance latency: {}ms", chrono::Utc::now().timestamp_millis() - pre_trade_time);
         Ok(HttpResponse::Ok().json(res))
     } else {
         Err(error::ErrorBadRequest("invalid json"))
@@ -210,7 +226,7 @@ async fn get_assets() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().unwrap();
 
     let res = account.account_info().expect("failed to get account info");
-    println!("{:?}", res);
+    debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }
 
