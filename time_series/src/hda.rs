@@ -83,7 +83,7 @@ impl PlotHDA {
     let earliest_candle_year = earliest_date.year;
     let latest_date = ticker_data.latest_date();
     let latest_candle_year = latest_date.year;
-    let total_years_back = latest_candle_year - earliest_candle_year;
+    let total_years_back = latest_candle_year - earliest_candle_year + 1;
 
     let mut filter_years = Vec::<i32>::new();
     let highs_in_period = self.highs_past_period(ticker_data);
@@ -150,6 +150,14 @@ impl PlotHDA {
   }
 
   pub fn plot_hda(&self, daily_hda: &[HDA], out_file: &str, plot_title: &str, plot_color: &RGBColor) {
+    if self.start_date > self.end_date {
+      println!("Start date {} is after end date {}", self.start_date.to_string(), self.end_date.to_string());
+      return;
+    }
+    if daily_hda.is_empty() {
+      println!("No HDA data to plot");
+      return;
+    }
     if self.start_date < daily_hda[0].date {
       println!("Start date {} is before earliest HDA date {}", self.start_date.to_string(), daily_hda[0].date.to_string());
       return;
