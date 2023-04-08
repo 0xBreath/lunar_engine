@@ -83,15 +83,16 @@ impl PlotHDA {
     let earliest_candle_year = earliest_date.year;
     let latest_date = ticker_data.latest_date();
     let latest_candle_year = latest_date.year;
-    let total_years_back = latest_candle_year - earliest_candle_year;
+    let total_years_back = latest_candle_year - earliest_candle_year + 1;
 
     let mut filter_years = Vec::<i32>::new();
     let highs_in_period = self.highs_past_period(ticker_data);
     let lows_in_period = self.lows_past_period(ticker_data);
     let reversals = highs_in_period.iter().chain(lows_in_period.iter()).collect::<Vec<&Time>>();
 
-    // find years that match first reversal in the past month from today
+    // find years that match 2 reversal dates in the time period within a margin of error (hda margin)
     for reversal in reversals.iter() {
+      let mut matching_reversals = 0;
       for years_back in 1..total_years_back {
         for (index, candle) in ticker_data.get_candles().iter().enumerate() {
           if index == 0 {
@@ -102,39 +103,23 @@ impl PlotHDA {
           if (prev_candle.date < cycle_date && candle.date >= cycle_date) &&
             ticker_data.candle_is_reversal(candle, self.left_bars, self.right_bars, self.hda_margin)
           {
-            filter_years.push(reversal.year - years_back);
+            matching_reversals += 1;
           }
+        }
+        if matching_reversals > 1 {
+          filter_years.push(reversal.year - years_back);
         }
       }
     }
+    self.remove_duplicate_years(&mut filter_years);
 
-    // find years that match second high in the past month from today
-    // only consider years that match the first reversal
-    let mut final_filter_years = Vec::<i32>::new();
-    for reversal in reversals.iter() {
-      for filter_year in filter_years.iter() {
-        for (index, candle) in ticker_data.get_candles().iter().enumerate() {
-          if index == 0 {
-            continue;
-          }
-          let prev_candle = ticker_data.get_candles().get(index - 1).expect("Failed to get previous candle");
-          let cycle_date = Time::new(*filter_year, &reversal.month, &reversal.day, None, None);
-          if (prev_candle.date < cycle_date && candle.date >= cycle_date) &&
-            ticker_data.candle_is_reversal(candle, self.left_bars, self.right_bars, self.hda_margin)
-          {
-            final_filter_years.push(*filter_year);
-          }
-        }
-      }
-    }
-
-    // iterate +/- 30 days from today and find reversals in past `filter_years`
+    // iterate start date to end date and find reversals in past `filter_years` that match reversal date in the time period
     let time_period = self.start_date.time_period(&self.end_date);
     for date in time_period.iter() {
       // HDA for this date (frequency of reversals on this date across all years)
       let mut hda = 0;
       // find candle in `filter_year`
-      for (index, candle) in ticker_data.candles.iter().enumerate() {
+      for (index, candle) in ticker_data.get_candles().iter().enumerate() {
         if index == 0 {
           continue;
         }
@@ -157,6 +142,11 @@ impl PlotHDA {
       });
     }
     daily_hda
+  }
+
+  fn remove_duplicate_years(&self, years: &mut Vec<i32>) {
+    years.sort();
+    years.dedup();
   }
 
   pub fn plot_hda(&self, daily_hda: &[HDA], out_file: &str, plot_title: &str, plot_color: &RGBColor) {

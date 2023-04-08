@@ -62,6 +62,7 @@ pub struct TimeSeries {
 struct PriceTimeVector {
     /// First pivot candle
     pub first_pivot: Pivot,
+    #[allow(dead_code)]
     /// Second pivot candle
     pub second_pivot: Pivot,
     /// UNIX time between pivots
@@ -76,7 +77,9 @@ struct PriceTimeVector {
 
 #[derive(Debug, Clone, Default)]
 pub struct FractalsFound {
+    #[allow(dead_code)]
     current_points: Vec<PriceTimeVector>,
+    #[allow(dead_code)]
     past_fractals: Vec<Vec<PriceTimeVector>>,
 }
 

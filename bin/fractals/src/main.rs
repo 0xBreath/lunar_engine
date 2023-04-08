@@ -1,26 +1,9 @@
 use log::*;
-use plotters::prelude::full_palette::{BLUE, GREEN, RED};
+// use plotters::prelude::full_palette::{BLUE, GREEN, RED};
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use std::env;
 use std::path::PathBuf;
 use time_series::*;
-
-// // SPX
-// const SPX_PFS_10_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_pfs_10.png";
-// const SPX_PFS_19_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_pfs_19.png";
-// const SPX_PFS_20_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_pfs_20.png";
-// const SPX_HDA_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_hda.png";
-// const SPX_1960_2023: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/1960_2023.csv";
-// const SPX_HISTORY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/SPX/SPX_history.csv";
-// // BTCUSD
-// const BTC_DAILY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_daily.csv";
-// const BTC_1HOUR: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_1h.csv";
-// const BTC_5MIN: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_5min.csv";
-// const BTC_HISTORY: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_history.csv";
-// const BTC_PFS_10_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_pfs_10.png";
-// const BTC_PFS_19_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_pfs_19.png";
-// const BTC_PFS_20_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_pfs_20.png";
-// const BTC_HDA_FILE: &str = "/Users/riester/LIFE/Coding/lunar_engine/data/BTCUSD/BTC_hda.png";
 
 #[tokio::main]
 async fn main() {

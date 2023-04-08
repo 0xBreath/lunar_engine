@@ -112,7 +112,7 @@ impl PlanetMatrix {
     alignments
   }
 
-  pub fn filter_matrix(&self, error_margin_days: u64, planet_filter: Vec<Planet>, alignment_filter: Vec<Alignment>) -> Vec<PlanetPairAlignment> {
+  pub fn filter_matrix(&self, _error_margin_days: u64, planet_filter: Vec<Planet>, alignment_filter: Vec<Alignment>) -> Vec<PlanetPairAlignment> {
     let mut filtered_matrix = Vec::<PlanetPairAlignment>::new();
     for (planet_a, planet_b, alignments) in self.matrix.iter() {
       if planet_filter.contains(planet_a) && planet_filter.contains(planet_b) {
@@ -271,8 +271,8 @@ impl PlanetMatrix {
     margin_of_error_days: u32,
     alignment_margin_error: f32,
     candle_range: usize,
-    planets: &Vec<Planet>,
-    harmonics: &Vec<Alignment>,
+    planets: &[Planet],
+    harmonics: &[Alignment],
   ) {
     let mut ticker_data = TickerData::new();
     ticker_data.add_csv_series(ticker_data_path).expect("Failed to add CSV to TickerData");
@@ -282,7 +282,7 @@ impl PlanetMatrix {
     }
     let earliest_candle_date = &ticker_data.get_candles()[0].date;
     let latest_candle_date = &ticker_data.get_candles()[ticker_data.get_candles().len() - 1].date;
-    let max_history_days = Time::today().diff_days(earliest_candle_date);
+    let _max_history_days = Time::today().diff_days(earliest_candle_date);
 
     let planet_matrix = PlanetMatrix::new(
       Origin::Geocentric,

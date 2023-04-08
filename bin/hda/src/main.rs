@@ -1,5 +1,5 @@
 use log::*;
-use plotters::prelude::full_palette::{BLUE, GREEN, RED};
+use plotters::prelude::full_palette::BLUE;
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use std::env;
 use std::path::PathBuf;
