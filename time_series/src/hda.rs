@@ -83,7 +83,7 @@ impl PlotHDA {
     let earliest_candle_year = earliest_date.year;
     let latest_date = ticker_data.latest_date();
     let latest_candle_year = latest_date.year;
-    let total_years_back = latest_candle_year - earliest_candle_year + 1;
+    let total_years_back = latest_candle_year - earliest_candle_year;
 
     let mut filter_years = Vec::<i32>::new();
     let highs_in_period = self.highs_past_period(ticker_data);
