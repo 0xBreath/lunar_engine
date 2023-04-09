@@ -41,6 +41,18 @@ async fn main() {
     let spx_pfs_file = path_to_dir.clone() + "/data/SPX/SPX_pfs_" + &pfs_cycle_years + ".png";
     let cycle_years = pfs_cycle_years.parse::<u32>().expect("PFS_CYCLE_YEARS not a number");
 
+    let pfs_confluent_years_raw = env::var("PFS_CONFLUENT_YEARS")
+      .expect("PFS_CONFLUENT_YEARS not set");
+    let mut pfs_confluent_years: Vec<&str> = pfs_confluent_years_raw.split(',').collect();
+    pfs_confluent_years = pfs_confluent_years.iter()
+      .map(|&x| x.trim())
+      .collect();
+    // map to u32
+    let pfs_confluent_years: Vec<u32> = pfs_confluent_years
+      .iter()
+      .map(|&x| x.parse::<u32>().expect("PFS_CONFLUENT_YEARS not a number"))
+      .collect();
+
     // SPX
     let spx_daily = path_to_dir.clone() + "/data/SPX/1960_2023.csv";
     let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
@@ -52,26 +64,27 @@ async fn main() {
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
     let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
 
-    // btcusd(
-    //     start_date,
-    //     end_date,
-    //     btc_daily,
-    //     btc_history,
-    //     btc_pfs_file,
-    //     cycle_years
-    // ).await;
-    // spx(
-    //     start_date,
-    //     end_date,
-    //     spx_daily,
-    //     spx_history,
-    //     spx_pfs_file,
-    //     cycle_years
-    // ).await;
+    btcusd(
+        start_date,
+        end_date,
+        btc_daily,
+        btc_history,
+        btc_pfs_file,
+        cycle_years
+    ).await;
+    spx(
+        start_date,
+        end_date,
+        spx_daily.clone(),
+        spx_history.clone(),
+        spx_pfs_file,
+        cycle_years
+    ).await;
 
     spx_pfs_confluence(
         start_date,
         end_date,
+        pfs_confluent_years,
         spx_daily,
         spx_history,
         spx_confluence_file
@@ -130,6 +143,7 @@ async fn spx(
 async fn spx_pfs_confluence(
     start_date: Time,
     end_date: Time,
+    pfs_confluent_years: Vec<u32>,
     daily_ticker: String,
     full_history_file: String,
     pfs_confluence_file: String
@@ -152,8 +166,7 @@ async fn spx_pfs_confluence(
 
     // ======================== Polarity Factor System ============================
     let mut pfs = PlotPFS::new(start_date, end_date);
-    let cycles = vec![1, 3, 5, 6, 7, 8, 9, 10, 14, 15, 19, 20, 26, 27, 30, 39, 45];
-    let backtest_corr = pfs.confluent_pfs_correlation(&ticker_data, &cycles, &pfs_confluence_file);
+    let backtest_corr = pfs.confluent_pfs_correlation(&ticker_data, &pfs_confluent_years, &pfs_confluence_file);
     for corr in backtest_corr {
         println!("Cycle: {:?}, Corr: {}", corr.cycles, corr.pct_correlation);
     }

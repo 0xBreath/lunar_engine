@@ -279,11 +279,11 @@ impl PlotPFS {
     }
     let mut file = File::create(out_file)?;
 
-    writeln!(file, "cycles,correlations")?;
+    writeln!(file, "cycles,correlation")?;
     // format Vec<u32> into format that implements Display
     for corr in correlations.iter() {
       let cycles = corr.cycles.iter().map(|c| c.to_string()).collect::<Vec<String>>().join(",");
-      writeln!(file, "{},{}", cycles, corr.pct_correlation)?;
+      writeln!(file, "[{}],{}", cycles, corr.pct_correlation)?;
     }
     Ok(())
   }

@@ -6,3 +6,5 @@ export END_MONTH=3
 export END_DAY=15
 export PATH_TO_DIR=/Users/riester/LIFE/Coding/lunar_engine
 export PFS_CYCLE_YEARS=10
+export PFS_CONFLUENT_YEARS=5,7,9,10,19,20,30
+#1,3,5,6,7,8,9,10,14,15,19,20,26,27,30,39,45
