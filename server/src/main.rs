@@ -67,6 +67,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
           .service(post_alert)
           .service(get_assets)
+          .service(cancel_orders)
           .route("/", web::get().to(test))
     })
       .bind(bind_address)?
@@ -108,9 +109,6 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         info!("{:?}", alert);
 
         let mut account = ACCOUNT.lock().unwrap();
-
-        // TODO: remove after testing
-        //let _ = account.cancel_all_open_orders(symbol.clone()).expect("failed to cancel orders");
 
         let pre_trade_time = chrono::Utc::now().timestamp_millis();
         let res = match alert.order {
@@ -167,46 +165,53 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
             },
             Order::Exit => {
                 // trade balance is to exit account.open_trade.quantity
-                let qty = account.get_active_order()
-                  .expect("No open order to exit")
-                  .executed_qty
-                  .parse::<f64>()
-                  .expect("failed to parse executed quantity to f64");
-                info!("Exit Quantity: {}", qty);
+                match account.get_active_order() {
+                    None => {
+                        error!("No active order to exit");
+                        return Ok(HttpResponse::Ok().body("No active order to exit"));
+                    },
+                    Some(res) => {
+                        let qty = res.executed_qty
+                          .parse::<f64>()
+                          .expect("failed to parse executed quantity to f64");
 
-                match alert.side {
-                    Side::Long => {
-                        info!("Exit Long");
-                        let trade = Trade::new(
-                            account.ticker.clone(),
-                            Side::Short,
-                            OrderType::Market,
-                            qty,
-                            None,
-                            None,
-                        );
-                        let res = account.trade::<OrderResponse>(trade)
-                          .expect("failed to exit long");
-                        debug!("{:?}", res);
-                        account.set_active_order(None);
-                        res
-                    },
-                    Side::Short => {
-                        info!("Exit Short");
-                        let trade = Trade::new(
-                            account.ticker.clone(),
-                            Side::Long,
-                            OrderType::Market,
-                            qty,
-                            None,
-                            None,
-                        );
-                        let res = account.trade::<OrderResponse>(trade)
-                          .expect("failed to exit short");
-                        debug!("{:?}", res);
-                        account.set_active_order(None);
-                        res
-                    },
+                        info!("Exit Quantity: {}", qty);
+
+                        match alert.side {
+                            Side::Long => {
+                                info!("Exit Long");
+                                let trade = Trade::new(
+                                    account.ticker.clone(),
+                                    Side::Short,
+                                    OrderType::Market,
+                                    qty,
+                                    None,
+                                    None,
+                                );
+                                let res = account.trade::<OrderResponse>(trade)
+                                  .expect("failed to exit long");
+                                debug!("{:?}", res);
+                                account.set_active_order(None);
+                                res
+                            },
+                            Side::Short => {
+                                info!("Exit Short");
+                                let trade = Trade::new(
+                                    account.ticker.clone(),
+                                    Side::Long,
+                                    OrderType::Market,
+                                    qty,
+                                    None,
+                                    None,
+                                );
+                                let res = account.trade::<OrderResponse>(trade)
+                                  .expect("failed to exit short");
+                                debug!("{:?}", res);
+                                account.set_active_order(None);
+                                res
+                            },
+                        }
+                    }
                 }
             },
         };
@@ -227,6 +232,14 @@ async fn get_assets() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().unwrap();
 
     let res = account.account_info().expect("failed to get account info");
+    debug!("{:?}", res);
+    Ok(HttpResponse::Ok().json(res))
+}
+
+#[get("/cancel")]
+async fn cancel_orders() -> Result<HttpResponse, Error> {
+    let account = ACCOUNT.lock().unwrap();
+    let res = account.cancel_all_active_orders().expect("failed to cancel orders");
     debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }

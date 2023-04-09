@@ -48,21 +48,18 @@ impl Account {
     Ok(price)
   }
 
-  #[allow(dead_code)]
   /// Cancel all open orders for a single symbol
-  pub fn cancel_all_active_orders(&self, symbol: String) -> Result<Vec<OrderCanceled>> {
-    let req = CancelOrders::request(symbol);
+  pub fn cancel_all_active_orders(&self) -> Result<Vec<OrderCanceled>> {
+    let req = CancelOrders::request(self.ticker.clone());
     self.client
       .delete_signed(API::Spot(Spot::OpenOrders), Some(req))
   }
-  
-  #[allow(dead_code)]
+
   /// Set current active trade to track quantity to exit trade
   pub fn set_active_order(&mut self, trade: Option<OrderResponse>) {
     self.active_order = trade;
   }
-  
-  #[allow(dead_code)]
+
   /// Get current active trade
   pub fn get_active_order(&self) -> Option<OrderResponse> {
     self.active_order.clone()
