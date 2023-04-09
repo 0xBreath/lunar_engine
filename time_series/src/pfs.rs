@@ -11,12 +11,16 @@ use std::io::Write;
 /// Backtest correlation
 pub struct IndividualPFSCorrelation {
   pub cycle_years: u32,
+  pub hits: u32,
+  pub total: u32,
   pub pct_correlation: f64
 }
 
 #[derive(Debug, Clone)]
 pub struct ConfluentPFSCorrelation {
   pub cycles: Vec<u32>,
+  pub hits: u32,
+  pub total: u32,
   pub pct_correlation: f64
 }
 
@@ -157,6 +161,8 @@ impl PlotPFS {
       }
       correlation.push(IndividualPFSCorrelation {
         cycle_years: *cycle,
+        hits: corr_count,
+        total: total_count,
         pct_correlation: corr_count as f64 / total_count as f64
       });
     }
@@ -231,6 +237,8 @@ impl PlotPFS {
     }
     ConfluentPFSCorrelation {
       cycles: cycles.to_vec(),
+      hits: corr_count,
+      total: total_count,
       pct_correlation: corr_count as f64 / total_count as f64
     }
   }
@@ -269,6 +277,8 @@ impl PlotPFS {
         correlations.push(correlation);
       }
     }
+    // sort correlations by highest correlation
+    correlations.sort_by(|a, b| b.pct_correlation.partial_cmp(&a.pct_correlation).unwrap());
     Self::write_pfs_confluence_csv(correlations.to_vec(), out_file).expect("Failed to write PFS confluence CSV");
     correlations
   }
@@ -279,11 +289,11 @@ impl PlotPFS {
     }
     let mut file = File::create(out_file)?;
 
-    writeln!(file, "cycles,correlation")?;
+    writeln!(file, "cycles,correlation,hits,total")?;
     // format Vec<u32> into format that implements Display
     for corr in correlations.iter() {
       let cycles = corr.cycles.iter().map(|c| c.to_string()).collect::<Vec<String>>().join(",");
-      writeln!(file, "[{}],{}", cycles, corr.pct_correlation)?;
+      writeln!(file, "[{}],{},{}{}", cycles, corr.pct_correlation, corr.hits, corr.total)?;
     }
     Ok(())
   }
