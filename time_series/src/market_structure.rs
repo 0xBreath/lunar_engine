@@ -1,19 +1,6 @@
 use std::path::PathBuf;
 use crate::{Candle, Reversal, ReversalType, TickerData};
-
-#[derive(Debug, Clone)]
-pub enum Direction {
-  Up,
-  Down,
-}
-impl Direction {
-  pub fn as_string(&self) -> &str {
-    match self {
-      Direction::Up => "Up",
-      Direction::Down => "Down",
-    }
-  }
-}
+use crate::ticker_data::Direction;
 
 #[derive(Debug, Clone)]
 pub struct Trend {

@@ -1,26 +1,12 @@
 use crate::*;
 use std::fmt::{Display, Formatter};
 use ticker_data::ReversalType;
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Direction {
-    Up,
-    Down,
-}
+use crate::ticker_data::Direction;
 
 #[derive(Debug, Clone)]
 pub struct Pivot {
     pub candle: Candle,
     pub reversal_type: ReversalType,
-}
-
-impl Display for Direction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Direction::Up => write!(f, "Up"),
-            Direction::Down => write!(f, "Down"),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]

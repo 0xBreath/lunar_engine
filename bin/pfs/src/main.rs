@@ -37,8 +37,11 @@ async fn main() {
 
     let pfs_cycle_years = env::var("PFS_CYCLE_YEARS")
       .expect("PFS_CYCLE_YEARS not set");
+    #[allow(unused_variables)]
     let btc_pfs_file = path_to_dir.clone() + "/data/BTCUSD/BTC_pfs_" + &pfs_cycle_years + ".png";
+    #[allow(unused_variables)]
     let spx_pfs_file = path_to_dir.clone() + "/data/SPX/SPX_pfs_" + &pfs_cycle_years + ".png";
+    #[allow(unused_variables)]
     let cycle_years = pfs_cycle_years.parse::<u32>().expect("PFS_CYCLE_YEARS not a number");
 
     let pfs_confluent_years_raw = env::var("PFS_CONFLUENT_YEARS")
@@ -56,10 +59,13 @@ async fn main() {
     // SPX
     let spx_daily = path_to_dir.clone() + "/data/SPX/1960_2023.csv";
     let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
+    #[allow(unused_variables)]
     let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_direction.csv";
     let spx_confluent_reversal_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_reversal.csv";
     // BTCUSD
+    #[allow(unused_variables)]
     let btc_daily = path_to_dir.clone() + "/data/BTCUSD/BTC_daily.csv";
+    #[allow(unused_variables)]
     let btc_history = path_to_dir.clone() + "/data/BTCUSD/BTC_history.csv";
 
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);

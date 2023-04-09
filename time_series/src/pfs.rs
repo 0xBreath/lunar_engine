@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs::File;
-use crate::{ReversalType, TickerData, Time};
+use crate::{Direction, ReversalType, TickerData, Time};
 use chrono::{Duration, Local, NaiveDate, TimeZone};
 use log::{debug, info};
 use plotters::prelude::*;
@@ -185,18 +185,17 @@ impl PlotPFS {
       let prev_candle = ticker_data.candles.iter().find(|c| &c.date == prev_date);
       let current_candle = ticker_data.candles.iter().find(|c| &c.date == date);
 
-      let mut candle_is_positive = None;
-      let mut pfs_is_positive = Vec::<Option<bool>>::new();
-      let mut all_pfs_positive = None;
-      let mut all_pfs_negative = None;
+      let mut candle_is_positive: Option<Direction> = None;
+      let mut pfs_direction = Vec::<Option<Direction>>::new();
+      let mut all_pfs_direction: Option<Direction> = None;
 
       // determine if % change is positive or negative
       if let (Some(prev_candle), Some(current_candle)) = (prev_candle, current_candle) {
         let change = current_candle.percent_change(prev_candle.close);
         if change > 0.0 {
-          candle_is_positive = Some(true);
+          candle_is_positive = Some(Direction::Up);
         } else {
-          candle_is_positive = Some(false);
+          candle_is_positive = Some(Direction::Down);
         }
 
         for pfs in pfs_cycles.iter() {
@@ -205,29 +204,32 @@ impl PlotPFS {
           let curr_pfs = pfs.iter().find(|p| &p.date == date);
           if let (Some(prev_pfs), Some(curr_pfs)) = (prev_pfs, curr_pfs) {
             if prev_pfs.value < curr_pfs.value {
-              pfs_is_positive.push(Some(true));
+              pfs_direction.push(Some(Direction::Up));
             } else {
-              pfs_is_positive.push(Some(false));
+              pfs_direction.push(Some(Direction::Down));
             }
           }
         }
         // determine if all PFS are positive or negative
-        all_pfs_positive = Some(pfs_is_positive.iter().all(|p| p == &Some(true)));
-        all_pfs_negative = Some(pfs_is_positive.iter().all(|p| p == &Some(false)));
+        if pfs_direction.iter().all(|p| p == &Some(Direction::Up)) {
+          all_pfs_direction = Some(Direction::Up);
+        } else if pfs_direction.iter().all(|p| p == &Some(Direction::Down)) {
+          all_pfs_direction = Some(Direction::Down);
+        }
       }
       // if candle change and PFS change are the same, then increment positive correlation
-      if candle_is_positive == Some(true) && all_pfs_positive == Some(true) {
+      if candle_is_positive == Some(Direction::Up) && all_pfs_direction == Some(Direction::Up) {
         debug!("Candle positive && all PFS positive");
         corr_count += 1;
         total_count += 1;
-      } else if candle_is_positive == Some(false) && all_pfs_negative == Some(true) {
+      } else if candle_is_positive == Some(Direction::Down) && all_pfs_direction == Some(Direction::Down) {
         debug!("Candle negative && all PFS negative");
         corr_count += 1;
         total_count += 1;
-      } else if candle_is_positive == Some(true) && all_pfs_negative == Some(true) {
+      } else if candle_is_positive == Some(Direction::Up) && all_pfs_direction == Some(Direction::Down) {
         debug!("Candle positive && all PFS negative");
         total_count += 1;
-      } else if candle_is_positive == Some(false) && all_pfs_positive == Some(true) {
+      } else if candle_is_positive == Some(Direction::Down) && all_pfs_direction == Some(Direction::Up) {
         debug!("Candle negative && all PFS positive");
         total_count += 1;
       } else {
@@ -243,7 +245,7 @@ impl PlotPFS {
   }
 
   /// Find the correlation for each PFS cycle in confluence
-  fn confluent_pfs_reversal_inner(&mut self, ticker_data: &TickerData, pfs_cycles: Vec<Vec<PFS>>, cycles: &[u32]) -> ConfluentPFSCorrelation {
+  fn confluent_pfs_reversal_inner(&mut self, pfs_cycles: Vec<Vec<PFS>>, cycles: &[u32]) -> ConfluentPFSCorrelation {
     // iterate each date in time period
     // find previous candle and current candle and determine % change is position or negative
     let mut corr_count = 0;
@@ -257,8 +259,7 @@ impl PlotPFS {
       let next_date = time_period.get(index + 1).expect("Failed to get next date");
 
       let mut pfs_is_reversal = Vec::<Option<ReversalType>>::new();
-      let mut all_pfs_high: Option<bool> = None;
-      let mut all_pfs_low: Option<bool> = None;
+      let mut all_pfs_reversal_type: Option<ReversalType> = None;
 
       // determine if all PFS have a reversal on this date
       for pfs in pfs_cycles.iter() {
@@ -270,28 +271,29 @@ impl PlotPFS {
             pfs_is_reversal.push(Some(ReversalType::High));
           } else if prev_pfs.value > curr_pfs.value && curr_pfs.value < next_pfs.value {
             pfs_is_reversal.push(Some(ReversalType::Low));
-          } else {
-            pfs_is_reversal.push(None);
           }
         }
       }
       // determine if all PFS are highs lows
-      all_pfs_high = Some(pfs_is_reversal.iter().all(|p| p == &Some(ReversalType::High)));
-      all_pfs_low = Some(pfs_is_reversal.iter().all(|p| p == &Some(ReversalType::Low)));
+      if pfs_is_reversal.iter().all(|p| p == &Some(ReversalType::High)) {
+        all_pfs_reversal_type = Some(ReversalType::High);
+      } else if pfs_is_reversal.iter().all(|p| p == &Some(ReversalType::Low)) {
+        all_pfs_reversal_type = Some(ReversalType::Low);
+      }
 
-      if all_pfs_high == Some(true) {
+      if all_pfs_reversal_type == Some(ReversalType::High) {
         debug!("All PFS high");
         corr_count += 1;
         total_count += 1;
-      } else if all_pfs_low == Some(true) {
+      } else if all_pfs_reversal_type == Some(ReversalType::Low) {
         debug!("All PFS low");
         corr_count += 1;
         total_count += 1;
-      } else if all_pfs_high == Some(false) && all_pfs_low == Some(false) {
+      } else if all_pfs_reversal_type.is_none() {
         debug!("All PFS neither high nor low");
         total_count += 1;
       } else {
-        debug!("Failed to find candle or PFS for date: {}", date.to_string_daily())
+        debug!("Failed to find confluent PFS for date: {}", date.to_string_daily())
       }
     }
     ConfluentPFSCorrelation {
@@ -354,7 +356,7 @@ impl PlotPFS {
           let pfs = all_pfs.iter().find(|(cycle, _)| cycle == c).unwrap();
           pfs.1.to_vec()
         }).collect::<Vec<Vec<PFS>>>();
-        let correlation = self.confluent_pfs_reversal_inner(ticker_data, pfs_cycles, comb);
+        let correlation = self.confluent_pfs_reversal_inner(pfs_cycles, comb);
         correlations.push(correlation);
       }
     }

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::path::PathBuf;
 use csv;
@@ -46,6 +47,28 @@ impl PartialEq for ReversalType {
 pub struct Reversal {
   pub candle: Candle,
   pub reversal_type: ReversalType,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Direction {
+  Up,
+  Down,
+}
+impl Direction {
+  pub fn as_string(&self) -> &str {
+    match self {
+      Direction::Up => "Up",
+      Direction::Down => "Down",
+    }
+  }
+}
+impl Display for Direction {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Direction::Up => write!(f, "Up"),
+      Direction::Down => write!(f, "Down"),
+    }
+  }
 }
 
 #[derive(Clone, Debug)]
