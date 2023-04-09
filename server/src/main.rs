@@ -128,7 +128,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                         let ticker_price = account.get_price(account.ticker.clone()).expect("failed to get price");
                         info!("Current price: {}", ticker_price);
                         // calculate quantity of base asset to trade
-                        let qty = quantity(ticker_price, balance, 25.0);
+                        let qty = busd_quantity(ticker_price, balance, 25.0);
                         info!("Buy BTC quantity: {}", qty);
 
                         let trade = Trade::new(
@@ -155,7 +155,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                         let ticker_price = account.get_price(account.ticker.clone()).expect("failed to get price");
                         info!("Current price: {}", ticker_price);
                         // calculate quantity of base asset to trade
-                        let qty = quantity(ticker_price, balance, 25.0);
+                        let qty = btc_quantity(balance, 25.0);
                         info!("Sell BTC quantity: {}", qty);
 
                         let trade = Trade::new(
@@ -234,9 +234,14 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
     }
 }
 
-fn quantity(price: f64, balance: f64, pct_equity: f64) -> f64 {
+fn busd_quantity(price: f64, balance: f64, pct_equity: f64) -> f64 {
     let busd_qty = ((balance * (pct_equity/100.0)) * 100.0).round() / 100.0;
     ((busd_qty / price) * 1000000.0).round() / 1000000.0
+}
+
+fn btc_quantity(balance: f64, pct_equity: f64) -> f64 {
+    let btc_qty = ((balance * (pct_equity/100.0)) * 100.0).round() / 100.0;
+    (btc_qty * 1000000.0).round() / 1000000.0
 }
 
 #[get("/assets")]

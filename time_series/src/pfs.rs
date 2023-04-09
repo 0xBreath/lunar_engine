@@ -73,6 +73,50 @@ impl PlotPFS {
     daily_pfs
   }
 
+  pub fn pfs_hourly(&self, ticker_data: &TickerData) -> Vec<PFS> {
+    let mut daily_pfs = Vec::<PFS>::new();
+
+    // compute number of cycles possible in candle history
+    let earliest_candle_year = ticker_data.earliest_date().year;
+    let latest_candle_year = ticker_data.latest_date().year;
+    let num_cycles = (latest_candle_year - earliest_candle_year) / self.cycle_years as i32;
+
+    let time_period = self.start_date.time_period(&self.end_date);
+    for date in time_period.iter() {
+      // PFS for this date
+      let mut pfs = (100.0, 1);
+      // iterate possible cycles in candle history
+      let mut found_cycle_date = false;
+      for cycle in 1..num_cycles + 1 {
+        // find candle X cycles back
+        for (index, candle) in ticker_data.candles.iter().enumerate() {
+          if index == 0 {
+            continue;
+          }
+          // used to compute percent change between candles
+          let prev_candle = ticker_data.candles.get(index - 1).expect("Failed to get previous candle");
+          // candle X cycles back
+          let cycle_date = Time::new(date.year - self.cycle_years as i32 * cycle, &date.month, &date.day, None, None);
+          if &cycle_date < ticker_data.earliest_date() {
+            continue;
+          }
+          // found candle X cycles back
+          if prev_candle.date < cycle_date && candle.date >= cycle_date {
+            let change = candle.percent_change(prev_candle.close);
+            pfs = (pfs.0 + change, pfs.1 + 1);
+            found_cycle_date = true;
+            break;
+          }
+        }
+      }
+      daily_pfs.push(PFS {
+        date: *date,
+        value: pfs.0 / pfs.1 as f64
+      });
+    }
+    daily_pfs
+  }
+
   pub fn plot_pfs(&self, daily_pfs: &[PFS], out_file: &str, plot_title: &str, plot_color: &RGBColor, plot_height: (f32, f32)) {
     // get daily PFS data
     let data = self.get_data(daily_pfs);
