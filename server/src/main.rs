@@ -117,20 +117,19 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                 let account_info = account.account_info().expect("failed to get account info");
                 let busd_balance = &account_info.balances.iter().find(|&x| x.asset == account.quote_asset).unwrap().free;
                 let btc_balance = &account_info.balances.iter().find(|&x| x.asset == account.base_asset).unwrap().free;
+                info!("BUSD balance: {}", busd_balance);
+                // balance is busd_balance parsed to f64
+                let balance = busd_balance.parse::<f64>().unwrap();
+                // get current price of symbol
+                let ticker_price = account.get_price(account.ticker.clone()).expect("failed to get price");
+                info!("Current price: {}", ticker_price);
+                // calculate quantity of base asset to trade
+                let qty = quantity(ticker_price, balance, 25.0);
+                info!("Buy BTC quantity: {}", qty);
 
                 match alert.side {
                     Side::Long => {
                         info!("Enter Long");
-                        info!("BUSD balance: {}", busd_balance);
-                        // balance is busd_balance parsed to f64
-                        let balance = busd_balance.parse::<f64>().unwrap();
-                        // get current price of symbol
-                        let ticker_price = account.get_price(account.ticker.clone()).expect("failed to get price");
-                        info!("Current price: {}", ticker_price);
-                        // calculate quantity of base asset to trade
-                        let qty = busd_quantity(ticker_price, balance, 25.0);
-                        info!("Buy BTC quantity: {}", qty);
-
                         let trade = Trade::new(
                             account.ticker.clone(),
                             alert.side,
@@ -148,16 +147,6 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                     },
                     Side::Short => {
                         info!("Enter Short");
-                        info!("BTC balance: {}", btc_balance);
-                        // balance is busd_balance parsed to f64
-                        let balance = btc_balance.parse::<f64>().unwrap();
-                        // get current price of symbol
-                        let ticker_price = account.get_price(account.ticker.clone()).expect("failed to get price");
-                        info!("Current price: {}", ticker_price);
-                        // calculate quantity of base asset to trade
-                        let qty = btc_quantity(balance, 25.0);
-                        info!("Sell BTC quantity: {}", qty);
-
                         let trade = Trade::new(
                             account.ticker.clone(),
                             alert.side,
@@ -186,7 +175,6 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                         let qty = res.executed_qty
                           .parse::<f64>()
                           .expect("failed to parse executed quantity to f64");
-
                         info!("Exit Quantity: {}", qty);
 
                         match alert.side {
@@ -234,14 +222,9 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
     }
 }
 
-fn busd_quantity(price: f64, balance: f64, pct_equity: f64) -> f64 {
-    let busd_qty = ((balance * (pct_equity/100.0)) * 100.0).round() / 100.0;
-    ((busd_qty / price) * 1000000.0).round() / 1000000.0
-}
-
-fn btc_quantity(balance: f64, pct_equity: f64) -> f64 {
-    let btc_qty = ((balance * (pct_equity/100.0)) * 100.0).round() / 100.0;
-    (btc_qty * 1000000.0).round() / 1000000.0
+fn quantity(price: f64, balance: f64, pct_equity: f64) -> f64 {
+    let quote_qty = ((balance * (pct_equity/100.0)) * 100.0).round() / 100.0;
+    ((quote_qty / price) * 1000000.0).round() / 1000000.0
 }
 
 #[get("/assets")]
