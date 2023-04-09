@@ -362,6 +362,8 @@ impl PlotPFS {
     }
     // sort correlations by highest correlation
     correlations.sort_by(|a, b| b.pct_correlation.partial_cmp(&a.pct_correlation).unwrap());
+    // eliminate if correlation.cycles.len() == 1
+    let correlations = correlations.into_iter().filter(|c| c.cycles.len() > 1).collect::<Vec<ConfluentPFSCorrelation>>();
     Self::write_pfs_confluence_csv(correlations.to_vec(), out_file).expect("Failed to write PFS confluence CSV");
     correlations
   }
