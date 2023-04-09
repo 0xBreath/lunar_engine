@@ -1,8 +1,8 @@
-export START_YEAR=2023
+export START_YEAR=2018
 export START_MONTH=3
-export START_DAY=20
+export START_DAY=15
 export END_YEAR=2023
-export END_MONTH=4
-export END_DAY=20
+export END_MONTH=3
+export END_DAY=15
 export PATH_TO_DIR=/Users/riester/LIFE/Coding/lunar_engine
 export PFS_CYCLE_YEARS=10

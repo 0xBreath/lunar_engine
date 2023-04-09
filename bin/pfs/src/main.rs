@@ -1,5 +1,5 @@
 use log::*;
-use plotters::prelude::full_palette::{BLUE, GREEN, RED};
+use plotters::prelude::full_palette::{GREEN};
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use std::env;
 use std::path::PathBuf;
@@ -44,6 +44,7 @@ async fn main() {
     // SPX
     let spx_daily = path_to_dir.clone() + "/data/SPX/1960_2023.csv";
     let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
+    let spx_confluence_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluence.csv";
     // BTCUSD
     let btc_daily = path_to_dir.clone() + "/data/BTCUSD/BTC_daily.csv";
     let btc_history = path_to_dir.clone() + "/data/BTCUSD/BTC_history.csv";
@@ -51,21 +52,29 @@ async fn main() {
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
     let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
 
-    btcusd(
-        start_date,
-        end_date,
-        btc_daily,
-        btc_history,
-        btc_pfs_file,
-        cycle_years
-    ).await;
-    spx(
+    // btcusd(
+    //     start_date,
+    //     end_date,
+    //     btc_daily,
+    //     btc_history,
+    //     btc_pfs_file,
+    //     cycle_years
+    // ).await;
+    // spx(
+    //     start_date,
+    //     end_date,
+    //     spx_daily,
+    //     spx_history,
+    //     spx_pfs_file,
+    //     cycle_years
+    // ).await;
+
+    spx_pfs_confluence(
         start_date,
         end_date,
         spx_daily,
         spx_history,
-        spx_pfs_file,
-        cycle_years
+        spx_confluence_file
     ).await;
 }
 
@@ -105,9 +114,8 @@ async fn spx(
     dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
 
     // ======================== Polarity Factor System ============================
-    // TODO: plot all PFS in one chart
-    let pfs = PlotPFS::new(pfs_cycle_years, start_date, end_date);
-    let daily_pfs = pfs.pfs(&ticker_data);
+    let pfs = PlotPFS::new(start_date, end_date);
+    let daily_pfs = pfs.pfs(&ticker_data, pfs_cycle_years);
     let title = format!("SPX - PFS {}", pfs_cycle_years);
     pfs.plot_pfs(
         &daily_pfs,
@@ -116,6 +124,39 @@ async fn spx(
         &GREEN,
         (97.0, 103.0),
     );
+}
+
+#[allow(dead_code)]
+async fn spx_pfs_confluence(
+    start_date: Time,
+    end_date: Time,
+    daily_ticker: String,
+    full_history_file: String,
+    pfs_confluence_file: String
+) {
+    // load TickerData with SPX price history
+    let mut ticker_data = TickerData::new();
+    ticker_data
+      .add_csv_series(&PathBuf::from(daily_ticker))
+      .expect("Failed to add CSV to TickerData");
+
+    // TODO: subscribe to RapidAPI
+    // stream real-time data from RapidAPI to TickerData
+    // let rapid_api = RapidApi::new("SPX".to_string());
+    // let candles = rapid_api.query(Interval::Daily).await;
+    // ticker_data
+    //   .add_series(candles)
+    //   .expect("Failed to add API series to TickerData");
+    // write full ticker_data history to CSV
+    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
+
+    // ======================== Polarity Factor System ============================
+    let mut pfs = PlotPFS::new(start_date, end_date);
+    let cycles = vec![1, 3, 5, 6, 7, 8, 9, 10, 14, 15, 19, 20, 26, 27, 30, 39, 45];
+    let backtest_corr = pfs.confluent_pfs_correlation(&ticker_data, &cycles, &pfs_confluence_file);
+    for corr in backtest_corr {
+        println!("Cycle: {:?}, Corr: {}", corr.cycles, corr.pct_correlation);
+    }
 }
 
 #[allow(dead_code)]
@@ -142,8 +183,8 @@ async fn btcusd(
     dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
 
     // ======================== Polarity Factor System ============================
-    let pfs = PlotPFS::new(pfs_cycle_years, start_date, end_date);
-    let daily_pfs = pfs.pfs(&ticker_data);
+    let pfs = PlotPFS::new(start_date, end_date);
+    let daily_pfs = pfs.pfs(&ticker_data, pfs_cycle_years);
     let title = format!("BTCUSD - PFS {}", pfs_cycle_years);
     pfs.plot_pfs(
         &daily_pfs,
