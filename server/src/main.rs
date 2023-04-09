@@ -25,6 +25,7 @@ use simplelog::{
     ColorChoice, Config as SimpleLogConfig,
     TermLogger, TerminalMode,
 };
+use std::sync::Arc;
 
 // Message buffer max size is 256k bytes
 const MAX_SIZE: usize = 262_144;
