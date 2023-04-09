@@ -56,7 +56,8 @@ async fn main() {
     // SPX
     let spx_daily = path_to_dir.clone() + "/data/SPX/1960_2023.csv";
     let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
-    let spx_confluence_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluence.csv";
+    let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_direction.csv";
+    let spx_confluent_reversal_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_reversal.csv";
     // BTCUSD
     let btc_daily = path_to_dir.clone() + "/data/BTCUSD/BTC_daily.csv";
     let btc_history = path_to_dir.clone() + "/data/BTCUSD/BTC_history.csv";
@@ -64,30 +65,39 @@ async fn main() {
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
     let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
 
-    btcusd(
-        start_date,
-        end_date,
-        btc_daily,
-        btc_history,
-        btc_pfs_file,
-        cycle_years
-    ).await;
-    spx(
-        start_date,
-        end_date,
-        spx_daily.clone(),
-        spx_history.clone(),
-        spx_pfs_file,
-        cycle_years
-    ).await;
+    // btcusd(
+    //     start_date,
+    //     end_date,
+    //     btc_daily,
+    //     btc_history,
+    //     btc_pfs_file,
+    //     cycle_years
+    // ).await;
+    // spx(
+    //     start_date,
+    //     end_date,
+    //     spx_daily.clone(),
+    //     spx_history.clone(),
+    //     spx_pfs_file,
+    //     cycle_years
+    // ).await;
+    //
+    // spx_pfs_confluent_direction(
+    //     start_date,
+    //     end_date,
+    //     pfs_confluent_years.clone(),
+    //     spx_daily.clone(),
+    //     spx_history.clone(),
+    //     spx_confluent_direction_file
+    // ).await;
 
-    spx_pfs_confluence(
+    spx_pfs_confluent_reversal(
         start_date,
         end_date,
         pfs_confluent_years,
         spx_daily,
         spx_history,
-        spx_confluence_file
+        spx_confluent_reversal_file
     ).await;
 }
 
@@ -140,7 +150,7 @@ async fn spx(
 }
 
 #[allow(dead_code)]
-async fn spx_pfs_confluence(
+async fn spx_pfs_confluent_direction(
     start_date: Time,
     end_date: Time,
     pfs_confluent_years: Vec<u32>,
@@ -166,9 +176,42 @@ async fn spx_pfs_confluence(
 
     // ======================== Polarity Factor System ============================
     let mut pfs = PlotPFS::new(start_date, end_date);
-    let backtest_corr = pfs.confluent_pfs_correlation(&ticker_data, &pfs_confluent_years, &pfs_confluence_file);
+    let backtest_corr = pfs.confluent_pfs_direction(&ticker_data, &pfs_confluent_years, &pfs_confluence_file);
     for corr in backtest_corr {
         println!("Cycle: {:?}, Corr: {}", corr.cycles, corr.pct_correlation);
+    }
+}
+
+#[allow(dead_code)]
+async fn spx_pfs_confluent_reversal(
+    start_date: Time,
+    end_date: Time,
+    pfs_confluent_years: Vec<u32>,
+    daily_ticker: String,
+    full_history_file: String,
+    pfs_confluence_file: String
+) {
+    // load TickerData with SPX price history
+    let mut ticker_data = TickerData::new();
+    ticker_data
+      .add_csv_series(&PathBuf::from(daily_ticker))
+      .expect("Failed to add CSV to TickerData");
+
+    // TODO: subscribe to RapidAPI
+    // stream real-time data from RapidAPI to TickerData
+    // let rapid_api = RapidApi::new("SPX".to_string());
+    // let candles = rapid_api.query(Interval::Daily).await;
+    // ticker_data
+    //   .add_series(candles)
+    //   .expect("Failed to add API series to TickerData");
+    // write full ticker_data history to CSV
+    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
+
+    // ======================== Polarity Factor System ============================
+    let mut pfs = PlotPFS::new(start_date, end_date);
+    let backtest_corr = pfs.confluent_pfs_reversal(&ticker_data, &pfs_confluent_years, &pfs_confluence_file);
+    for corr in backtest_corr {
+        println!("Cycles: {:?}, Corr: {}, Hits: {}, Total: {}", corr.cycles, corr.pct_correlation, corr.hits, corr.total);
     }
 }
 

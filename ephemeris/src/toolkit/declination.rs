@@ -90,14 +90,14 @@ impl PlanetEquatorCrosses {
 
           match reversal.reversal_type {
             // price goes down, planet goes from + to - declination
-            ReversalType::Top => {
+            ReversalType::High => {
               match direction {
                 Direction::Up => win_count += 1,
                 Direction::Down => win_count += 0
               }
             },
             // price goes up, planet goes from - to + declination
-            ReversalType::Bottom => {
+            ReversalType::Low => {
               match direction {
                 Direction::Up => win_count += 0,
                 Direction::Down => win_count += 1

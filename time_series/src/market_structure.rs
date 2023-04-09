@@ -56,7 +56,7 @@ impl MarketStructure {
         None => {
           start_candle = Some(reversal.candle.clone());
           match reversal.reversal_type {
-            ReversalType::Top => {
+            ReversalType::High => {
               if let Some(latest_high) = &latest_high {
                 // positive trend
                 if reversal.candle.close > latest_high.close {
@@ -81,7 +81,7 @@ impl MarketStructure {
               }
               latest_high = Some(reversal.candle.clone());
             },
-            ReversalType::Bottom => {
+            ReversalType::Low => {
               if let Some(latest_low) = &latest_low {
                 // positive trend
                 if reversal.candle.close > latest_low.close {
@@ -112,7 +112,7 @@ impl MarketStructure {
         Some(Direction::Up) => {
           match reversal.reversal_type {
             // compare current high to previous high
-            ReversalType::Top => {
+            ReversalType::High => {
               if let Some(latest_high) = &latest_high {
                 // positive trend continues
                 if reversal.candle.close > latest_high.close {
@@ -137,7 +137,7 @@ impl MarketStructure {
               latest_high = Some(reversal.candle.clone());
             },
             // compare current low to previous low
-            ReversalType::Bottom => {
+            ReversalType::Low => {
               if let Some(latest_low) = &latest_low {
                 // positive trend continues
                 if reversal.candle.close > latest_low.close {
@@ -167,7 +167,7 @@ impl MarketStructure {
         Some(Direction::Down) => {
           match reversal.reversal_type {
             // compare current high to previous high
-            ReversalType::Top => {
+            ReversalType::High => {
               if let Some(latest_high) = &latest_high {
                 // negative trend continues
                 if reversal.candle.close < latest_high.close {
@@ -192,7 +192,7 @@ impl MarketStructure {
               latest_high = Some(reversal.candle.clone());
             },
             // compare current low to previous low
-            ReversalType::Bottom => {
+            ReversalType::Low => {
               if let Some(latest_low) = &latest_low {
                 // negative trend continues
                 if reversal.candle.close < latest_low.close {

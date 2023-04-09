@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs::File;
-use crate::{TickerData, Time};
+use crate::{ReversalType, TickerData, Time};
 use chrono::{Duration, Local, NaiveDate, TimeZone};
 use log::{debug, info};
 use plotters::prelude::*;
@@ -169,8 +169,9 @@ impl PlotPFS {
     correlation
   }
 
-  /// Find the correlation for each PFS cycle in confluence
-  fn confluent_pfs_correlation_inner(&mut self, ticker_data: &TickerData, pfs_cycles: Vec<Vec<PFS>>, cycles: &[u32]) -> ConfluentPFSCorrelation {
+  /// Find the correlation for each PFS cycle in confluence with price
+  /// If all PFS cycles match the direction of price, then they are correlated
+  fn confluent_pfs_direction_inner(&mut self, ticker_data: &TickerData, pfs_cycles: Vec<Vec<PFS>>, cycles: &[u32]) -> ConfluentPFSCorrelation {
     // iterate each date in time period
     // find previous candle and current candle and determine % change is position or negative
     let mut corr_count = 0;
@@ -210,11 +211,9 @@ impl PlotPFS {
             }
           }
         }
-
         // determine if all PFS are positive or negative
         all_pfs_positive = Some(pfs_is_positive.iter().all(|p| p == &Some(true)));
         all_pfs_negative = Some(pfs_is_positive.iter().all(|p| p == &Some(false)));
-
       }
       // if candle change and PFS change are the same, then increment positive correlation
       if candle_is_positive == Some(true) && all_pfs_positive == Some(true) {
@@ -230,6 +229,66 @@ impl PlotPFS {
         total_count += 1;
       } else if candle_is_positive == Some(false) && all_pfs_positive == Some(true) {
         debug!("Candle negative && all PFS positive");
+        total_count += 1;
+      } else {
+        debug!("Failed to find candle or PFS for date: {}", date.to_string_daily())
+      }
+    }
+    ConfluentPFSCorrelation {
+      cycles: cycles.to_vec(),
+      hits: corr_count,
+      total: total_count,
+      pct_correlation: corr_count as f64 / total_count as f64
+    }
+  }
+
+  /// Find the correlation for each PFS cycle in confluence
+  fn confluent_pfs_reversal_inner(&mut self, ticker_data: &TickerData, pfs_cycles: Vec<Vec<PFS>>, cycles: &[u32]) -> ConfluentPFSCorrelation {
+    // iterate each date in time period
+    // find previous candle and current candle and determine % change is position or negative
+    let mut corr_count = 0;
+    let mut total_count = 0;
+    let time_period = self.start_date.time_period(&self.end_date);
+    for (index, date) in time_period.iter().enumerate() {
+      if index == 0 || index == time_period.len() - 1 {
+        continue;
+      }
+      let prev_date = time_period.get(index - 1).expect("Failed to get previous date");
+      let next_date = time_period.get(index + 1).expect("Failed to get next date");
+
+      let mut pfs_is_reversal = Vec::<Option<ReversalType>>::new();
+      let mut all_pfs_high: Option<bool> = None;
+      let mut all_pfs_low: Option<bool> = None;
+
+      // determine if all PFS have a reversal on this date
+      for pfs in pfs_cycles.iter() {
+        let prev_pfs = pfs.iter().find(|p| &p.date == prev_date);
+        let curr_pfs = pfs.iter().find(|p| &p.date == date);
+        let next_pfs = pfs.iter().find(|p| &p.date == next_date);
+        if let (Some(prev_pfs), Some(curr_pfs), Some(next_pfs)) = (prev_pfs, curr_pfs, next_pfs) {
+          if prev_pfs.value < curr_pfs.value && curr_pfs.value > next_pfs.value {
+            pfs_is_reversal.push(Some(ReversalType::High));
+          } else if prev_pfs.value > curr_pfs.value && curr_pfs.value < next_pfs.value {
+            pfs_is_reversal.push(Some(ReversalType::Low));
+          } else {
+            pfs_is_reversal.push(None);
+          }
+        }
+      }
+      // determine if all PFS are highs lows
+      all_pfs_high = Some(pfs_is_reversal.iter().all(|p| p == &Some(ReversalType::High)));
+      all_pfs_low = Some(pfs_is_reversal.iter().all(|p| p == &Some(ReversalType::Low)));
+
+      if all_pfs_high == Some(true) {
+        debug!("All PFS high");
+        corr_count += 1;
+        total_count += 1;
+      } else if all_pfs_low == Some(true) {
+        debug!("All PFS low");
+        corr_count += 1;
+        total_count += 1;
+      } else if all_pfs_high == Some(false) && all_pfs_low == Some(false) {
+        debug!("All PFS neither high nor low");
         total_count += 1;
       } else {
         debug!("Failed to find candle or PFS for date: {}", date.to_string_daily())
@@ -261,7 +320,7 @@ impl PlotPFS {
     result
   }
 
-  pub fn confluent_pfs_correlation(&mut self, ticker_data: &TickerData, cycles: &[u32], out_file: &str) -> Vec<ConfluentPFSCorrelation> {
+  pub fn confluent_pfs_direction(&mut self, ticker_data: &TickerData, cycles: &[u32], out_file: &str) -> Vec<ConfluentPFSCorrelation> {
     let all_pfs = cycles.iter().map(|c| (*c, self.pfs(ticker_data, *c)))
       .collect::<Vec<(u32, Vec<PFS>)>>();
     let mut correlations = Vec::<ConfluentPFSCorrelation>::new();
@@ -273,7 +332,29 @@ impl PlotPFS {
           let pfs = all_pfs.iter().find(|(cycle, _)| cycle == c).unwrap();
           pfs.1.to_vec()
         }).collect::<Vec<Vec<PFS>>>();
-        let correlation = self.confluent_pfs_correlation_inner(ticker_data, pfs_cycles, comb);
+        let correlation = self.confluent_pfs_direction_inner(ticker_data, pfs_cycles, comb);
+        correlations.push(correlation);
+      }
+    }
+    // sort correlations by highest correlation
+    correlations.sort_by(|a, b| b.pct_correlation.partial_cmp(&a.pct_correlation).unwrap());
+    Self::write_pfs_confluence_csv(correlations.to_vec(), out_file).expect("Failed to write PFS confluence CSV");
+    correlations
+  }
+
+  pub fn confluent_pfs_reversal(&mut self, ticker_data: &TickerData, cycles: &[u32], out_file: &str) -> Vec<ConfluentPFSCorrelation> {
+    let all_pfs = cycles.iter().map(|c| (*c, self.pfs(ticker_data, *c)))
+      .collect::<Vec<(u32, Vec<PFS>)>>();
+    let mut correlations = Vec::<ConfluentPFSCorrelation>::new();
+    for k in 1..=cycles.len() {
+      let combs = Self::pfs_combinations(cycles, k);
+      for comb in combs.iter() {
+        // find PFS for each cycle in combination
+        let pfs_cycles = comb.iter().map(|c| {
+          let pfs = all_pfs.iter().find(|(cycle, _)| cycle == c).unwrap();
+          pfs.1.to_vec()
+        }).collect::<Vec<Vec<PFS>>>();
+        let correlation = self.confluent_pfs_reversal_inner(ticker_data, pfs_cycles, comb);
         correlations.push(correlation);
       }
     }

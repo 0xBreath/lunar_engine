@@ -24,21 +24,21 @@ pub enum FirstMove {
 
 #[derive(Debug, Clone)]
 pub enum ReversalType {
-  Top,
-  Bottom
+  High,
+  Low
 }
 impl ReversalType {
   pub fn as_string(&self) -> String {
     match self {
-      ReversalType::Top => "Top".to_string(),
-      ReversalType::Bottom => "Bottom".to_string()
+      ReversalType::High => "High".to_string(),
+      ReversalType::Low => "Low".to_string()
     }
   }
 }
 
 impl PartialEq for ReversalType {
   fn eq(&self, other: &Self) -> bool {
-    matches!((self, other), (ReversalType::Top, ReversalType::Top) | (ReversalType::Bottom, ReversalType::Bottom))
+    matches!((self, other), (ReversalType::High, ReversalType::High) | (ReversalType::Low, ReversalType::Low))
   }
 }
 
@@ -276,8 +276,8 @@ impl TickerData {
 
   fn get_square_price_periods(&self, reversal: &Reversal) -> Vec<u32> {
     let price_extreme = match reversal.reversal_type {
-      ReversalType::Top => reversal.candle.high,
-      ReversalType::Bottom => reversal.candle.low
+      ReversalType::High => reversal.candle.high,
+      ReversalType::Low => reversal.candle.low
     }.to_string();
 
     let price_pieces = price_extreme.split('.').collect::<Vec<&str>>();
@@ -359,14 +359,14 @@ impl TickerData {
         debug!("Low: {:?}\t{:?}", min_candle.close, min_candle.date.to_string());
         reversals.push(Reversal {
           candle: index_candle.clone(),
-          reversal_type: ReversalType::Bottom,
+          reversal_type: ReversalType::Low,
         });
       }
       else if max_candle == index_candle {
         debug!("High: {:?}\t{:?}", max_candle.close, max_candle.date.to_string());
         reversals.push(Reversal {
           candle: index_candle.clone(),
-          reversal_type: ReversalType::Top
+          reversal_type: ReversalType::High
         }.clone()
         );
       }
@@ -402,7 +402,7 @@ impl TickerData {
             Some(FirstMove::EngulfingLow) => {
               reversals.push(Reversal {
                 candle: candle.clone(),
-                reversal_type: ReversalType::Bottom
+                reversal_type: ReversalType::Low
               });
               break;
             }
@@ -418,7 +418,7 @@ impl TickerData {
             Some(FirstMove::EngulfingHigh) => {
               reversals.push(Reversal {
                 candle: candle.clone(),
-                reversal_type: ReversalType::Top
+                reversal_type: ReversalType::High
               });
               break;
             }
@@ -453,7 +453,7 @@ impl TickerData {
         debug!("Low: {:?}\t{:?}", min_candle.close, min_candle.date.to_string());
         reversals.push(Reversal {
           candle: index_candle.clone(),
-          reversal_type: ReversalType::Bottom,
+          reversal_type: ReversalType::Low,
         });
       }
       else if max_candle == previous_candle {
@@ -461,7 +461,7 @@ impl TickerData {
         debug!("High: {:?}\t{:?}", max_candle.close, max_candle.date.to_string());
         reversals.push(Reversal {
           candle: index_candle.clone(),
-          reversal_type: ReversalType::Top
+          reversal_type: ReversalType::High
         });
       }
     }

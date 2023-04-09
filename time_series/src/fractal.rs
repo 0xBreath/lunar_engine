@@ -1,16 +1,11 @@
 use crate::*;
 use std::fmt::{Display, Formatter};
+use ticker_data::ReversalType;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Direction {
     Up,
     Down,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ReversalType {
-    High,
-    Low
 }
 
 #[derive(Debug, Clone)]
