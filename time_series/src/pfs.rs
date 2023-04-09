@@ -374,7 +374,7 @@ impl PlotPFS {
     // format Vec<u32> into format that implements Display
     for corr in correlations.iter() {
       let cycles = corr.cycles.iter().map(|c| c.to_string()).collect::<Vec<String>>().join(",");
-      writeln!(file, "[{}],{},{}{}", cycles, corr.pct_correlation, corr.hits, corr.total)?;
+      writeln!(file, "[{}],{},{},{}", cycles, corr.pct_correlation, corr.hits, corr.total)?;
     }
     Ok(())
   }
