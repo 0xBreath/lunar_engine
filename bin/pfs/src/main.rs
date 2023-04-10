@@ -58,7 +58,7 @@ async fn main() {
 
     // SPX
     let spx_daily = path_to_dir.clone() + "/data/SPX/input/1960_2023.csv";
-    let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
+    let spx_history = path_to_dir.clone() + "/data/SPX/output/SPX_history.csv";
     #[allow(unused_variables)]
     let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_direction.csv";
     #[allow(unused_variables)]

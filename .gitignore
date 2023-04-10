@@ -2,4 +2,7 @@
 /.idea
 .DS_Store
 *.png
-**/output/*
+data/SPX/output/*
+data/BTCUSD/output/*
+!data/SPX/output/.gitkeep
+!data/BTCUSD/output/.gitkeep
