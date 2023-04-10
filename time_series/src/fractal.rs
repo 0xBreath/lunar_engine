@@ -1,7 +1,6 @@
 use crate::*;
 use std::fmt::{Display, Formatter};
-use ticker_data::ReversalType;
-use crate::ticker_data::Direction;
+use crate::backtest::{Direction, ReversalType};
 
 #[derive(Debug, Clone)]
 pub struct Pivot {

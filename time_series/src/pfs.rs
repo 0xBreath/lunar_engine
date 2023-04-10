@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs::File;
-use crate::{Direction, ReversalType, TickerData, Time};
+use crate::{Backtest, Candle, Direction, Order, ReversalType, TickerData, Time, Trade};
 use chrono::{Duration, Local, NaiveDate, TimeZone};
 use log::{debug, info};
 use plotters::prelude::*;
@@ -13,7 +13,7 @@ pub struct IndividualPFSCorrelation {
   pub cycle_years: u32,
   pub hits: u32,
   pub total: u32,
-  pub pct_correlation: f64
+  pub pct_correlation: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,15 @@ pub struct ConfluentPFSCorrelation {
   pub cycles: Vec<u32>,
   pub hits: u32,
   pub total: u32,
-  pub pct_correlation: f64
+  pub pct_correlation: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConfluentPFSEvent {
+  pub date: Time,
+  pub cycles: Vec<u32>,
+  pub reversal: Option<ReversalType>,
+  pub direction: Option<Direction>
 }
 
 #[derive(Debug, Clone)]
@@ -99,6 +107,55 @@ impl PlotPFS {
       });
     }
     daily_pfs
+  }
+
+  fn find_confluent_pfs_reversal(&self, ticker_data: &TickerData, cycles: &[u32], pfs_cycles: &Vec<Vec<PFS>>, target_date: &Time) -> Option<ConfluentPFSEvent> {
+    // find index in ticker_data.candles for target_date
+    match ticker_data.get_candles().iter().position(|c| &c.date == target_date) {
+      None => {
+        debug!("Failed to find index for target_date: {}", target_date.to_string());
+        None
+      },
+      Some(target_index) => {
+        if target_index == 0 || target_index == ticker_data.get_candles().len() - 1 {
+          return None
+        }
+        // use previous, current, and next dates to find PFS reversal
+        let prev_date = ticker_data.get_candles().get(target_index - 1).expect("Failed to get previous candle").date;
+        let target_date = ticker_data.get_candles().get(target_index).expect("Failed to get current candle").date;
+        let next_date = ticker_data.get_candles().get(target_index + 1).expect("Failed to get next candle").date;
+
+        let mut all_pfs_reversals: Vec<Option<ReversalType>> = Vec::new();
+        let mut confluent_reversal: Option<ReversalType> = None;
+        for pfs in pfs_cycles.iter() {
+          let prev_pfs = pfs.iter().find(|p| p.date == prev_date);
+          let target_pfs = pfs.iter().find(|p| p.date == target_date);
+          let next_pfs = pfs.iter().find(|p| p.date == next_date);
+          if let (Some(prev_pfs), Some(target_pfs), Some(next_pfs)) = (prev_pfs, target_pfs, next_pfs) {
+            if prev_pfs.value < target_pfs.value && target_pfs.value > next_pfs.value {
+              all_pfs_reversals.push(Some(ReversalType::High));
+            } else if prev_pfs.value > target_pfs.value && target_pfs.value < next_pfs.value {
+              all_pfs_reversals.push(Some(ReversalType::Low));
+            }
+          } else {
+            return None
+          }
+        }
+        // determine if all PFS are highs or lows
+        if all_pfs_reversals.iter().all(|p| p == &Some(ReversalType::High)) {
+          confluent_reversal = Some(ReversalType::High);
+        } else if all_pfs_reversals.iter().all(|p| p == &Some(ReversalType::Low)) {
+          confluent_reversal = Some(ReversalType::Low);
+        }
+
+        Some(ConfluentPFSEvent {
+          date: target_date,
+          cycles: cycles.to_vec(),
+          reversal: confluent_reversal,
+          direction: None
+        })
+      }
+    }
   }
 
   /// Find the correlation for each individual PFS cycle
@@ -274,7 +331,7 @@ impl PlotPFS {
           }
         }
       }
-      // determine if all PFS are highs lows
+      // determine if all PFS are highs or lows
       if pfs_is_reversal.iter().all(|p| p == &Some(ReversalType::High)) {
         all_pfs_reversal_type = Some(ReversalType::High);
       } else if pfs_is_reversal.iter().all(|p| p == &Some(ReversalType::Low)) {
@@ -366,6 +423,105 @@ impl PlotPFS {
     let correlations = correlations.into_iter().filter(|c| c.cycles.len() > 1).collect::<Vec<ConfluentPFSCorrelation>>();
     Self::write_pfs_confluence_csv(correlations.to_vec(), out_file).expect("Failed to write PFS confluence CSV");
     correlations
+  }
+
+  fn trade_quantity(&self, capital: f64, price: f64) -> f64 {
+    let quantity = capital / price;
+    (quantity * 1000000.0).round() / 1000000.0
+  }
+
+  pub fn backtest_confluent_pfs_reversal(&mut self, ticker_data: &TickerData, cycles: &[u32], out_file: &str, capital: f64) -> Vec<Backtest> {
+    let rev_corr = self.confluent_pfs_reversal(ticker_data, cycles, out_file);
+
+    let mut all_backtests = Vec::<Backtest>::new();
+    for corr in rev_corr.iter().take(10) {
+      // get PFS for each cycle in corr
+      let pfs_cycles = corr.cycles.iter().map(|c| self.pfs(ticker_data, *c)).collect::<Vec<Vec<PFS>>>();
+      let mut open_trade: Option<Trade> = None;
+      let mut backtest = Backtest::new(capital);
+
+      for candle in ticker_data.get_candles().iter() {
+        let date = &candle.date;
+        // get PFS confluent reversal event for each date
+        let event = self.find_confluent_pfs_reversal(ticker_data, cycles, &pfs_cycles, date);
+
+        if let Some(event) = event {
+          match event.reversal {
+            Some(ReversalType::High) => {
+              debug!("PFS High: {}", date.to_string_daily());
+              // exit long
+              if let Some(mut trade) = open_trade {
+                if trade.order == Order::Long {
+                  trade.exit(*date, candle.close);
+                  backtest.add_trade(trade);
+                }
+              }
+              let qty = self.trade_quantity(capital, candle.close);
+              open_trade = Some(Trade::new(
+                *date,
+                Order::Short,
+                qty,
+                candle.close,
+                capital
+              ));
+            },
+            Some(ReversalType::Low) => {
+              debug!("PFS Low: {}", date.to_string_daily());
+              // exit short
+              if let Some(mut trade) = open_trade {
+                if trade.order == Order::Short {
+                  trade.exit(*date, candle.close);
+                  backtest.add_trade(trade);
+                }
+              }
+              // enter long
+              let qty = self.trade_quantity(capital, candle.close);
+              open_trade = Some(Trade::new(
+                *date,
+                Order::Long,
+                qty,
+                candle.close,
+                capital,
+              ));
+            },
+            _ => {}
+          }
+        }
+      }
+      backtest.summarize();
+      all_backtests.push(backtest);
+    }
+    all_backtests.sort_by(|a, b| b.pnl.partial_cmp(&a.pnl).unwrap());
+    Self::write_pfs_confluence_backtest_csv(all_backtests.to_vec(), out_file).expect("Failed to write PFS confluence backtest CSV");
+    all_backtests
+  }
+
+  fn write_pfs_confluence_backtest_csv(backtests: Vec<Backtest>, out_file: &str) -> Result<(), Box<dyn Error>> {
+    if backtests.is_empty() {
+      return Err("No backtests found".into())
+    }
+    let mut file = File::create(out_file)?;
+
+    writeln!(file, "start_date,end_date,pnl,avg_trade,avg_win,avg_loss,win_trades,loss_trades,trades")?;
+    for backtest in backtests.iter() {
+      if backtest.trades.is_empty() {
+        continue;
+      }
+      let start_date = backtest.start_date.expect("No start date found").to_string_daily();
+      let end_date = backtest.end_date.expect("No end date found").to_string_daily();
+      let pnl = backtest.pnl.unwrap_or(0.0);
+      let avg_trade = backtest.avg_trade_pnl.unwrap_or(0.0);
+      let avg_win = backtest.avg_win_trade_pnl.unwrap_or(0.0);
+      let avg_loss = backtest.avg_loss_trade_pnl.unwrap_or(0.0);
+      let win_trades = backtest.num_win_trades();
+      let loss_trades = backtest.num_loss_trades();
+      let trades = backtest.trades.len();
+      writeln!(
+        file, "{},{},{},{},{},{},{},{},{}",
+        start_date, end_date, pnl, avg_trade, avg_win, avg_loss, win_trades, loss_trades, trades
+      )?;
+    }
+    Ok(())
   }
 
   fn write_pfs_confluence_csv(correlations: Vec<ConfluentPFSCorrelation>, out_file: &str) -> Result<(), Box<dyn Error>> {

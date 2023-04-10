@@ -23,54 +23,6 @@ pub enum FirstMove {
   EngulfingLow
 }
 
-#[derive(Debug, Clone)]
-pub enum ReversalType {
-  High,
-  Low
-}
-impl ReversalType {
-  pub fn as_string(&self) -> String {
-    match self {
-      ReversalType::High => "High".to_string(),
-      ReversalType::Low => "Low".to_string()
-    }
-  }
-}
-
-impl PartialEq for ReversalType {
-  fn eq(&self, other: &Self) -> bool {
-    matches!((self, other), (ReversalType::High, ReversalType::High) | (ReversalType::Low, ReversalType::Low))
-  }
-}
-
-#[derive(Debug, Clone)]
-pub struct Reversal {
-  pub candle: Candle,
-  pub reversal_type: ReversalType,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Direction {
-  Up,
-  Down,
-}
-impl Direction {
-  pub fn as_string(&self) -> &str {
-    match self {
-      Direction::Up => "Up",
-      Direction::Down => "Down",
-    }
-  }
-}
-impl Display for Direction {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self {
-      Direction::Up => write!(f, "Up"),
-      Direction::Down => write!(f, "Down"),
-    }
-  }
-}
-
 #[derive(Clone, Debug)]
 pub struct TickerData {
   /// Candlestick history of a ticker.

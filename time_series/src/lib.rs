@@ -7,6 +7,7 @@ pub mod time;
 pub mod pfs;
 pub mod hda;
 pub mod fractal;
+pub mod backtest;
 
 pub use ticker_data::*;
 pub use candle::*;
@@ -17,3 +18,4 @@ pub use time::*;
 pub use pfs::*;
 pub use hda::*;
 pub use fractal::*;
+pub use backtest::*;

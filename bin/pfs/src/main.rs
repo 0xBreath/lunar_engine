@@ -61,7 +61,9 @@ async fn main() {
     let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
     #[allow(unused_variables)]
     let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_direction.csv";
+    #[allow(unused_variables)]
     let spx_confluent_reversal_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_reversal.csv";
+    let spx_confluent_backtest_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_backtest.csv";
     // BTCUSD
     #[allow(unused_variables)]
     let btc_daily = path_to_dir.clone() + "/data/BTCUSD/BTC_daily.csv";
@@ -97,13 +99,23 @@ async fn main() {
     //     spx_confluent_direction_file
     // ).await;
 
-    spx_pfs_confluent_reversal(
+    // spx_pfs_confluent_reversal(
+    //     start_date,
+    //     end_date,
+    //     pfs_confluent_years,
+    //     spx_daily,
+    //     spx_history,
+    //     spx_confluent_reversal_file
+    // ).await;
+    
+    spx_backtest(
         start_date,
         end_date,
         pfs_confluent_years,
         spx_daily,
         spx_history,
-        spx_confluent_reversal_file
+        spx_confluent_backtest_file,
+        1000.0
     ).await;
 }
 
@@ -115,6 +127,37 @@ pub fn init_logger() {
         ColorChoice::Auto,
     )
       .expect("failed to initialize logger");
+}
+
+#[allow(dead_code)]
+async fn spx_backtest(
+    start_date: Time,
+    end_date: Time,
+    pfs_confluent_years: Vec<u32>,
+    daily_ticker: String,
+    full_history_file: String,
+    pfs_backtest_file: String,
+    capital: f64,
+) {
+    // load TickerData with SPX price history
+    let mut ticker_data = TickerData::new();
+    ticker_data
+      .add_csv_series(&PathBuf::from(daily_ticker))
+      .expect("Failed to add CSV to TickerData");
+
+    // TODO: subscribe to RapidAPI
+    // stream real-time data from RapidAPI to TickerData
+    // let rapid_api = RapidApi::new("SPX".to_string());
+    // let candles = rapid_api.query(Interval::Daily).await;
+    // ticker_data
+    //   .add_series(candles)
+    //   .expect("Failed to add API series to TickerData");
+    // write full ticker_data history to CSV
+    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
+
+    // ======================== Polarity Factor System ============================
+    let mut pfs = PlotPFS::new(start_date, end_date);
+    let backtests = pfs.backtest_confluent_pfs_reversal(&ticker_data, &pfs_confluent_years, &pfs_backtest_file, capital);
 }
 
 #[allow(dead_code)]

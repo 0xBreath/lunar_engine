@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use crate::{Candle, Reversal, ReversalType, TickerData};
-use crate::ticker_data::Direction;
+use crate::backtest::Direction;
 
 #[derive(Debug, Clone)]
 pub struct Trend {
