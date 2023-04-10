@@ -48,13 +48,13 @@ async fn main() {
     let path_to_dir = env::var("PATH_TO_DIR").expect("PATH_TO_DIR not set");
 
     // SPX
-    let spx_daily = path_to_dir.clone() + "/data/SPX/1960_2023.csv";
-    let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
-    let spx_hda_file = path_to_dir.clone() + "/data/SPX/SPX_hda.png";
+    let spx_daily = path_to_dir.clone() + "/data/SPX/input/1960_2023.csv";
+    let spx_history = path_to_dir.clone() + "/data/SPX/output/SPX_history.csv";
+    let spx_hda_file = path_to_dir.clone() + "/data/SPX/output/SPX_hda.png";
     // BTCUSD
-    let btc_daily = path_to_dir.clone() + "/data/BTCUSD/BTC_daily.csv";
-    let btc_history = path_to_dir.clone() + "/data/BTCUSD/BTC_history.csv";
-    let btc_hda_file = path_to_dir.clone() + "/data/BTCUSD/BTC_hda.png";
+    let btc_daily = path_to_dir.clone() + "/data/BTCUSD/input/BTC_daily.csv";
+    let btc_history = path_to_dir.clone() + "/data/BTCUSD/output/BTC_history.csv";
+    let btc_hda_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_hda.png";
 
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
     let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);

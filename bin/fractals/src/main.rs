@@ -43,9 +43,9 @@ async fn main() {
     let path_to_dir = env::var("PATH_TO_DIR").expect("PATH_TO_DIR not set");
 
     // BTCUSD
-    let btc_daily = path_to_dir.clone() + "/data/BTCUSD/BTC_daily.csv";
-    let btc_1h = path_to_dir.clone() + "/data/BTCUSD/BTC_1h.csv";
-    let btc_5min = path_to_dir + "data/BTCUSD/BTC_5min.csv";
+    let btc_daily = path_to_dir.clone() + "/data/BTCUSD/input/BTC_daily.csv";
+    let btc_1h = path_to_dir.clone() + "/data/BTCUSD/input/BTC_1h.csv";
+    let btc_5min = path_to_dir + "data/BTCUSD/input/BTC_5min.csv";
 
     // BTC daily
     let mut ticker_data_daily = TickerData::new();

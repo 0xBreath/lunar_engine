@@ -57,18 +57,22 @@ async fn main() {
       .collect();
 
     // SPX
-    let spx_daily = path_to_dir.clone() + "/data/SPX/1960_2023.csv";
+    let spx_daily = path_to_dir.clone() + "/data/SPX/input/1960_2023.csv";
     let spx_history = path_to_dir.clone() + "/data/SPX/SPX_history.csv";
     #[allow(unused_variables)]
-    let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_direction.csv";
+    let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_direction.csv";
     #[allow(unused_variables)]
-    let spx_confluent_reversal_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_reversal.csv";
-    let spx_confluent_backtest_file = path_to_dir.clone() + "/data/SPX/SPX_PFS_confluent_backtest.csv";
+    let spx_confluent_reversal_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_reversal.csv";
+    let spx_confluent_backtest_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_backtest.csv";
     // BTCUSD
     #[allow(unused_variables)]
-    let btc_daily = path_to_dir.clone() + "/data/BTCUSD/BTC_daily.csv";
+    let btc_daily = path_to_dir.clone() + "/data/BTCUSD/input/BTC_daily.csv";
     #[allow(unused_variables)]
-    let btc_history = path_to_dir.clone() + "/data/BTCUSD/BTC_history.csv";
+    let btc_1h = path_to_dir.clone() + "/data/BTCUSD/input/BTC_1h.csv";
+    #[allow(unused_variables)]
+    let btc_5min = path_to_dir.clone() + "/data/BTCUSD/input/BTC_5min.csv";
+    #[allow(unused_variables)]
+    let btc_history = path_to_dir.clone() + "/data/BTCUSD/output/BTC_history.csv";
 
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
     let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
@@ -107,7 +111,7 @@ async fn main() {
     //     spx_history,
     //     spx_confluent_reversal_file
     // ).await;
-    
+
     spx_backtest(
         start_date,
         end_date,
