@@ -21,7 +21,7 @@ pub struct Candle {
 
 impl Candle {
   pub fn percent_change(&self, prev_close: f64) -> f64 {
-    (100.0 / prev_close) * self.close
+    ((100.0 / prev_close) * self.close) - 100.0
   }
 }
 

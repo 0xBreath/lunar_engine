@@ -1011,6 +1011,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "hda_pfs"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dataframe",
+ "log",
+ "plotters",
+ "simplelog",
+ "time_series",
+ "tokio",
+]
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"

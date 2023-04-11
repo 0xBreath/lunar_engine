@@ -4,6 +4,7 @@ members = [
     "bin/fractals",
     "bin/pfs",
     "bin/hda",
+    "bin/hda_pfs",
     "ephemeris",
     "time_series",
     "dataframe",

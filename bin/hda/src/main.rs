@@ -53,11 +53,22 @@ async fn main() {
     let spx_hda_file = path_to_dir.clone() + "/data/SPX/output/SPX_hda.png";
     // BTCUSD
     let btc_daily = path_to_dir.clone() + "/data/BTCUSD/input/BTC_daily.csv";
+    #[allow(unused_variables)]
     let btc_history = path_to_dir.clone() + "/data/BTCUSD/output/BTC_history.csv";
     let btc_hda_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_hda.png";
 
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
     let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
+
+    let mut btc_ticker_data = TickerData::new();
+    btc_ticker_data.add_csv_series(&PathBuf::from(btc_daily)).expect("Failed to add BTC CSV series");
+
+    let mut spx_ticker_data = TickerData::new();
+    spx_ticker_data.build_series(
+        "SPX",
+        &PathBuf::from(spx_daily),
+        &PathBuf::from(spx_history),
+    ).await.expect("Failed to add SPX CSV series");
 
     btcusd(
         start_date,
@@ -65,18 +76,17 @@ async fn main() {
         left_bars,
         right_bars,
         hda_margin,
-        btc_daily,
-        btc_history,
+        &btc_ticker_data,
         btc_hda_file
     ).await;
+
     spx(
         start_date,
         end_date,
         left_bars,
         right_bars,
         hda_margin,
-        spx_daily,
-        spx_history,
+        &spx_ticker_data,
         spx_hda_file
     ).await;
 }
@@ -98,27 +108,9 @@ async fn spx(
     pivot_left_bars: usize,
     pivot_right_bars: usize,
     hda_margin: usize,
-    spx_daily: String,
-    spx_history: String,
+    ticker_data: &TickerData,
     spx_hda_file: String
 ) {
-    // load TickerData with SPX price history
-    let spx_1960_2023 = &PathBuf::from(spx_daily);
-    let mut ticker_data = TickerData::new();
-    ticker_data
-      .add_csv_series(&PathBuf::from(spx_1960_2023))
-      .expect("Failed to add CSV to TickerData");
-
-    // TODO: subscribe to RapidAPI
-    // stream real-time data from RapidAPI to TickerData
-    // let rapid_api = RapidApi::new("SPX".to_string());
-    // let candles = rapid_api.query(Interval::Daily).await;
-    // ticker_data
-    //   .add_series(candles)
-    //   .expect("Failed to add API series to TickerData");
-    // write full ticker_data history to CSV
-    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(spx_history));
-
     // ======================== Historical Date Analysis ============================
     let hda = PlotHDA::new(
         hda_start_date,
@@ -127,7 +119,7 @@ async fn spx(
         pivot_right_bars,
         hda_margin,
     );
-    let daily_hda = hda.hda(&ticker_data);
+    let daily_hda = hda.hda(ticker_data);
     hda.plot_hda(&daily_hda, &spx_hda_file, "SPX - HDA", &BLUE);
 }
 
@@ -138,25 +130,9 @@ async fn btcusd(
     pivot_left_bars: usize,
     pivot_right_bars: usize,
     hda_margin: usize,
-    btc_daily: String,
-    btc_history: String,
+    ticker_data: &TickerData,
     btc_hda_file: String,
 ) {
-    // load TickerData with SPX price history
-    let btc_daily = &PathBuf::from(btc_daily);
-    let mut ticker_data = TickerData::new();
-    ticker_data
-      .add_csv_series(&PathBuf::from(btc_daily))
-      .expect("Failed to add CSV to TickerData");
-
-    // TODO: subscribe to RapidAPI
-    // stream real-time data from RapidAPI to TickerData
-    // let rapid_api = RapidApi::new("BTC".to_string());
-    // let candles = rapid_api.query(Interval::Daily).await;
-    // ticker_data.add_series(candles).expect("Failed to add API series to TickerData");
-    // write full ticker_data history to CSV
-    dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(btc_history));
-
     // ======================== Historical Date Analysis ============================
     let hda = PlotHDA::new(
         hda_start_date,
@@ -165,6 +141,6 @@ async fn btcusd(
         pivot_right_bars,
         hda_margin,
     );
-    let daily_hda = hda.hda(&ticker_data);
+    let daily_hda = hda.hda(ticker_data);
     hda.plot_hda(&daily_hda, &btc_hda_file, "BTCUSD - HDA", &BLUE);
 }
