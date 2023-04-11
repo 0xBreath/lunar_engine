@@ -9,6 +9,7 @@ use crate::Time;
 use crate::*;
 use std::io::Error;
 use std::str::FromStr;
+use csv::WriterBuilder;
 
 
 #[derive(Debug, Clone)]
@@ -96,6 +97,53 @@ impl TickerData {
       self.append_candle(&candle);
     }
     Ok(())
+  }
+
+  /// Use historical ticker data from a CSV and fetch the latest candles from RapidAPI
+  pub async fn build_series(
+    &mut self,
+    ticker_symbol: &str,
+    existing_csv_data: &PathBuf,
+    write_full_history: &PathBuf,
+  ) -> Result<(), Error> {
+    self
+      .add_csv_series(existing_csv_data)?;
+    // stream real-time data from RapidAPI to TickerData
+    let rapid_api = RapidApi::new(ticker_symbol.to_string());
+    let candles = rapid_api.query(Interval::Daily).await;
+    self
+      .add_series(candles)?;
+    // write full ticker_data history to CSV
+    self.ticker_dataframe(write_full_history);
+    Ok(())
+  }
+
+  pub fn ticker_dataframe(&self, results_csv_path: &PathBuf) {
+    if self.candles.is_empty() {
+      return
+    }
+    let mut wtr = WriterBuilder::new()
+      .has_headers(true)
+      .from_path(results_csv_path)
+      .expect("failed to create csv writer");
+    wtr.write_field("date").expect("failed to write date field");
+    wtr.write_field("close").expect("failed to write price field");
+    wtr.write_field("open").expect("failed to write price field");
+    wtr.write_field("high").expect("failed to write price field");
+    wtr.write_field("low").expect("failed to write price field");
+    wtr.write_record(None::<&[u8]>).expect("failed to write record");
+    wtr.flush().expect("failed to flush csv writer");
+
+    for candle in self.get_candles().iter() {
+      wtr.write_record(&[
+        candle.date.to_unix().to_string(),
+        candle.close.to_string(),
+        candle.open.to_string(),
+        candle.high.to_string(),
+        candle.low.to_string(),
+      ]).expect("failed to write record");
+      wtr.flush().expect("failed to flush");
+    }
   }
 
   /// If candle does not exist in self.candles, append candle to self.candles.

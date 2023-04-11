@@ -78,51 +78,56 @@ async fn main() {
   let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
   let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
 
-  btcusd(
-      start_date,
-      end_date,
-      btc_daily,
-      btc_history,
-      btc_pfs_file,
-      cycle_years,
-  ).await;
+  let mut btc_ticker_data = TickerData::new();
+  btc_ticker_data.add_csv_series(&PathBuf::from(btc_daily)).expect("Failed to add BTC CSV series");
 
-  spx(
-      start_date,
-      end_date,
-      spx_daily.clone(),
-      spx_history.clone(),
-      spx_pfs_file,
-      cycle_years,
-  ).await;
+  let mut spx_ticker_data = TickerData::new();
+  spx_ticker_data.build_series(
+    "SPX",
+    &PathBuf::from(spx_daily),
+    &PathBuf::from(spx_history),
+  ).await.expect("Failed to add SPX CSV series");
+
+  // btcusd(
+  //     start_date,
+  //     end_date,
+  //     &btc_ticker_data,
+  //     btc_pfs_file,
+  //     cycle_years,
+  // ).await;
+  //
+  // spx(
+  //     start_date,
+  //     end_date,
+  //     &spx_ticker_data,
+  //     spx_pfs_file,
+  //     cycle_years,
+  // ).await;
 
   spx_pfs_confluent_direction(
       start_date,
       end_date,
       pfs_confluent_years.clone(),
-      spx_daily.clone(),
-      spx_history.clone(),
+      &spx_ticker_data,
       spx_confluent_direction_file
   ).await;
 
-  spx_pfs_confluent_reversal(
-      start_date,
-      end_date,
-      pfs_confluent_years.clone(),
-      spx_daily.clone(),
-      spx_history.clone(),
-      spx_confluent_reversal_file
-  ).await;
-
-  spx_backtest(
-      start_date,
-      end_date,
-      pfs_confluent_years,
-      spx_daily,
-      spx_history,
-      spx_confluent_backtest_file,
-      1000.0,
-  ).await;
+  // spx_pfs_confluent_reversal(
+  //     start_date,
+  //     end_date,
+  //     pfs_confluent_years.clone(),
+  //    &spx_ticker_data,
+  //     spx_confluent_reversal_file
+  // ).await;
+  //
+  // spx_confluent_reversal_backtest(
+  //     start_date,
+  //     end_date,
+  //     pfs_confluent_years,
+  //     &spx_ticker_data,
+  //     spx_confluent_backtest_file,
+  //     1000.0,
+  // ).await;
 }
 
 pub fn init_logger() {
@@ -135,65 +140,67 @@ pub fn init_logger() {
     .expect("failed to initialize logger");
 }
 
+/// Expects SPX PFS to be run first to generate the SPX ticker history
 #[allow(dead_code)]
-async fn spx_backtest(
+async fn spx_confluent_reversal_backtest(
   start_date: Time,
   end_date: Time,
   pfs_confluent_years: Vec<u32>,
-  daily_ticker: String,
-  full_history_file: String,
+  ticker_data: &TickerData,
   pfs_backtest_file: String,
   capital: f64,
 ) {
-  // load TickerData with SPX price history
-  let mut ticker_data = TickerData::new();
-  ticker_data
-    .add_csv_series(&PathBuf::from(daily_ticker))
-    .expect("Failed to add CSV to TickerData");
-
-  // TODO: subscribe to RapidAPI
-  // stream real-time data from RapidAPI to TickerData
-  // let rapid_api = RapidApi::new("SPX".to_string());
-  // let candles = rapid_api.query(Interval::Daily).await;
-  // ticker_data
-  //   .add_series(candles)
-  //   .expect("Failed to add API series to TickerData");
-  // write full ticker_data history to CSV
-  dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
-
   // ======================== Polarity Factor System ============================
   let mut pfs = PlotPFS::new(start_date, end_date);
-  let backtests = pfs.backtest_confluent_pfs_reversal(&ticker_data, &pfs_confluent_years, &pfs_backtest_file, capital);
+  let _ = pfs.backtest_confluent_pfs_reversal(ticker_data, &pfs_confluent_years, &pfs_backtest_file, capital);
 }
+
+/// Expects SPX PFS to be run first to generate the SPX ticker history
+#[allow(dead_code)]
+async fn spx_pfs_confluent_direction(
+    start_date: Time,
+    end_date: Time,
+    pfs_confluent_years: Vec<u32>,
+    ticker_data: &TickerData,
+    pfs_confluence_file: String,
+) {
+  // ======================== Polarity Factor System ============================
+  let mut pfs = PlotPFS::new(start_date, end_date);
+  let backtest_corr = pfs.confluent_pfs_direction(ticker_data, &pfs_confluent_years, &pfs_confluence_file);
+  for corr in backtest_corr {
+    println!("Cycle: {:?}, Corr: {}", corr.cycles, corr.pct_correlation);
+  }
+}
+
+/// Expects SPX PFS to be run first to generate the SPX ticker history
+#[allow(dead_code)]
+async fn spx_pfs_confluent_reversal(
+    start_date: Time,
+    end_date: Time,
+    pfs_confluent_years: Vec<u32>,
+    ticker_data: &TickerData,
+    pfs_confluence_file: String,
+) {
+  // ======================== Polarity Factor System ============================
+  let mut pfs = PlotPFS::new(start_date, end_date);
+  let backtest_corr = pfs.confluent_pfs_reversal(ticker_data, &pfs_confluent_years, &pfs_confluence_file);
+  for corr in backtest_corr {
+    println!("Cycles: {:?}, Corr: {}, Hits: {}, Total: {}", corr.cycles, corr.pct_correlation, corr.hits, corr.total);
+  }
+}
+
 
 #[allow(dead_code)]
 async fn spx(
   start_date: Time,
   end_date: Time,
-  daily_ticker: String,
-  full_history_file: String,
+  ticker_data: &TickerData,
   pfs_file: String,
   pfs_cycle_years: u32,
 ) {
-  // load TickerData with SPX price history
-  let mut ticker_data = TickerData::new();
-  ticker_data
-    .add_csv_series(&PathBuf::from(daily_ticker))
-    .expect("Failed to add CSV to TickerData");
-
-  // TODO: subscribe to RapidAPI
-  // stream real-time data from RapidAPI to TickerData
-  // let rapid_api = RapidApi::new("SPX".to_string());
-  // let candles = rapid_api.query(Interval::Daily).await;
-  // ticker_data
-  //   .add_series(candles)
-  //   .expect("Failed to add API series to TickerData");
-  // write full ticker_data history to CSV
-  dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
-
   // ======================== Polarity Factor System ============================
   let pfs = PlotPFS::new(start_date, end_date);
-  let daily_pfs = pfs.pfs(&ticker_data, pfs_cycle_years);
+  let daily_pfs = pfs.pfs(ticker_data, pfs_cycle_years);
   let title = format!("SPX - PFS {}", pfs_cycle_years);
   pfs.plot_pfs(
     &daily_pfs,
@@ -205,97 +212,16 @@ async fn spx(
 }
 
 #[allow(dead_code)]
-async fn spx_pfs_confluent_direction(
-    start_date: Time,
-    end_date: Time,
-    pfs_confluent_years: Vec<u32>,
-    daily_ticker: String,
-    full_history_file: String,
-    pfs_confluence_file: String,
-) {
-  // load TickerData with SPX price history
-  let mut ticker_data = TickerData::new();
-  ticker_data
-    .add_csv_series(&PathBuf::from(daily_ticker))
-    .expect("Failed to add CSV to TickerData");
-
-  // TODO: subscribe to RapidAPI
-  // stream real-time data from RapidAPI to TickerData
-  // let rapid_api = RapidApi::new("SPX".to_string());
-  // let candles = rapid_api.query(Interval::Daily).await;
-  // ticker_data
-  //   .add_series(candles)
-  //   .expect("Failed to add API series to TickerData");
-  // write full ticker_data history to CSV
-  dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
-
-  // ======================== Polarity Factor System ============================
-  let mut pfs = PlotPFS::new(start_date, end_date);
-  let backtest_corr = pfs.confluent_pfs_direction(&ticker_data, &pfs_confluent_years, &pfs_confluence_file);
-  for corr in backtest_corr {
-    println!("Cycle: {:?}, Corr: {}", corr.cycles, corr.pct_correlation);
-  }
-}
-
-#[allow(dead_code)]
-async fn spx_pfs_confluent_reversal(
-    start_date: Time,
-    end_date: Time,
-    pfs_confluent_years: Vec<u32>,
-    daily_ticker: String,
-    full_history_file: String,
-    pfs_confluence_file: String,
-) {
-  // load TickerData with SPX price history
-  let mut ticker_data = TickerData::new();
-  ticker_data
-    .add_csv_series(&PathBuf::from(daily_ticker))
-    .expect("Failed to add CSV to TickerData");
-
-  // TODO: subscribe to RapidAPI
-  // stream real-time data from RapidAPI to TickerData
-  // let rapid_api = RapidApi::new("SPX".to_string());
-  // let candles = rapid_api.query(Interval::Daily).await;
-  // ticker_data
-  //   .add_series(candles)
-  //   .expect("Failed to add API series to TickerData");
-  // write full ticker_data history to CSV
-  dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
-
-  // ======================== Polarity Factor System ============================
-  let mut pfs = PlotPFS::new(start_date, end_date);
-  let backtest_corr = pfs.confluent_pfs_reversal(&ticker_data, &pfs_confluent_years, &pfs_confluence_file);
-  for corr in backtest_corr {
-    println!("Cycles: {:?}, Corr: {}, Hits: {}, Total: {}", corr.cycles, corr.pct_correlation, corr.hits, corr.total);
-  }
-}
-
-#[allow(dead_code)]
 async fn btcusd(
   start_date: Time,
   end_date: Time,
-  daily_ticker: String,
-  full_history_file: String,
+  ticker_data: &TickerData,
   pfs_file: String,
   pfs_cycle_years: u32,
 ) {
-  // load TickerData with SPX price history
-  let mut ticker_data = TickerData::new();
-  ticker_data
-    .add_csv_series(&PathBuf::from(daily_ticker))
-    .expect("Failed to add CSV to TickerData");
-
-  // TODO: subscribe to RapidAPI
-  // stream real-time data from RapidAPI to TickerData
-  // let rapid_api = RapidApi::new("BTC".to_string());
-  // let candles = rapid_api.query(Interval::Daily).await;
-  // ticker_data.add_series(candles).expect("Failed to add API series to TickerData");
-  // write full ticker_data history to CSV
-  dataframe::ticker_dataframe(&ticker_data, &PathBuf::from(full_history_file));
-
   // ======================== Polarity Factor System ============================
   let pfs = PlotPFS::new(start_date, end_date);
-  let daily_pfs = pfs.pfs(&ticker_data, pfs_cycle_years);
+  let daily_pfs = pfs.pfs(ticker_data, pfs_cycle_years);
   let title = format!("BTCUSD - PFS {}", pfs_cycle_years);
   pfs.plot_pfs(
     &daily_pfs,
