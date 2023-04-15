@@ -104,13 +104,13 @@ async fn main() {
   //     cycle_years,
   // ).await;
 
-  spx_pfs_confluent_direction(
-      start_date,
-      end_date,
-      pfs_confluent_years.clone(),
-      &spx_ticker_data,
-      spx_confluent_direction_file
-  ).await;
+  // spx_pfs_confluent_direction(
+  //     start_date,
+  //     end_date,
+  //     pfs_confluent_years.clone(),
+  //     &spx_ticker_data,
+  //     spx_confluent_direction_file
+  // ).await;
 
   // spx_pfs_confluent_reversal(
   //     start_date,
@@ -120,14 +120,15 @@ async fn main() {
   //     spx_confluent_reversal_file
   // ).await;
   //
-  // spx_confluent_reversal_backtest(
-  //     start_date,
-  //     end_date,
-  //     pfs_confluent_years,
-  //     &spx_ticker_data,
-  //     spx_confluent_backtest_file,
-  //     1000.0,
-  // ).await;
+  spx_confluent_reversal_backtest(
+      start_date,
+      end_date,
+      pfs_confluent_years,
+      &spx_ticker_data,
+      spx_confluent_backtest_file,
+      1000.0,
+      0.2
+  ).await;
 }
 
 pub fn init_logger() {
@@ -149,10 +150,11 @@ async fn spx_confluent_reversal_backtest(
   ticker_data: &TickerData,
   pfs_backtest_file: String,
   capital: f64,
+  trailing_stop_pct: f64
 ) {
   // ======================== Polarity Factor System ============================
   let mut pfs = PlotPFS::new(start_date, end_date);
-  let _ = pfs.backtest_confluent_pfs_reversal(ticker_data, &pfs_confluent_years, &pfs_backtest_file, capital);
+  let _ = pfs.backtest_confluent_pfs_reversal(ticker_data, &pfs_confluent_years, &pfs_backtest_file, capital, trailing_stop_pct);
 }
 
 /// Expects SPX PFS to be run first to generate the SPX ticker history

@@ -72,6 +72,8 @@ pub struct Trade {
   pub exit_price: Option<f64>,
   /// Percent profit or loss relative to capital
   pub pnl: Option<f64>,
+  /// Trailing stop
+  pub trailing_stop: Option<f64>
 }
 impl Trade {
   pub fn new(
@@ -80,6 +82,7 @@ impl Trade {
     contracts: f64,
     entry_price: f64,
     capital: f64,
+    trailing_stop: Option<f64>
   ) -> Self {
     Self {
       entry_date,
@@ -90,6 +93,7 @@ impl Trade {
       capital,
       exit_price: None,
       pnl: None,
+      trailing_stop
     }
   }
 
@@ -119,6 +123,38 @@ impl Trade {
       Order::Short => (entry_price - exit_price) * contracts,
     };
     pnl / self.capital * 100.0
+  }
+
+  pub fn calc_trailing_stop(order: Order, price: f64, trailing_stop_pct: f64) -> f64 {
+    match order {
+      Order::Long => price * (1.0 - trailing_stop_pct),
+      Order::Short => price * (price + trailing_stop_pct),
+    }
+  }
+
+  pub fn update_trailing_stop(&mut self, candle: &Candle, trailing_stop_pct: f64) {
+    if let Some(trailing_stop) = self.trailing_stop {
+      match self.order {
+        Order::Long => {
+          if candle.close < trailing_stop {
+            self.exit_date = Some(self.entry_date);
+            self.exit_price = Some(self.entry_price - trailing_stop);
+            self.pnl = Some(self.pnl());
+          } else {
+            self.trailing_stop = Some(Self::calc_trailing_stop(Order::Long, candle.close, trailing_stop_pct));
+          }
+        },
+        Order::Short => {
+          if candle.close > trailing_stop {
+            self.exit_date = Some(self.entry_date);
+            self.exit_price = Some(self.entry_price + trailing_stop);
+            self.pnl = Some(self.pnl());
+          } else {
+            self.trailing_stop = Some(Self::calc_trailing_stop(Order::Short, candle.close, trailing_stop_pct));
+          }
+        }
+      }
+    }
   }
 }
 

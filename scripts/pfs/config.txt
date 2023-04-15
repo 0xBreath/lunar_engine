@@ -1,4 +1,4 @@
-export START_YEAR=2018
+export START_YEAR=2022
 export START_MONTH=4
 export START_DAY=11
 export END_YEAR=2023

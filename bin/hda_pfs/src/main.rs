@@ -134,6 +134,8 @@ async fn main() {
                                     qty,
                                     candle.close,
                                     capital,
+                                    // TODO: trailing stop
+                                    None
                                 ));
                             }
                             // exit long, enter short
@@ -152,7 +154,9 @@ async fn main() {
                                     Order::Short,
                                     qty,
                                     candle.close,
-                                    capital
+                                    capital,
+                                    // TODO: trailing stop
+                                    None
                                 ));
                             }
                         }

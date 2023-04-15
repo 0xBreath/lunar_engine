@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs::File;
-use crate::{Backtest, Direction, Order, ReversalType, TickerData, Time, Trade};
+use crate::{Backtest, Candle, Direction, Order, ReversalType, TickerData, Time, Trade};
 use chrono::{Duration, Local, NaiveDate, TimeZone};
 use log::{debug, info};
 use plotters::prelude::*;
@@ -465,64 +465,132 @@ impl PlotPFS {
     (quantity * 1000000.0).round() / 1000000.0
   }
 
-  pub fn backtest_confluent_pfs_reversal(&mut self, ticker_data: &TickerData, cycles: &[u32], out_file: &str, capital: f64) -> Vec<Backtest> {
+  pub fn backtest_confluent_pfs_reversal(
+    &mut self,
+    ticker_data: &TickerData,
+    cycles: &[u32],
+    out_file: &str,
+    capital: f64,
+    trailing_stop_pct: f64
+  ) -> Vec<Backtest> {
     let rev_corr = self.confluent_pfs_reversal(ticker_data, cycles, out_file);
 
     let mut all_backtests = Vec::<Backtest>::new();
-    for corr in rev_corr.iter().take(10) {
+    for corr in rev_corr.iter() {
       // get PFS for each cycle in corr
       let pfs_cycles = corr.cycles.iter().map(|c| self.pfs(ticker_data, *c)).collect::<Vec<Vec<PFS>>>();
       let mut open_trade: Option<Trade> = None;
       let mut backtest = Backtest::new(capital);
 
-      for candle in ticker_data.get_candles().iter() {
+      // isolate ticker candles from self.start_date to self.end_date
+      let ticker_candles = ticker_data.get_candles().iter()
+        .filter(|c| c.date >= self.start_date && c.date <= self.end_date)
+        .collect::<Vec<&Candle>>();
+
+      for candle in ticker_candles.iter() {
         let date = &candle.date;
         // get PFS confluent reversal event for each date
         let event = self.find_confluent_pfs_reversal(ticker_data, cycles, &pfs_cycles, date);
 
-        if let Some(event) = event {
-          match event.reversal {
-            Some(ReversalType::High) => {
-              debug!("PFS High: {}", date.to_string_daily());
-              // exit long
-              if let Some(mut trade) = open_trade {
-                if trade.order == Order::Long {
-                  trade.exit(*date, candle.close);
-                  backtest.add_trade(trade);
+        let mut new_trade = open_trade.clone();
+
+        match event {
+          // if event, exit Long and enter Short if reversal is High
+          // if event, exit Short and enter Long if reversal is Low
+          Some(event) => {
+            if let Some(reversal) = event.reversal {
+              match reversal {
+                ReversalType::High => {
+                  debug!("PFS High: {}", date.to_string_daily());
+                  // exit Long if price below trailing stop, or open trade is Long
+                  if let Some(trade) = &open_trade {
+                    // clone is ok because value is overwritten after this block
+                    let mut trade = trade.clone();
+                    if trade.order == Order::Long ||
+                      candle.close < trade.trailing_stop.unwrap()
+                    {
+                      trade.exit(*date, candle.close);
+                      backtest.add_trade(trade);
+                    }
+                  }
+                  // enter short
+                  let qty = self.trade_quantity(capital, candle.close);
+                  let trailing_stop = Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_pct);
+                  new_trade = Some(Trade::new(
+                    *date,
+                    Order::Short,
+                    qty,
+                    candle.close,
+                    capital,
+                    Some(trailing_stop),
+                  ));
+                },
+                ReversalType::Low => {
+                  debug!("PFS Low: {}", date.to_string_daily());
+                  // exit short
+                  if let Some(trade) = open_trade.clone() {
+                    // clone is ok because value is overwritten after this block
+                    let mut trade = trade.clone();
+                    if trade.order == Order::Short ||
+                      candle.close > trade.trailing_stop.unwrap()
+                    {
+                      trade.exit(*date, candle.close);
+                      backtest.add_trade(trade);
+                    }
+                  }
+                  // enter long
+                  let qty = self.trade_quantity(capital, candle.close);
+                  let trailing_stop = Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_pct);
+                  new_trade = Some(Trade::new(
+                    *date,
+                    Order::Long,
+                    qty,
+                    candle.close,
+                    capital,
+                    Some(trailing_stop),
+                  ));
                 }
               }
-              // enter short
-              let qty = self.trade_quantity(capital, candle.close);
-              open_trade = Some(Trade::new(
-                *date,
-                Order::Short,
-                qty,
-                candle.close,
-                capital
-              ));
-            },
-            Some(ReversalType::Low) => {
-              debug!("PFS Low: {}", date.to_string_daily());
-              // exit short
-              if let Some(mut trade) = open_trade {
-                if trade.order == Order::Short {
-                  trade.exit(*date, candle.close);
-                  backtest.add_trade(trade);
+            }
+          },
+          // if no event, check trailing stop
+          // if trailing stop is hit, exit trade
+          // otherwise update trailing stop
+          None => {
+            debug!("No PFS Reversal: {}", date.to_string_daily());
+            if let Some(trade) = &open_trade {
+              // using cloned open_trade is ok because it is overwritten after this block
+              let mut trade = trade.clone();
+              match trade.order {
+                Order::Long => {
+                  // Long trailing stop is hit, exit trade
+                  if candle.close < trade.trailing_stop.unwrap() {
+                    trade.exit(*date, candle.close);
+                    backtest.add_trade(trade);
+                  }
+                  // Long trailing stop is not hit, update trailing stop
+                  else {
+                    // update open_trade to new_trade after this block
+                    open_trade.unwrap().trailing_stop = Some(Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_pct));
+                  }
+                },
+                Order::Short => {
+                  // Short trailing stop is hit, exit trade
+                  if candle.close > trade.trailing_stop.unwrap() {
+                    trade.exit(*date, candle.close);
+                    backtest.add_trade(trade);
+                  }
+                  // Short trailing stop is not hit, update trailing stop
+                  else {
+                    // update open_trade to new_trade after this block
+                    open_trade.unwrap().trailing_stop = Some(Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_pct));
+                  }
                 }
               }
-              // enter long
-              let qty = self.trade_quantity(capital, candle.close);
-              open_trade = Some(Trade::new(
-                *date,
-                Order::Long,
-                qty,
-                candle.close,
-                capital,
-              ));
-            },
-            _ => {}
+            }
           }
         }
+        open_trade = new_trade;
       }
       backtest.summarize();
       all_backtests.push(backtest);
@@ -592,8 +660,10 @@ impl PlotPFS {
     let to_date = to_date_input + Duration::days(1);
     println!("PFS End Date: {}", to_date);
     // label chart
-    let y_min = daily_pfs.iter().map(|x| x.value).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap() as f32;
-    let y_max = daily_pfs.iter().map(|x| x.value).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap() as f32;
+    // let y_min = plot_height.0;
+    // let y_max = plot_height.1;
+    let y_min = daily_pfs[from_date_index..to_date_index].iter().map(|x| x.value).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap() as f32;
+    let y_max = daily_pfs[from_date_index..to_date_index].iter().map(|x| x.value).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap() as f32;
     let mut chart = ChartBuilder::on(&root)
       .x_label_area_size(40)
       .y_label_area_size(40)
