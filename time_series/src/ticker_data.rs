@@ -52,7 +52,7 @@ impl TickerData {
   /// Expects date of candle to be in UNIX timestamp format.
   /// CSV format: date,open,high,low,close,volume
   pub fn add_csv_series(&mut self, csv_path: &PathBuf) -> Result<(), Error> {
-    let file_buffer = File::open(csv_path).unwrap();
+    let file_buffer = File::open(csv_path)?;
     let mut csv = csv::Reader::from_reader(file_buffer);
 
     let mut headers = Vec::new();
@@ -103,18 +103,16 @@ impl TickerData {
   pub async fn build_series(
     &mut self,
     ticker_symbol: &str,
+    timeframe: Interval,
     existing_csv_data: &PathBuf,
-    write_full_history: &PathBuf,
   ) -> Result<(), Error> {
     self
       .add_csv_series(existing_csv_data)?;
     // stream real-time data from RapidAPI to TickerData
     let rapid_api = RapidApi::new(ticker_symbol.to_string());
-    let candles = rapid_api.query(Interval::Daily).await;
+    let candles = rapid_api.query(timeframe).await;
     self
       .add_series(candles)?;
-    // write full ticker_data history to CSV
-    self.ticker_dataframe(write_full_history);
     Ok(())
   }
 

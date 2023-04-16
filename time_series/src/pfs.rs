@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fs::File;
-use crate::{Backtest, Candle, Direction, Order, ReversalType, TickerData, Time, Trade};
+use crate::{Backtest, Candle, Direction, Order, ReversalType, TickerData, Time, Trade, TrailingStopType};
 use chrono::{Duration, Local, NaiveDate, TimeZone};
 use log::{debug, info};
 use plotters::prelude::*;
@@ -59,6 +59,62 @@ impl PlotPFS {
     }
   }
 
+  // /// Compute PFS based on daily cycles
+  // /// e.g. PFS 20 is the average percent change in price every 20 days into the past
+  // pub fn pfs_daily(&self, ticker_data: &TickerData, cycle_months: u32) -> Vec<PFS> {
+  //   let mut daily_pfs = Vec::<PFS>::new();
+  //
+  //   // compute number of cycles possible in candle history
+  //   let earliest_candle_month = ticker_data.earliest_date().month;
+  //   let earliest_candle_year = ticker_data.earliest_date().year;
+  //   let latest_candle_month = ticker_data.latest_date().month;
+  //   let latest_candle_year = ticker_data.latest_date().year;
+  //   let months = ((latest_candle_year - earliest_candle_year) * 12) as u32;
+  //   let num_cycles = (latest_candle_month.to_num() + (12 - earliest_candle_month.to_num()) + months) as i32 / cycle_months as i32;
+  //
+  //   let time_period = self.start_date.time_period(&self.end_date);
+  //   for date in time_period.iter() {
+  //     // PFS for this date
+  //     let mut pfs = (100.0, 1);
+  //     // iterate possible cycles in candle history
+  //     for cycle in 1..num_cycles + 1 {
+  //       // find candle X cycles back
+  //       for (index, candle) in ticker_data.candles.iter().enumerate() {
+  //         if index == 0 {
+  //           continue;
+  //         }
+  //         // used to compute percent change between candles
+  //         let prev_candle = ticker_data.candles.get(index - 1).expect("Failed to get previous candle");
+  //         // candle X cycles back
+  //         let max_date_back = date.month - cycle_months as i32 * cycle;
+  //         if date.month < candle.date.year - cycle_years as i32 * cycle {
+  //           continue;
+  //         }
+  //         let cycle_date = Time::new(date.year - cycle_years as i32 * cycle, &date.month, &date.day, None, None);
+  //         // if cycle_date is leap day
+  //         if cycle_date.month.to_num() == 2 && cycle_date.day.to_num() == 29 {
+  //           continue;
+  //         }
+  //         if &cycle_date < ticker_data.earliest_date() {
+  //           continue;
+  //         }
+  //         // found candle X cycles back
+  //         if prev_candle.date < cycle_date && candle.date >= cycle_date {
+  //           let change = candle.percent_change(prev_candle.close);
+  //           pfs = (pfs.0 + change, pfs.1 + 1);
+  //           break;
+  //         }
+  //       }
+  //     }
+  //     daily_pfs.push(PFS {
+  //       date: *date,
+  //       value: pfs.0 / pfs.1 as f64
+  //     });
+  //   }
+  //   daily_pfs
+  // }
+
+
   /// Compute PFS based on yearly cycles,
   /// e.g. PFS 20 is the average percent change in price every 20 years into the past
   pub fn pfs(&self, ticker_data: &TickerData, cycle_years: u32) -> Vec<PFS> {
@@ -110,7 +166,7 @@ impl PlotPFS {
     daily_pfs
   }
 
-  fn find_confluent_pfs_reversal(&self, ticker_data: &TickerData, cycles: &[u32], pfs_cycles: &Vec<Vec<PFS>>, target_date: &Time) -> Option<ConfluentPFSEvent> {
+  fn find_confluent_pfs_reversal(&self, ticker_data: &TickerData, cycles: &[u32], pfs_cycles: &[Vec<PFS>], target_date: &Time) -> Option<ConfluentPFSEvent> {
     // find index in ticker_data.candles for target_date
     match ticker_data.get_candles().iter().position(|c| &c.date == target_date) {
       None => {
@@ -465,13 +521,16 @@ impl PlotPFS {
     (quantity * 1000000.0).round() / 1000000.0
   }
 
+  #[allow(clippy::too_many_arguments)]
   pub fn backtest_confluent_pfs_reversal(
     &mut self,
     ticker_data: &TickerData,
     cycles: &[u32],
     out_file: &str,
     capital: f64,
-    trailing_stop_pct: f64
+    trailing_stop_type: TrailingStopType,
+    trailing_stop: f64,
+    stop_loss_pct: f64
   ) -> Vec<Backtest> {
     let rev_corr = self.confluent_pfs_reversal(ticker_data, cycles, out_file);
 
@@ -507,7 +566,8 @@ impl PlotPFS {
                     // clone is ok because value is overwritten after this block
                     let mut trade = trade.clone();
                     if trade.order == Order::Long ||
-                      candle.close < trade.trailing_stop.unwrap()
+                      candle.close < trade.trailing_stop.unwrap() ||
+                      candle.close < trade.stop_loss.unwrap()
                     {
                       trade.exit(*date, candle.close);
                       backtest.add_trade(trade);
@@ -515,7 +575,8 @@ impl PlotPFS {
                   }
                   // enter short
                   let qty = self.trade_quantity(capital, candle.close);
-                  let trailing_stop = Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_pct);
+                  let trailing_stop = Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_type, trailing_stop);
+                  let stop_loss = Trade::calc_stop_loss(Order::Short, candle.close, stop_loss_pct);
                   new_trade = Some(Trade::new(
                     *date,
                     Order::Short,
@@ -523,6 +584,7 @@ impl PlotPFS {
                     candle.close,
                     capital,
                     Some(trailing_stop),
+                    Some(stop_loss),
                   ));
                 },
                 ReversalType::Low => {
@@ -532,7 +594,8 @@ impl PlotPFS {
                     // clone is ok because value is overwritten after this block
                     let mut trade = trade.clone();
                     if trade.order == Order::Short ||
-                      candle.close > trade.trailing_stop.unwrap()
+                      candle.close > trade.trailing_stop.unwrap() ||
+                      candle.close > trade.stop_loss.unwrap()
                     {
                       trade.exit(*date, candle.close);
                       backtest.add_trade(trade);
@@ -540,7 +603,8 @@ impl PlotPFS {
                   }
                   // enter long
                   let qty = self.trade_quantity(capital, candle.close);
-                  let trailing_stop = Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_pct);
+                  let trailing_stop = Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_type, trailing_stop);
+                  let stop_loss = Trade::calc_stop_loss(Order::Long, candle.close, stop_loss_pct);
                   new_trade = Some(Trade::new(
                     *date,
                     Order::Long,
@@ -548,6 +612,7 @@ impl PlotPFS {
                     candle.close,
                     capital,
                     Some(trailing_stop),
+                    Some(stop_loss),
                   ));
                 }
               }
@@ -564,26 +629,30 @@ impl PlotPFS {
               match trade.order {
                 Order::Long => {
                   // Long trailing stop is hit, exit trade
-                  if candle.close < trade.trailing_stop.unwrap() {
+                  if candle.close < trade.trailing_stop.unwrap() ||
+                    candle.close < trade.stop_loss.unwrap()
+                  {
                     trade.exit(*date, candle.close);
                     backtest.add_trade(trade);
                   }
                   // Long trailing stop is not hit, update trailing stop
                   else {
                     // update open_trade to new_trade after this block
-                    open_trade.unwrap().trailing_stop = Some(Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_pct));
+                    open_trade.unwrap().trailing_stop = Some(Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_type, trailing_stop));
                   }
                 },
                 Order::Short => {
                   // Short trailing stop is hit, exit trade
-                  if candle.close > trade.trailing_stop.unwrap() {
+                  if candle.close > trade.trailing_stop.unwrap() ||
+                    candle.close > trade.stop_loss.unwrap()
+                  {
                     trade.exit(*date, candle.close);
                     backtest.add_trade(trade);
                   }
                   // Short trailing stop is not hit, update trailing stop
                   else {
                     // update open_trade to new_trade after this block
-                    open_trade.unwrap().trailing_stop = Some(Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_pct));
+                    open_trade.unwrap().trailing_stop = Some(Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_type,trailing_stop));
                   }
                 }
               }
@@ -643,7 +712,7 @@ impl PlotPFS {
     Ok(())
   }
 
-  pub fn plot_pfs(&self, daily_pfs: &[PFS], out_file: &str, plot_title: &str, plot_color: &RGBColor, plot_height: (f32, f32)) {
+  pub fn plot_pfs(&self, daily_pfs: &[PFS], out_file: &str, plot_title: &str, plot_color: &RGBColor) {
     // get daily PFS data
     let data = self.get_data(daily_pfs);
     // draw chart
@@ -660,8 +729,6 @@ impl PlotPFS {
     let to_date = to_date_input + Duration::days(1);
     println!("PFS End Date: {}", to_date);
     // label chart
-    // let y_min = plot_height.0;
-    // let y_max = plot_height.1;
     let y_min = daily_pfs[from_date_index..to_date_index].iter().map(|x| x.value).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap() as f32;
     let y_max = daily_pfs[from_date_index..to_date_index].iter().map(|x| x.value).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap() as f32;
     let mut chart = ChartBuilder::on(&root)

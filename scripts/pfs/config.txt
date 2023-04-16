@@ -7,3 +7,6 @@ export END_DAY=11
 export PATH_TO_DIR=/Users/riester/LIFE/Coding/lunar_engine
 export PFS_CYCLE_YEARS=10
 export PFS_CONFLUENT_YEARS=1,5,7,9,10,19,20,30,45
+export TRAILING_STOP_USE_PCT=false
+export TRAILING_STOP=50.0
+export STOP_LOSS_PCT=0.1

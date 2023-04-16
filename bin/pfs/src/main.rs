@@ -50,12 +50,33 @@ async fn main() {
     .map(|&x| x.parse::<u32>().expect("PFS_CONFLUENT_YEARS not a number"))
     .collect();
 
+  // true for percentage, false for pips
+  let trailing_stop_use_pct = env::var("TRAILING_STOP_USE_PCT")
+    .expect("TRAILING_STOP_USE_PCT not set")
+    .parse::<bool>()
+    .expect("TRAILING_STOP_USE_PCT not a bool");
+  let trailing_stop_type: TrailingStopType = if trailing_stop_use_pct {
+    TrailingStopType::Percent
+  } else {
+    TrailingStopType::Pips
+  };
+
+  // trailing stop in pips or percentage
+  let trailing_stop = env::var("TRAILING_STOP")
+    .expect("TRAILING_STOP not set")
+    .parse::<f64>()
+    .expect("TRAILING_STOP not a number");
+
+  let stop_loss_pct = env::var("STOP_LOSS_PCT")
+    .expect("STOP_LOSS_PCT not set")
+    .parse::<f64>()
+    .expect("STOP_LOSS_PCT not a number");
+
   #[allow(unused_variables)]
   let cycle_years = pfs_cycle_years.parse::<u32>().expect("PFS_CYCLE_YEARS not a number");
 
   // SPX
-  let spx_daily = path_to_dir.clone() + "/data/SPX/input/1960_2023.csv";
-  let spx_history = path_to_dir.clone() + "/data/SPX/output/SPX_history.csv";
+  let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
   #[allow(unused_variables)]
   let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_direction.csv";
   #[allow(unused_variables)]
@@ -84,8 +105,8 @@ async fn main() {
   let mut spx_ticker_data = TickerData::new();
   spx_ticker_data.build_series(
     "SPX",
+    Interval::Daily,
     &PathBuf::from(spx_daily),
-    &PathBuf::from(spx_history),
   ).await.expect("Failed to add SPX CSV series");
 
   // btcusd(
@@ -120,6 +141,7 @@ async fn main() {
   //     spx_confluent_reversal_file
   // ).await;
   //
+
   spx_confluent_reversal_backtest(
       start_date,
       end_date,
@@ -127,7 +149,9 @@ async fn main() {
       &spx_ticker_data,
       spx_confluent_backtest_file,
       1000.0,
-      0.2
+      trailing_stop_type,
+      trailing_stop,
+      stop_loss_pct
   ).await;
 }
 
@@ -143,6 +167,7 @@ pub fn init_logger() {
 
 /// Expects SPX PFS to be run first to generate the SPX ticker history
 #[allow(dead_code)]
+#[allow(clippy::too_many_arguments)]
 async fn spx_confluent_reversal_backtest(
   start_date: Time,
   end_date: Time,
@@ -150,11 +175,21 @@ async fn spx_confluent_reversal_backtest(
   ticker_data: &TickerData,
   pfs_backtest_file: String,
   capital: f64,
-  trailing_stop_pct: f64
+  trailing_stop_type: TrailingStopType,
+  trailing_stop: f64,
+  stop_loss_pct: f64
 ) {
   // ======================== Polarity Factor System ============================
   let mut pfs = PlotPFS::new(start_date, end_date);
-  let _ = pfs.backtest_confluent_pfs_reversal(ticker_data, &pfs_confluent_years, &pfs_backtest_file, capital, trailing_stop_pct);
+  let _ = pfs.backtest_confluent_pfs_reversal(
+    ticker_data,
+    &pfs_confluent_years,
+    &pfs_backtest_file,
+    capital,
+    trailing_stop_type,
+    trailing_stop,
+    stop_loss_pct
+  );
 }
 
 /// Expects SPX PFS to be run first to generate the SPX ticker history
@@ -209,7 +244,6 @@ async fn spx(
     &pfs_file,
     &title,
     &GREEN,
-    (97.0, 103.0),
   );
 }
 
@@ -230,6 +264,5 @@ async fn btcusd(
     &pfs_file,
     &title,
     &GREEN,
-    (90.0, 120.0),
   );
 }

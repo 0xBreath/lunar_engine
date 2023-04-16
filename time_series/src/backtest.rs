@@ -54,6 +54,12 @@ pub enum Order {
   Short
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+pub enum TrailingStopType {
+  Percent,
+  Pips
+}
+
 #[derive(Debug, Clone)]
 pub struct Trade {
   /// Time of trade entry
@@ -73,7 +79,9 @@ pub struct Trade {
   /// Percent profit or loss relative to capital
   pub pnl: Option<f64>,
   /// Trailing stop
-  pub trailing_stop: Option<f64>
+  pub trailing_stop: Option<f64>,
+  /// Stop loss
+  pub stop_loss: Option<f64>
 }
 impl Trade {
   pub fn new(
@@ -82,7 +90,8 @@ impl Trade {
     contracts: f64,
     entry_price: f64,
     capital: f64,
-    trailing_stop: Option<f64>
+    trailing_stop: Option<f64>,
+    stop_loss: Option<f64>
   ) -> Self {
     Self {
       entry_date,
@@ -93,7 +102,8 @@ impl Trade {
       capital,
       exit_price: None,
       pnl: None,
-      trailing_stop
+      trailing_stop,
+      stop_loss
     }
   }
 
@@ -125,33 +135,39 @@ impl Trade {
     pnl / self.capital * 100.0
   }
 
-  pub fn calc_trailing_stop(order: Order, price: f64, trailing_stop_pct: f64) -> f64 {
+  pub fn calc_stop_loss(order: Order, price: f64, stop_loss_pct: f64) -> f64 {
     match order {
-      Order::Long => price * (1.0 - trailing_stop_pct),
-      Order::Short => price * (price + trailing_stop_pct),
+      Order::Long => price * (1.0 - stop_loss_pct),
+      Order::Short => price * (1.0 + stop_loss_pct),
     }
   }
 
-  pub fn update_trailing_stop(&mut self, candle: &Candle, trailing_stop_pct: f64) {
-    if let Some(trailing_stop) = self.trailing_stop {
-      match self.order {
-        Order::Long => {
-          if candle.close < trailing_stop {
-            self.exit_date = Some(self.entry_date);
-            self.exit_price = Some(self.entry_price - trailing_stop);
-            self.pnl = Some(self.pnl());
-          } else {
-            self.trailing_stop = Some(Self::calc_trailing_stop(Order::Long, candle.close, trailing_stop_pct));
-          }
-        },
-        Order::Short => {
-          if candle.close > trailing_stop {
-            self.exit_date = Some(self.entry_date);
-            self.exit_price = Some(self.entry_price + trailing_stop);
-            self.pnl = Some(self.pnl());
-          } else {
-            self.trailing_stop = Some(Self::calc_trailing_stop(Order::Short, candle.close, trailing_stop_pct));
-          }
+  /// Find value of one pip for a given candle price.
+  /// One pip equals the smallest decimal place of ticker.
+  fn find_pip_value(price: f64) -> f64 {
+    let mut decimals = 0;
+    let mut price = price;
+    while price.fract() != 0.0 {
+      price *= 10.0;
+      decimals += 1;
+    }
+    let power = 10.0_f64.powi(decimals);
+    1.0 / power
+  }
+
+  pub fn calc_trailing_stop(order: Order, price: f64, trailing_stop_type: TrailingStopType, trailing_stop: f64) -> f64 {
+    match trailing_stop_type {
+      TrailingStopType::Percent => {
+        match order {
+          Order::Long => price * (1.0 - trailing_stop),
+          Order::Short => price * (1.0 + trailing_stop),
+        }
+      },
+      TrailingStopType::Pips => {
+        let pip_value = Self::find_pip_value(price);
+        match order {
+          Order::Long => price - trailing_stop * pip_value,
+          Order::Short => price + trailing_stop * pip_value,
         }
       }
     }

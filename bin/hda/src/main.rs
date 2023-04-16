@@ -48,7 +48,7 @@ async fn main() {
     let path_to_dir = env::var("PATH_TO_DIR").expect("PATH_TO_DIR not set");
 
     // SPX
-    let spx_daily = path_to_dir.clone() + "/data/SPX/input/1960_2023.csv";
+    let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
     let spx_history = path_to_dir.clone() + "/data/SPX/output/SPX_history.csv";
     let spx_hda_file = path_to_dir.clone() + "/data/SPX/output/SPX_hda.png";
     // BTCUSD
@@ -66,8 +66,8 @@ async fn main() {
     let mut spx_ticker_data = TickerData::new();
     spx_ticker_data.build_series(
         "SPX",
+        Interval::Daily,
         &PathBuf::from(spx_daily),
-        &PathBuf::from(spx_history),
     ).await.expect("Failed to add SPX CSV series");
 
     btcusd(

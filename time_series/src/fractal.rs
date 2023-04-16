@@ -16,6 +16,7 @@ pub enum Timeframe {
     Hour,
     Hour4,
     Day,
+    Month
 }
 
 impl Display for Timeframe {
@@ -27,6 +28,7 @@ impl Display for Timeframe {
             Timeframe::Hour => write!(f, "1h"),
             Timeframe::Hour4 => write!(f, "4h"),
             Timeframe::Day => write!(f, "1d"),
+            Timeframe::Month => write!(f, "1M"),
         }
     }
 }
