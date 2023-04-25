@@ -14,7 +14,7 @@ pub const PLANET_MATRIX_RESULTS_PATH: &str = "planet_matrix_results.txt";
 pub const RETROGRADE_RESULTS_CSV: &str = "retrograde_results.csv";
 pub const TICKER_DATAFRAME_CSV: &str = "ticker_dataframe.csv";
 pub const ECLIPSES_DATAFRAME_CSV: &str = "./eclipses.csv";
-// daily astrology for each planet as a csv
+// daily plpl for each planet as a csv
 pub const MOON_EPHEMERIS: &str = "./moon_ephemeris.csv";
 pub const SUN_EPHEMERIS: &str = "./sun_ephemeris.csv";
 pub const MERCURY_EPHEMERIS: &str = "./mercury_ephemeris.csv";

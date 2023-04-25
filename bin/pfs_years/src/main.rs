@@ -103,11 +103,11 @@ async fn main() {
   btc_ticker_data.add_csv_series(&PathBuf::from(btc_daily)).expect("Failed to add BTC CSV series");
 
   let mut spx_ticker_data = TickerData::new();
-  spx_ticker_data.build_series(
-    "SPX",
-    Interval::Daily,
-    &PathBuf::from(spx_daily),
-  ).await.expect("Failed to add SPX CSV series");
+  // spx_ticker_data.build_series(
+  //   "SPX",
+  //   Interval::Daily,
+  //   &PathBuf::from(spx_daily),
+  // ).await.expect("Failed to add SPX CSV series");
 
   // btcusd(
   //     start_date,
@@ -142,17 +142,17 @@ async fn main() {
   // ).await;
   //
 
-  spx_confluent_reversal_backtest(
-      start_date,
-      end_date,
-      pfs_confluent_years,
-      &spx_ticker_data,
-      spx_confluent_backtest_file,
-      1000.0,
-      trailing_stop_type,
-      trailing_stop,
-      stop_loss_pct
-  ).await;
+  // spx_confluent_reversal_backtest(
+  //     start_date,
+  //     end_date,
+  //     pfs_confluent_years,
+  //     &spx_ticker_data,
+  //     spx_confluent_backtest_file,
+  //     1000.0,
+  //     trailing_stop_type,
+  //     trailing_stop,
+  //     stop_loss_pct
+  // ).await;
 }
 
 pub fn init_logger() {
@@ -171,7 +171,7 @@ pub fn init_logger() {
 async fn spx_confluent_reversal_backtest(
   start_date: Time,
   end_date: Time,
-  pfs_confluent_years: Vec<u32>,
+  pfs_confluent_years: &[u32],
   ticker_data: &TickerData,
   pfs_backtest_file: String,
   capital: f64,
@@ -183,7 +183,8 @@ async fn spx_confluent_reversal_backtest(
   let mut pfs = PlotPFS::new(start_date, end_date);
   let _ = pfs.backtest_confluent_pfs_reversal(
     ticker_data,
-    &pfs_confluent_years,
+    pfs_confluent_years,
+    PFSTimeframe::Year,
     &pfs_backtest_file,
     capital,
     trailing_stop_type,
@@ -197,13 +198,18 @@ async fn spx_confluent_reversal_backtest(
 async fn spx_pfs_confluent_direction(
     start_date: Time,
     end_date: Time,
-    pfs_confluent_years: Vec<u32>,
+    pfs_confluent_years: &[u32],
     ticker_data: &TickerData,
     pfs_confluence_file: String,
 ) {
   // ======================== Polarity Factor System ============================
   let mut pfs = PlotPFS::new(start_date, end_date);
-  let backtest_corr = pfs.confluent_pfs_direction(ticker_data, &pfs_confluent_years, &pfs_confluence_file);
+  let backtest_corr = pfs.confluent_pfs_direction(
+    ticker_data, 
+    pfs_confluent_years, 
+    PFSTimeframe::Year, 
+    &pfs_confluence_file
+  );
   for corr in backtest_corr {
     println!("Cycle: {:?}, Corr: {}", corr.cycles, corr.pct_correlation);
   }
@@ -214,13 +220,18 @@ async fn spx_pfs_confluent_direction(
 async fn spx_pfs_confluent_reversal(
     start_date: Time,
     end_date: Time,
-    pfs_confluent_years: Vec<u32>,
+    pfs_confluent_years: &[u32],
     ticker_data: &TickerData,
     pfs_confluence_file: String,
 ) {
   // ======================== Polarity Factor System ============================
   let mut pfs = PlotPFS::new(start_date, end_date);
-  let backtest_corr = pfs.confluent_pfs_reversal(ticker_data, &pfs_confluent_years, &pfs_confluence_file);
+  let backtest_corr = pfs.confluent_pfs_reversal(
+    ticker_data, 
+    pfs_confluent_years, 
+    PFSTimeframe::Year,
+    &pfs_confluence_file
+  );
   for corr in backtest_corr {
     println!("Cycles: {:?}, Corr: {}, Hits: {}, Total: {}", corr.cycles, corr.pct_correlation, corr.hits, corr.total);
   }
@@ -237,8 +248,8 @@ async fn spx(
 ) {
   // ======================== Polarity Factor System ============================
   let pfs = PlotPFS::new(start_date, end_date);
-  let daily_pfs = pfs.pfs(ticker_data, pfs_cycle_years);
-  let title = format!("SPX - PFS {}", pfs_cycle_years);
+  let daily_pfs = pfs.pfs_years(ticker_data, pfs_cycle_years);
+  let title = format!("SPX - PFS Years {}", pfs_cycle_years);
   pfs.plot_pfs(
     &daily_pfs,
     &pfs_file,
@@ -257,8 +268,8 @@ async fn btcusd(
 ) {
   // ======================== Polarity Factor System ============================
   let pfs = PlotPFS::new(start_date, end_date);
-  let daily_pfs = pfs.pfs(ticker_data, pfs_cycle_years);
-  let title = format!("BTCUSD - PFS {}", pfs_cycle_years);
+  let daily_pfs = pfs.pfs_years(ticker_data, pfs_cycle_years);
+  let title = format!("BTCUSD - PFS Years {}", pfs_cycle_years);
   pfs.plot_pfs(
     &daily_pfs,
     &pfs_file,
@@ -266,3 +277,4 @@ async fn btcusd(
     &GREEN,
   );
 }
+

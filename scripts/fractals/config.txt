@@ -1,6 +1,6 @@
 export LEFT_BARS=15
 export RIGHT_BARS=10
-export PIVOTS_BACK=50
+export PIVOTS_BACK=100
 export USE_TIME=true
 export NUM_COMPARE=3
 export NUM_FORECAST=10

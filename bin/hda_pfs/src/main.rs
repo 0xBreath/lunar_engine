@@ -88,11 +88,14 @@ async fn main() {
         &spx_ticker_data,
     ).await;
 
+    // TODO: take from ENV
+    let timeframe = PFSTimeframe::Day;
     // SPX confluent PFS direction
     let conf_pfs_dir = spx_pfs_confluent_direction(
         start_date,
         end_date,
-        pfs_confluent_years,
+        &pfs_confluent_years,
+        timeframe,
         &spx_ticker_data,
         spx_confluent_direction_file
     ).await;
@@ -205,6 +208,7 @@ async fn spx_hda(
         pivot_right_bars,
         hda_margin,
     );
+    // TODO: choose timeframe for intra-day trading
     hda.hda(ticker_data)
 }
 
@@ -213,13 +217,14 @@ async fn spx_hda(
 async fn spx_pfs_confluent_direction(
     start_date: Time,
     end_date: Time,
-    pfs_confluent_years: Vec<u32>,
+    pfs_confluent_years: &[u32],
+    timeframe: PFSTimeframe,
     ticker_data: &TickerData,
     pfs_confluence_file: String,
 ) -> Vec<ConfluentPFSCorrelation> {
     // ======================== Polarity Factor System ============================
     let mut pfs = PlotPFS::new(start_date, end_date);
-    pfs.confluent_pfs_direction(ticker_data, &pfs_confluent_years, &pfs_confluence_file)
+    pfs.confluent_pfs_direction(ticker_data, pfs_confluent_years, timeframe, &pfs_confluence_file)
 }
 
 fn write_hda_pfs_backtest_csv(backtests: Vec<Backtest>, out_file: &str) -> Result<(), Box<dyn Error>> {

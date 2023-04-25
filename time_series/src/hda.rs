@@ -67,13 +67,11 @@ impl PlotHDA {
 
   /// Compute Historical Date Analysis
   /// Compares the same date of each year for similar price action.
-  /// Find reversals in this year - 30 days from today.
+  /// Find reversals in the specified time period.
   // Iterate each year back and search for reversals on +/- 1 day from those reversals
   // If a reversal is found on +/- 1 day from the first reversal, add year to HDA `filter_years`
-  // Iterate `filter_years` and find years that have a reversal on the second reversal
-  // on the same day +/- 1 day in the past month this year
+  // Iterate `filter_years` and find years that have a reversal on the second reversal in sequence from the first.
   // Update `filter_years` with years that match this second reversal
-  // Iterate reversals for the next 30 days for each year in `filter_years`
   // Push the mode of each reversal date to `daily_hda`
   pub fn hda(&self, ticker_data: &TickerData) -> Vec<HDA> {
     let mut daily_hda = Vec::<HDA>::new();

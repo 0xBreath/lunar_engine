@@ -101,3 +101,21 @@ impl PartialEq for Planet {
     self.to_str() == other.to_str()
   }
 }
+
+impl From<&str> for Planet {
+  fn from(s: &str) -> Self {
+    match s {
+      "Moon" => Planet::Moon,
+      "Sun" => Planet::Sun,
+      "Mercury" => Planet::Mercury,
+      "Venus" => Planet::Venus,
+      "Mars" => Planet::Mars,
+      "Jupiter" => Planet::Jupiter,
+      "Saturn" => Planet::Saturn,
+      "Uranus" => Planet::Uranus,
+      "Neptune" => Planet::Neptune,
+      "Pluto" => Planet::Pluto,
+      _ => panic!("Invalid planet"),
+    }
+  }
+}

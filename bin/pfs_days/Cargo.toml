@@ -1,5 +1,5 @@
 [package]
-name = "pfs"
+name = "pfs_days"
 version = "0.1.0"
 edition = "2021"
 

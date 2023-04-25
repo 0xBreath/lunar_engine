@@ -1,4 +1,4 @@
-source ./scripts/pfs/config.txt
+source ./scripts/pfs_days/config.txt
 
 export START_YEAR="$START_YEAR"
 export START_MONTH="$START_MONTH"
@@ -8,4 +8,4 @@ export END_MONTH="$END_MONTH"
 export END_DAY="$END_DAY"
 export PATH_TO_DIR="$PATH_TO_DIR"
 
-cargo run -r -p pfs
+cargo run -r -p pfs_days

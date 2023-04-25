@@ -11,6 +11,13 @@ use std::io::Error;
 use std::str::FromStr;
 use csv::WriterBuilder;
 
+#[derive(Debug, Clone, Copy)]
+pub enum TickerDataError {
+  NoCandleForDate(Time),
+  NoCandleForIndex(usize),
+}
+
+pub type TickerDataResult<T> = Result<T, TickerDataError>;
 
 #[derive(Debug, Clone)]
 pub struct ReversalPrediction {
@@ -286,13 +293,29 @@ impl TickerData {
     self.candle_is_high(candle, left_bars, right_bars, error_margin) || self.candle_is_low(candle, left_bars, right_bars, error_margin)
   }
 
-  fn get_candle_by_date(&self, date: &Time) -> Option<Candle> {
+  pub fn get_candle_by_date(&self, date: &Time) -> TickerDataResult<Candle> {
     for candle in self.candles.iter() {
       if candle.date == *date {
-        return Some(candle.clone())
+        return Ok(candle.clone())
       }
     }
-    None
+    Err(TickerDataError::NoCandleForDate(*date))
+  }
+  
+  pub fn get_candle_by_index(&self, index: usize) -> TickerDataResult<Candle> {
+    match self.candles.get(index) {
+      Some(candle) => Ok(candle.clone()),
+      None => Err(TickerDataError::NoCandleForIndex(index))
+    }
+  }
+  
+  pub fn get_candle_index(&self, date: &Time) -> TickerDataResult<usize> {
+    for (index, candle) in self.candles.iter().enumerate() {
+      if candle.date == *date {
+        return Ok(index)
+      }
+    }
+    Err(TickerDataError::NoCandleForDate(*date))
   }
 
   fn get_square_price_periods(&self, reversal: &Reversal) -> Vec<u32> {
@@ -335,13 +358,13 @@ impl TickerData {
       for period in square_price_periods.iter() {
         let future_reversal_date = reversal.candle.date.delta_date(*period as i64);
         match self.get_candle_by_date(&future_reversal_date) {
-          Some(future_reversal_candle) => {
+          Ok(future_reversal_candle) => {
             time_cycle_reversals.push(ReversalPrediction {
               date: future_reversal_date,
               candle: Some(future_reversal_candle)
             });
           },
-          None => {
+          Err(_) => {
             time_cycle_reversals.push(ReversalPrediction {
               date: future_reversal_date,
               candle: None

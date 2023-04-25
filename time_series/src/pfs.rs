@@ -10,7 +10,7 @@ use std::io::Write;
 #[derive(Debug, Clone)]
 /// Backtest correlation
 pub struct IndividualPFSCorrelation {
-  pub cycle_years: u32,
+  pub cycle: u32,
   pub hits: u32,
   pub total: u32,
   pub pct_correlation: f64,
@@ -33,16 +33,26 @@ pub struct ConfluentPFSEvent {
   pub direction: Option<Direction>
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
+pub enum PFSTimeframe {
+  Minute,
+  Hour,
+  Day,
+  Month,
+  Year
+}
+
 /// Polarity Factor System
+#[derive(Debug, Clone)]
 pub struct PFS {
   pub date: Time,
-  pub value: f64
+  pub value: f64,
+  pub cycle: u32
 }
 
 impl PFS {
-  pub fn new(date: Time, value: f64) -> Self {
-    Self { date, value }
+  pub fn new(date: Time, value: f64, cycle: u32) -> Self {
+    Self { date, value, cycle }
   }
 }
 
@@ -59,66 +69,120 @@ impl PlotPFS {
     }
   }
 
-  // /// Compute PFS based on daily cycles
-  // /// e.g. PFS 20 is the average percent change in price every 20 days into the past
-  // pub fn pfs_daily(&self, ticker_data: &TickerData, cycle_months: u32) -> Vec<PFS> {
-  //   let mut daily_pfs = Vec::<PFS>::new();
-  //
-  //   // compute number of cycles possible in candle history
-  //   let earliest_candle_month = ticker_data.earliest_date().month;
-  //   let earliest_candle_year = ticker_data.earliest_date().year;
-  //   let latest_candle_month = ticker_data.latest_date().month;
-  //   let latest_candle_year = ticker_data.latest_date().year;
-  //   let months = ((latest_candle_year - earliest_candle_year) * 12) as u32;
-  //   let num_cycles = (latest_candle_month.to_num() + (12 - earliest_candle_month.to_num()) + months) as i32 / cycle_months as i32;
-  //
-  //   let time_period = self.start_date.time_period(&self.end_date);
-  //   for date in time_period.iter() {
-  //     // PFS for this date
-  //     let mut pfs = (100.0, 1);
-  //     // iterate possible cycles in candle history
-  //     for cycle in 1..num_cycles + 1 {
-  //       // find candle X cycles back
-  //       for (index, candle) in ticker_data.candles.iter().enumerate() {
-  //         if index == 0 {
-  //           continue;
-  //         }
-  //         // used to compute percent change between candles
-  //         let prev_candle = ticker_data.candles.get(index - 1).expect("Failed to get previous candle");
-  //         // candle X cycles back
-  //         let max_date_back = date.month - cycle_months as i32 * cycle;
-  //         if date.month < candle.date.year - cycle_years as i32 * cycle {
-  //           continue;
-  //         }
-  //         let cycle_date = Time::new(date.year - cycle_years as i32 * cycle, &date.month, &date.day, None, None);
-  //         // if cycle_date is leap day
-  //         if cycle_date.month.to_num() == 2 && cycle_date.day.to_num() == 29 {
-  //           continue;
-  //         }
-  //         if &cycle_date < ticker_data.earliest_date() {
-  //           continue;
-  //         }
-  //         // found candle X cycles back
-  //         if prev_candle.date < cycle_date && candle.date >= cycle_date {
-  //           let change = candle.percent_change(prev_candle.close);
-  //           pfs = (pfs.0 + change, pfs.1 + 1);
-  //           break;
-  //         }
-  //       }
-  //     }
-  //     daily_pfs.push(PFS {
-  //       date: *date,
-  //       value: pfs.0 / pfs.1 as f64
-  //     });
-  //   }
-  //   daily_pfs
-  // }
+  /// Compute PFS based on monthly cycles
+  /// e.g. PFS 20 is the average percent change in price every 20 months into the past
+  pub fn pfs_months(&self, ticker_data: &TickerData, cycle_months: u32) -> Vec<PFS> {
+    let mut monthly_pfs = Vec::<PFS>::new();
+
+    // compute number of cycles possible in candle history
+    let earliest_candle_month = ticker_data.earliest_date().month;
+    let earliest_candle_year = ticker_data.earliest_date().year;
+    let latest_candle_month = ticker_data.latest_date().month;
+    let latest_candle_year = ticker_data.latest_date().year;
+    let months = ((latest_candle_year - earliest_candle_year) * 12) as u32;
+    let num_cycles = (latest_candle_month.to_num() + (12 - earliest_candle_month.to_num()) + months) as i32 / cycle_months as i32;
+
+    let time_period = self.start_date.time_period(&self.end_date);
+    for date in time_period.iter() {
+      // PFS for this date
+      let mut pfs = (100.0, 1);
+      // iterate possible cycles in candle history
+      for cycle in 1..num_cycles + 1 {
+        // find candle X cycles back
+        for (index, candle) in ticker_data.candles.iter().enumerate() {
+          if index == 0 {
+            continue;
+          }
+          // used to compute percent change between candles
+          let prev_candle = ticker_data.candles.get(index - 1).expect("Failed to get previous candle");
+          // candle X cycles back
+          let cycle_date = date.delta_months(-(cycle_months as i32 * cycle))
+            .expect("Invalid date");
+          // if cycle_date is leap day
+          if cycle_date.month.to_num() == 2 && cycle_date.day.to_num() == 29 {
+            continue;
+          }
+          if &cycle_date < ticker_data.earliest_date() {
+            continue;
+          }
+          // found candle X cycles back
+          if prev_candle.date < cycle_date && candle.date >= cycle_date {
+            let change = candle.percent_change(prev_candle.close);
+            pfs = (pfs.0 + change, pfs.1 + 1);
+            break;
+          }
+        }
+      }
+      monthly_pfs.push(PFS {
+        date: *date,
+        value: pfs.0 / pfs.1 as f64,
+        cycle: cycle_months
+      });
+    }
+    monthly_pfs
+  }
+
+  /// Compute PFS based on daily cycles
+  /// e.g. PFS 20 is the average percent change in price every 20 days into the past
+  pub fn pfs_days(&self, ticker_data: &TickerData, cycle_days: u32) -> Vec<PFS> {
+    let mut daily_pfs = Vec::<PFS>::new();
+
+    // compute number of cycles possible in candle history
+    let earliest_candle = ticker_data.earliest_date();
+    let latest_candle = ticker_data.latest_date();
+    let days = earliest_candle.diff_days(latest_candle);
+    let num_cycles = days / cycle_days as i64;
+
+    let time_period = self.start_date.time_period(&self.end_date);
+    for date in time_period.iter() {
+      // PFS for this date
+      // let mut pfs = (100.0, 1);
+      let mut pfs = vec![100.0];
+      // iterate possible cycles in candle history
+      for cycle in 1..num_cycles + 1 {
+        // candle X cycles back
+        let cycle_date = date.delta_date(-(cycle_days as i64 * cycle));
+        // if cycle_date is leap day
+        if (cycle_date.month.to_num() == 2 && cycle_date.day.to_num() == 29) ||
+          (&cycle_date < ticker_data.earliest_date())
+        {
+          continue;
+        }
+        // find candle X cycles back
+        for (index, candle) in ticker_data.candles.iter().enumerate() {
+          if index == 0 {
+            continue;
+          }
+          if candle.date > *date {
+            break;
+          }
+          // used to compute percent change between candles
+          let prev_candle = ticker_data.candles.get(index - 1).expect("Failed to get previous candle");
+          // found candle X cycles back
+          if prev_candle.date < cycle_date && candle.date >= cycle_date {
+            let change = candle.percent_change(prev_candle.close);
+            pfs.push(change);
+            // pfs = (pfs.0 + change, pfs.1 + 1);
+            break;
+          }
+        }
+      }
+      let pfs_mean = pfs.iter().sum::<f64>() / pfs.len() as f64;
+      daily_pfs.push(PFS {
+        date: *date,
+        value: pfs_mean,
+        cycle: cycle_days
+      });
+    }
+    daily_pfs.dedup_by(|a, b| a.date == b.date);
+    daily_pfs
+  }
 
 
   /// Compute PFS based on yearly cycles,
   /// e.g. PFS 20 is the average percent change in price every 20 years into the past
-  pub fn pfs(&self, ticker_data: &TickerData, cycle_years: u32) -> Vec<PFS> {
-    let mut daily_pfs = Vec::<PFS>::new();
+  pub fn pfs_years(&self, ticker_data: &TickerData, cycle_years: u32) -> Vec<PFS> {
+    let mut yearly_pfs = Vec::<PFS>::new();
 
     // compute number of cycles possible in candle history
     let earliest_candle_year = ticker_data.earliest_date().year;
@@ -158,15 +222,42 @@ impl PlotPFS {
           }
         }
       }
-      daily_pfs.push(PFS {
+      yearly_pfs.push(PFS {
         date: *date,
-        value: pfs.0 / pfs.1 as f64
+        value: pfs.0 / pfs.1 as f64,
+        cycle: cycle_years
       });
     }
-    daily_pfs
+    yearly_pfs
   }
 
-  fn find_confluent_pfs_reversal(&self, ticker_data: &TickerData, cycles: &[u32], pfs_cycles: &[Vec<PFS>], target_date: &Time) -> Option<ConfluentPFSEvent> {
+  fn find_confluent_pfs_reversal(&self, ticker_data: &TickerData, cycles: &[u32], timeframe: PFSTimeframe, target_date: &Time) -> Option<ConfluentPFSEvent> {
+    let pfs_cycles = match timeframe {
+      PFSTimeframe::Minute => {vec![]},
+      PFSTimeframe::Hour => {vec![]},
+      PFSTimeframe::Day => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_days(ticker_data, *cycle));
+        }
+        pfs_cycles
+      },
+      PFSTimeframe::Month => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_months(ticker_data, *cycle));
+        }
+        pfs_cycles
+      },
+      PFSTimeframe::Year => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_years(ticker_data, *cycle));
+        }
+        pfs_cycles
+      }
+    };
+
     // find index in ticker_data.candles for target_date
     match ticker_data.get_candles().iter().position(|c| &c.date == target_date) {
       None => {
@@ -216,12 +307,10 @@ impl PlotPFS {
   }
 
   /// Find the correlation for each individual PFS cycle
-  pub fn individual_pfs_correlation(&mut self, ticker_data: &TickerData, cycles: &[u32]) -> Vec<IndividualPFSCorrelation> {
+  pub fn individual_pfs_correlation(&self, ticker_data: &TickerData, pfs_cycles: Vec<Vec<PFS>>) -> Vec<IndividualPFSCorrelation> {
     let mut correlation = Vec::<IndividualPFSCorrelation>::new();
 
-    for cycle in cycles {
-      let pfs = self.pfs(ticker_data, *cycle);
-
+    for pfs in pfs_cycles {
       // iterate each date in time period
       // find previous candle and current candle and determine % change is position or negative
       let mut corr_count = 0;
@@ -274,7 +363,7 @@ impl PlotPFS {
         }
       }
       correlation.push(IndividualPFSCorrelation {
-        cycle_years: *cycle,
+        cycle: pfs[0].cycle,
         hits: corr_count,
         total: total_count,
         pct_correlation: corr_count as f64 / total_count as f64
@@ -466,19 +555,43 @@ impl PlotPFS {
     result
   }
 
-  pub fn confluent_pfs_direction(&mut self, ticker_data: &TickerData, cycles: &[u32], out_file: &str) -> Vec<ConfluentPFSCorrelation> {
-    let all_pfs = cycles.iter().map(|c| (*c, self.pfs(ticker_data, *c)))
-      .collect::<Vec<(u32, Vec<PFS>)>>();
+  pub fn confluent_pfs_direction(&mut self, ticker_data: &TickerData, cycles: &[u32], timeframe: PFSTimeframe, out_file: &str) -> Vec<ConfluentPFSCorrelation> {
+    let pfs_cycles = match timeframe {
+      PFSTimeframe::Minute => {vec![]},
+      PFSTimeframe::Hour => {vec![]},
+      PFSTimeframe::Day => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_days(ticker_data, *cycle));
+        }
+        pfs_cycles
+      },
+      PFSTimeframe::Month => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_months(ticker_data, *cycle));
+        }
+        pfs_cycles
+      },
+      PFSTimeframe::Year => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_years(ticker_data, *cycle));
+        }
+        pfs_cycles
+      }
+    };
+
     let mut correlations = Vec::<ConfluentPFSCorrelation>::new();
     for k in 1..=cycles.len() {
       let combs = Self::pfs_combinations(cycles, k);
       for comb in combs.iter() {
         // find PFS for each cycle in combination
-        let pfs_cycles = comb.iter().map(|c| {
-          let pfs = all_pfs.iter().find(|(cycle, _)| cycle == c).unwrap();
-          pfs.1.to_vec()
+        let pfs_comb_cycles = comb.iter().map(|c| {
+          let pfs = pfs_cycles.iter().find(|pfs| &pfs[0].cycle == c).unwrap();
+          pfs.to_vec()
         }).collect::<Vec<Vec<PFS>>>();
-        let correlation = self.confluent_pfs_direction_inner(ticker_data, pfs_cycles, comb);
+        let correlation = self.confluent_pfs_direction_inner(ticker_data, pfs_comb_cycles, comb);
         correlations.push(correlation);
       }
     }
@@ -490,17 +603,41 @@ impl PlotPFS {
     correlations
   }
 
-  pub fn confluent_pfs_reversal(&mut self, ticker_data: &TickerData, cycles: &[u32], out_file: &str) -> Vec<ConfluentPFSCorrelation> {
-    let all_pfs = cycles.iter().map(|c| (*c, self.pfs(ticker_data, *c)))
-      .collect::<Vec<(u32, Vec<PFS>)>>();
+  pub fn confluent_pfs_reversal(&mut self, ticker_data: &TickerData, cycles: &[u32], timeframe: PFSTimeframe, out_file: &str) -> Vec<ConfluentPFSCorrelation> {
+    let pfs_cycles = match timeframe {
+      PFSTimeframe::Minute => {vec![]},
+      PFSTimeframe::Hour => {vec![]},
+      PFSTimeframe::Day => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_days(ticker_data, *cycle));
+        }
+        pfs_cycles
+      },
+      PFSTimeframe::Month => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_months(ticker_data, *cycle));
+        }
+        pfs_cycles
+      },
+      PFSTimeframe::Year => {
+        let mut pfs_cycles = vec![];
+        for cycle in cycles.iter() {
+          pfs_cycles.push(self.pfs_years(ticker_data, *cycle));
+        }
+        pfs_cycles
+      }
+    };
+
     let mut correlations = Vec::<ConfluentPFSCorrelation>::new();
     for k in 1..=cycles.len() {
       let combs = Self::pfs_combinations(cycles, k);
       for comb in combs.iter() {
         // find PFS for each cycle in combination
         let pfs_cycles = comb.iter().map(|c| {
-          let pfs = all_pfs.iter().find(|(cycle, _)| cycle == c).unwrap();
-          pfs.1.to_vec()
+          let pfs = pfs_cycles.iter().find(|pfs| &pfs[0].cycle == c).unwrap();
+          pfs.to_vec()
         }).collect::<Vec<Vec<PFS>>>();
         let correlation = self.confluent_pfs_reversal_inner(pfs_cycles, comb);
         correlations.push(correlation);
@@ -526,18 +663,19 @@ impl PlotPFS {
     &mut self,
     ticker_data: &TickerData,
     cycles: &[u32],
+    timeframe: PFSTimeframe,
     out_file: &str,
     capital: f64,
     trailing_stop_type: TrailingStopType,
     trailing_stop: f64,
     stop_loss_pct: f64
   ) -> Vec<Backtest> {
-    let rev_corr = self.confluent_pfs_reversal(ticker_data, cycles, out_file);
+    let rev_corr = self.confluent_pfs_reversal(ticker_data, cycles, timeframe, out_file);
 
     let mut all_backtests = Vec::<Backtest>::new();
     for corr in rev_corr.iter() {
       // get PFS for each cycle in corr
-      let pfs_cycles = corr.cycles.iter().map(|c| self.pfs(ticker_data, *c)).collect::<Vec<Vec<PFS>>>();
+      let pfs_cycles = corr.cycles.iter().map(|c| (*c, self.pfs_years(ticker_data, *c))).collect::<Vec<(u32, Vec<PFS>)>>();
       let mut open_trade: Option<Trade> = None;
       let mut backtest = Backtest::new(capital);
 
@@ -549,7 +687,7 @@ impl PlotPFS {
       for candle in ticker_candles.iter() {
         let date = &candle.date;
         // get PFS confluent reversal event for each date
-        let event = self.find_confluent_pfs_reversal(ticker_data, cycles, &pfs_cycles, date);
+        let event = self.find_confluent_pfs_reversal(ticker_data, cycles, timeframe,date);
 
         let mut new_trade = open_trade.clone();
 

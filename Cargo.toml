@@ -1,10 +1,12 @@
 [workspace]
 members = [
-    "bin/astrology",
+    "bin/plpl",
     "bin/fractals",
-    "bin/pfs",
+    "bin/pfs_years",
     "bin/hda",
     "bin/hda_pfs",
+    "bin/pfs_months",
+    "bin/pfs_days",
     "ephemeris",
     "time_series",
     "dataframe",

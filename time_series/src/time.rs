@@ -1,6 +1,18 @@
 use std::cmp::Ordering;
-use chrono::{Datelike, DateTime, NaiveDate, Timelike, TimeZone, Utc, Weekday};
+use chrono::{Datelike, DateTime, LocalResult, NaiveDate, Timelike, TimeZone, Utc, Weekday};
+use log::error;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum TimeError {
+  #[error("Invalid date")]
+  InvalidDate(String),
+  #[error("Custom time error")]
+  Custom(Box<dyn std::error::Error + Send + Sync>)
+}
+
+pub type TimeResult<T> = Result<T, TimeError>;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Time {
@@ -97,11 +109,23 @@ impl Time {
     ).expect("failed to convert Time to chrono::NaiveDate")
   }
 
-  pub fn to_datetime(&self) -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(
+  pub fn to_datetime(&self) -> TimeResult<DateTime<Utc>> {
+    let res = Utc.with_ymd_and_hms(
       self.year, self.month.to_num(), self.day.to_num(),
       self.hour.unwrap_or(0), self.minute.unwrap_or(0), 0
-    ).unwrap()
+    );
+    match res {
+      LocalResult::None => {
+        error!("self: {}", self.to_string());
+        Err(TimeError::InvalidDate(self.to_string()))
+      },
+      LocalResult::Single(t) => {
+        Ok(t)
+      },
+      LocalResult::Ambiguous(t, ..) => {
+        Ok(t)
+      }
+    }
   }
 
   /// Start time for 'Horizon API'
@@ -179,7 +203,9 @@ impl Time {
   }
 
   pub fn to_unix(&self) -> i64 {
-    self.to_datetime().timestamp()
+    self.to_datetime()
+      .expect("Failed to convert Time to DateTime")
+      .timestamp()
   }
 
   pub fn from_unix_msec(unix: i64) -> Self {
@@ -192,6 +218,34 @@ impl Time {
     let hour = date.naive_utc().hour();
     let minute = date.naive_utc().minute();
     Time::new(year, &month, &day, Some(hour), Some(minute))
+  }
+
+  /// Increment Time by a number of months
+  pub fn delta_months(&self, months: i32) -> TimeResult<Self> {
+    let month = self.month.to_num() as i32;
+    let total_months = month + months;
+    let mut years_diff = 0;
+    let mut delta_month = total_months;
+    while delta_month > 12 {
+      delta_month -= 12;
+      years_diff += 1;
+    }
+    while delta_month < 1 {
+      delta_month += 12;
+      years_diff -= 1;
+    }
+    if !(1..=12).contains(&delta_month) {
+      error!("Invalid delta months {} resulted in {}", total_months, delta_month);
+      return Err(TimeError::InvalidDate(self.to_string()))
+    }
+    let month = Month::from_num(delta_month as u32);
+    // TODO: this might mess up cycles since months are different lengths
+    // TODO: perhaps Hebrew or Lunar calendar if months are equal?
+    let day = match self.day.to_num() > month.days_per_month() {
+      true => month.days_per_month(),
+      false => self.day.to_num()
+    };
+    Ok(Time::new(self.year + years_diff, &month, &Day::from_num(day), self.hour, self.minute))
   }
 }
 
@@ -310,6 +364,23 @@ impl Month {
       Month::October => 10,
       Month::November => 11,
       Month::December => 12,
+    }
+  }
+
+  pub fn days_per_month(&self) -> u32 {
+    match &self {
+      Month::January => 31,
+      Month::February => 28,
+      Month::March => 31,
+      Month::April => 30,
+      Month::May => 31,
+      Month::June => 30,
+      Month::July => 31,
+      Month::August => 30,
+      Month::September => 30,
+      Month::October => 31,
+      Month::November => 30,
+      Month::December => 31
     }
   }
 }

@@ -1,0 +1,12 @@
+export START_YEAR=2019
+export START_MONTH=1
+export START_DAY=1
+export END_YEAR=2020
+export END_MONTH=1
+export END_DAY=1
+export PATH_TO_DIR=/Users/riester/LIFE/Coding/lunar_engine
+export PFS_CYCLE=20
+export PFS_CONFLUENT_YEARS=1,5,7,9,10,19,20,30,45
+export TRAILING_STOP_USE_PCT=false
+export TRAILING_STOP=50.0
+export STOP_LOSS_PCT=0.1

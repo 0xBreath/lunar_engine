@@ -9,6 +9,7 @@ mod errors;
 mod account;
 mod response;
 mod model;
+mod websocket;
 
 use alert::*;
 use client::Client;
@@ -25,7 +26,6 @@ use simplelog::{
     ColorChoice, Config as SimpleLogConfig,
     TermLogger, TerminalMode,
 };
-use std::sync::Arc;
 
 // Message buffer max size is 256k bytes
 const MAX_SIZE: usize = 262_144;
@@ -40,6 +40,7 @@ const BINANCE_API: &str = "https://api.binance.us";
 const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
 const BINANCE_TEST_API_KEY: &str = "hrCcYjjRCW6jCCOVGiOOXve1UVLK8jbYd08WyKQjuUI63VNmcuR0EDBtDsrW9KBJ";
 const BINANCE_TEST_API_SECRET: &str = "XGKu8AelLejzC6R5ZBWvbNzy4NC7d78ckU0sOJk3VeFRsWnJTajCfcFsArnPFEjP";
+const BINANCE_TEST_WS: &str = "";
 
 lazy_static! {
     static ref ACCOUNT: Mutex<Account> = Mutex::new(Account {
@@ -68,6 +69,7 @@ async fn main() -> std::io::Result<()> {
           .service(post_alert)
           .service(get_assets)
           .service(cancel_orders)
+          .service(get_price)
           .route("/", web::get().to(test))
     })
       .bind(bind_address)?
@@ -82,6 +84,10 @@ fn init_logger() {
         TerminalMode::Mixed,
         ColorChoice::Auto,
     ).expect("Failed to initialize logger");
+}
+
+async fn test() -> impl Responder {
+    HttpResponse::Ok().body("Server is running...")
 }
 
 #[post("/alert")]
@@ -100,7 +106,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
         let side = captures.get(1).unwrap().as_str();
         let order = captures.get(2).unwrap().as_str();
         let timestamp = captures.get(3).unwrap().as_str().parse::<i64>().expect("invalid timestamp");
-        debug!("Tradingview latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
+        debug!("Receive latency: {}ms", chrono::Utc::now().timestamp_millis() - timestamp);
         let alert = Alert {
             side: side.parse().expect("invalid side"),
             order: order.parse().expect("invalid order"),
@@ -244,6 +250,16 @@ async fn cancel_orders() -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().json(res))
 }
 
-async fn test() -> impl Responder {
-    HttpResponse::Ok().body("Server is running...")
+#[get("/price")]
+async fn get_price() -> Result<HttpResponse, Error> {
+    let account = ACCOUNT.lock().unwrap();
+    let res = account.get_price(account.ticker.clone()).expect("failed to get price");
+    debug!("{:?}", res);
+    Ok(HttpResponse::Ok().json(res))
 }
+
+// #[get("/ticker")]
+// async fn ticker() -> Result<HttpResponse, Error> {
+//     let account = ACCOUNT.lock().unwrap();
+//     let ws =
+// }

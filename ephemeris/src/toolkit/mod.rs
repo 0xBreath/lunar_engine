@@ -2,11 +2,13 @@ pub mod planet_matrix;
 pub mod retrograde;
 pub mod declination;
 pub mod eclipses;
+pub mod plpl;
 
 pub use planet_matrix::*;
 pub use retrograde::*;
 pub use declination::*;
 pub use eclipses::*;
+pub use plpl::*;
 
 use std::path::PathBuf;
 use csv::WriterBuilder;
