@@ -4,4 +4,3 @@ export PIVOTS_BACK=100
 export USE_TIME=true
 export NUM_COMPARE=3
 export NUM_FORECAST=10
-export PATH_TO_DIR=/Users/riester/LIFE/Coding/lunar_engine

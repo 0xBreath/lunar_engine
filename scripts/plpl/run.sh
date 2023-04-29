@@ -3,7 +3,7 @@ source ./scripts/plpl/config.txt
 export YEAR="$YEAR"
 export MONTH="$MONTH"
 export DAY="$DAY"
-export PATH_TO_DIR="$PATH_TO_DIR"
+export PATH_TO_DIR="$PWD"
 export PLANET="$PLANET"
 export PLPL_SCALE="$PLPL_SCALE"
 export CROSS_MARGIN_PCT="$CROSS_MARGIN_PCT"

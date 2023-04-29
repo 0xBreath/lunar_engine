@@ -107,6 +107,11 @@ impl Trade {
     }
   }
 
+  pub fn trade_quantity(capital: f64, price: f64) -> f64 {
+    let quantity = capital / price;
+    (quantity * 1000000.0).round() / 1000000.0
+  }
+
   pub fn exit(&mut self, exit_date: Time, exit_price: f64) {
     self.exit_date = Some(exit_date);
     self.exit_price = Some(exit_price);

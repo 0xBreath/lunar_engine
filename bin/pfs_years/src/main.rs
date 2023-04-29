@@ -203,11 +203,11 @@ async fn spx_pfs_confluent_direction(
     pfs_confluence_file: String,
 ) {
   // ======================== Polarity Factor System ============================
-  let mut pfs = PlotPFS::new(start_date, end_date);
+  let pfs = PlotPFS::new(start_date, end_date);
   let backtest_corr = pfs.confluent_pfs_direction(
-    ticker_data, 
-    pfs_confluent_years, 
-    PFSTimeframe::Year, 
+    ticker_data,
+    pfs_confluent_years,
+    PFSTimeframe::Year,
     &pfs_confluence_file
   );
   for corr in backtest_corr {
@@ -227,8 +227,8 @@ async fn spx_pfs_confluent_reversal(
   // ======================== Polarity Factor System ============================
   let mut pfs = PlotPFS::new(start_date, end_date);
   let backtest_corr = pfs.confluent_pfs_reversal(
-    ticker_data, 
-    pfs_confluent_years, 
+    ticker_data,
+    pfs_confluent_years,
     PFSTimeframe::Year,
     &pfs_confluence_file
   );
@@ -248,7 +248,7 @@ async fn spx(
 ) {
   // ======================== Polarity Factor System ============================
   let pfs = PlotPFS::new(start_date, end_date);
-  let daily_pfs = pfs.pfs_years(ticker_data, pfs_cycle_years);
+  let daily_pfs = PlotPFS::pfs_years(pfs.start_date, pfs.end_date, ticker_data, pfs_cycle_years);
   let title = format!("SPX - PFS Years {}", pfs_cycle_years);
   pfs.plot_pfs(
     &daily_pfs,
@@ -268,7 +268,7 @@ async fn btcusd(
 ) {
   // ======================== Polarity Factor System ============================
   let pfs = PlotPFS::new(start_date, end_date);
-  let daily_pfs = pfs.pfs_years(ticker_data, pfs_cycle_years);
+  let daily_pfs = PlotPFS::pfs_years(pfs.start_date, pfs.end_date, ticker_data, pfs_cycle_years);
   let title = format!("BTCUSD - PFS Years {}", pfs_cycle_years);
   pfs.plot_pfs(
     &daily_pfs,

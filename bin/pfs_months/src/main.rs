@@ -41,6 +41,7 @@ async fn main() {
 
     // BTCUSD
     let btc_daily = path_to_dir.clone() + "/data/BTCUSD/input/BTC_daily.csv";
+    #[allow(unused_variables)]
     let btc_pfs_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_months_" + &pfs_cycle + ".png";
 
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
@@ -85,7 +86,7 @@ async fn spx(
 ) {
     // ======================== Polarity Factor System ============================
     let pfs = PlotPFS::new(start_date, end_date);
-    let daily_pfs = pfs.pfs_months(ticker_data, pfs_cycle);
+    let daily_pfs = PlotPFS::pfs_months(pfs.start_date, pfs.end_date, ticker_data, pfs_cycle);
     let title = format!("SPX - PFS Months {}", pfs_cycle);
     pfs.plot_pfs(
         &daily_pfs,
@@ -105,7 +106,7 @@ async fn btcusd(
 ) {
     // ======================== Polarity Factor System ============================
     let pfs = PlotPFS::new(start_date, end_date);
-    let daily_pfs = pfs.pfs_months(ticker_data, pfs_cycle);
+    let daily_pfs = PlotPFS::pfs_months(pfs.start_date, pfs.end_date, ticker_data, pfs_cycle);
     let title = format!("BTCUSD - PFS Months {}", pfs_cycle);
     pfs.plot_pfs(
         &daily_pfs,
@@ -126,7 +127,7 @@ async fn btcusd_backtest(
     let pfs = PlotPFS::new(start_date, end_date);
     let mut pfs_cycles = vec![];
     for cycle in cycles {
-        pfs_cycles.push(pfs.pfs_months(ticker_data, cycle))
+        pfs_cycles.push(PlotPFS::pfs_months(pfs.start_date, pfs.end_date, ticker_data, cycle))
     };
 
     let backtests = pfs.individual_pfs_correlation(

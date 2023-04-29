@@ -1,7 +1,6 @@
 export YEAR=2023
 export MONTH=4
 export DAY=15
-export PATH_TO_DIR=/Users/riester/LIFE/Coding/lunar_engine
 export PLANET=Jupiter
 export PLPL_SCALE=0.1
 export CROSS_MARGIN_PCT=0.0

@@ -130,7 +130,7 @@ async fn main() {
                                     }
                                 }
                                 // enter long
-                                let qty = trade_quantity(capital, candle.close);
+                                let qty = Trade::trade_quantity(capital, candle.close);
                                 open_trade = Some(Trade::new(
                                     date,
                                     Order::Long,
@@ -152,7 +152,7 @@ async fn main() {
                                     }
                                 }
                                 // enter short
-                                let qty = trade_quantity(capital, candle.close);
+                                let qty = Trade::trade_quantity(capital, candle.close);
                                 open_trade = Some(Trade::new(
                                     date,
                                     Order::Short,
@@ -184,11 +184,6 @@ pub fn init_logger() {
         ColorChoice::Auto,
     )
       .expect("failed to initialize logger");
-}
-
-fn trade_quantity(capital: f64, price: f64) -> f64 {
-    let quantity = capital / price;
-    (quantity * 1000000.0).round() / 1000000.0
 }
 
 #[allow(clippy::too_many_arguments)]

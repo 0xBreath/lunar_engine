@@ -7,4 +7,3 @@ export START_DAY=1
 export END_YEAR=2023
 export END_MONTH=5
 export END_DAY=1
-export PATH_TO_DIR=/Users/riester/LIFE/Coding/lunar_engine
