@@ -115,8 +115,9 @@ async fn main() {
             end_date,
             &pfs_conf_cycles,
             &ticker_data,
-            btc_conf_rev_file,
-        ).await
+            btc_conf_rev_file.clone(),
+        ).await;
+        println!("Confluent PFS reversal results have been saved to {}", btc_conf_rev_file);
     });
 
     let ticker_data = btc_daily_ticker.clone();
@@ -127,8 +128,9 @@ async fn main() {
             end_date,
             &pfs_conf_cycles,
             &ticker_data,
-            btc_conf_dir_file
+            btc_conf_dir_file.clone()
         ).await;
+        println!("Confluent PFS direction results have been saved to {}", btc_conf_dir_file);
         btcusd_confluent_direction_backtest(
             conf_dir,
             &btc_daily_ticker,
@@ -136,7 +138,8 @@ async fn main() {
             trailing_stop_type,
             trailing_stop,
             stop_loss_pct
-        )
+        );
+        println!("Confluent PFS direction backtest results have been saved to {}", btc_conf_dir_backtest_file);
     });
 }
 
