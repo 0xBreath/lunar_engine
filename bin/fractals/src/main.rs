@@ -56,30 +56,30 @@ async fn main() {
     let spx_5min = path_to_dir.clone() + "/data/SPX/input/SPX_5min.csv";
     let spx_1month = path_to_dir + "/data/SPX/input/SPX_1month.csv";
 
-    // btcusd(
-    //     &PathBuf::from(btc_daily),
-    //     &PathBuf::from(btc_1h),
-    //     &PathBuf::from(btc_5min),
-    //     left_bars,
-    //     right_bars,
-    //     pivots_back,
-    //     use_time,
-    //     num_compare,
-    //     num_forecast,
-    // );
-
-    spx(
-        &PathBuf::from(spx_daily),
-        &PathBuf::from(spx_1h),
-        &PathBuf::from(spx_5min),
-        &PathBuf::from(spx_1month),
+    btcusd(
+        &PathBuf::from(btc_daily),
+        &PathBuf::from(btc_1h),
+        &PathBuf::from(btc_5min),
         left_bars,
         right_bars,
         pivots_back,
         use_time,
         num_compare,
         num_forecast,
-    ).await;
+    );
+
+    // spx(
+    //     &PathBuf::from(spx_daily),
+    //     &PathBuf::from(spx_1h),
+    //     &PathBuf::from(spx_5min),
+    //     &PathBuf::from(spx_1month),
+    //     left_bars,
+    //     right_bars,
+    //     pivots_back,
+    //     use_time,
+    //     num_compare,
+    //     num_forecast,
+    // ).await;
 }
 
 pub fn init_logger() {

@@ -9,7 +9,7 @@ use time_series::*;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() {
     init_logger();
 
@@ -85,6 +85,14 @@ async fn main() {
     let btc_conf_dir_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_conf_dir.csv";
     let btc_conf_rev_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_conf_rev.csv";
     let btc_conf_dir_backtest_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_conf_dir_backtest.csv";
+    let btc_conf_rev_backtest_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_conf_rev_backtest.csv";
+
+    // SPX
+    let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
+    let spx_pfs_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_days_" + &pfs_cycle + ".png";
+    let spx_conf_dir_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_days_conf_dir.csv";
+    let spx_conf_rev_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_days_conf_rev.csv";
+    let spx_conf_dir_backtest_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_days_conf_dir_backtest.csv";
 
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
     let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
@@ -92,12 +100,25 @@ async fn main() {
     let mut btc_daily_ticker = TickerData::new();
     btc_daily_ticker.add_csv_series(&PathBuf::from(btc_daily)).expect("Failed to add BTC 5 minute csv series");
 
+    // let mut spx_daily_ticker = TickerData::new();
+    // spx_daily_ticker.build_series("SPX", Interval::Daily, &PathBuf::from(spx_daily))
+    //   .await
+    //   .expect("Failed to build SPX daily series");
+
     // btcusd(
     //     start_date,
     //     end_date,
     //     &btc_daily_ticker,
     //     btc_pfs_file,
     //     cycle,
+    // ).await;
+
+    // spx(
+    //     start_date,
+    //     end_date,
+    //     &spx_daily_ticker,
+    //     spx_pfs_file,
+    //     cycle
     // ).await;
 
     // btcusd_individual_pfs_backtest(
@@ -109,8 +130,8 @@ async fn main() {
 
     let ticker_data = btc_daily_ticker.clone();
     let pfs_conf_cycles = pfs_confluent_cycles.clone();
-    tokio::spawn(async move {
-        btcusd_pfs_confluent_reversal(
+    let conf_rev_backtest = tokio::spawn(async move {
+        let conf_rev = btcusd_pfs_confluent_reversal(
             start_date,
             end_date,
             &pfs_conf_cycles,
@@ -118,29 +139,42 @@ async fn main() {
             btc_conf_rev_file.clone(),
         ).await;
         println!("Confluent PFS reversal results have been saved to {}", btc_conf_rev_file);
+        // let res = btcusd_confluent_reversal_backtest(
+        //     conf_rev,
+        //     &ticker_data,
+        //     &btc_conf_rev_backtest_file,
+        //     trailing_stop_type,
+        //     trailing_stop,
+        //     stop_loss_pct
+        // );
+        // println!("Confluent PFS reversal backtest results have been saved to {}", btc_conf_rev_backtest_file);
+        // res
     });
+    conf_rev_backtest.await.expect("Failed to run BTCUSD confluent reversal backtest");
 
-    let ticker_data = btc_daily_ticker.clone();
-    let pfs_conf_cycles = pfs_confluent_cycles;
-    tokio::spawn(async move {
-        let conf_dir = btcusd_pfs_confluent_direction(
-            start_date,
-            end_date,
-            &pfs_conf_cycles,
-            &ticker_data,
-            btc_conf_dir_file.clone()
-        ).await;
-        println!("Confluent PFS direction results have been saved to {}", btc_conf_dir_file);
-        btcusd_confluent_direction_backtest(
-            conf_dir,
-            &btc_daily_ticker,
-            &btc_conf_dir_backtest_file,
-            trailing_stop_type,
-            trailing_stop,
-            stop_loss_pct
-        );
-        println!("Confluent PFS direction backtest results have been saved to {}", btc_conf_dir_backtest_file);
-    });
+    // let ticker_data = btc_daily_ticker.clone();
+    // let pfs_conf_cycles = pfs_confluent_cycles;
+    // let conf_dir_backtest = tokio::spawn(async move {
+    //     let conf_dir = btcusd_pfs_confluent_direction(
+    //         start_date,
+    //         end_date,
+    //         &pfs_conf_cycles,
+    //         &ticker_data,
+    //         btc_conf_dir_file.clone()
+    //     ).await;
+    //     println!("Confluent PFS direction results have been saved to {}", btc_conf_dir_file);
+    //     let res = btcusd_confluent_direction_backtest(
+    //         conf_dir,
+    //         &btc_daily_ticker,
+    //         &btc_conf_dir_backtest_file,
+    //         trailing_stop_type,
+    //         trailing_stop,
+    //         stop_loss_pct
+    //     );
+    //     println!("Confluent PFS direction backtest results have been saved to {}", btc_conf_dir_backtest_file);
+    //     res
+    // });
+    // conf_dir_backtest.await.expect("Failed to run BTCUSD confluent direction backtest");
 }
 
 pub fn init_logger() {
@@ -272,7 +306,7 @@ fn write_backtest_csv(backtests: Vec<(Backtest, Vec<u32>)>, out_file: &str) -> R
     }
     let mut file = File::create(out_file)?;
 
-    writeln!(file, "cycles,start_date,end_date,pnl,avg_trade,avg_win,avg_loss,win_trades,loss_trades,trades")?;
+    writeln!(file, "start_date,end_date,pnl,avg_trade,avg_win,avg_loss,win_trades,loss_trades,trades,cycles")?;
     for backtest in backtests.iter() {
         if backtest.0.trades.is_empty() {
             continue;
@@ -288,8 +322,8 @@ fn write_backtest_csv(backtests: Vec<(Backtest, Vec<u32>)>, out_file: &str) -> R
         let loss_trades = backtest.0.num_loss_trades();
         let trades = backtest.0.trades.len();
         writeln!(
-            file, "[{}],{},{},{},{},{},{},{},{},{}",
-            cycles, start_date, end_date, pnl, avg_trade, avg_win, avg_loss, win_trades, loss_trades, trades
+            file, "{},{},{},{},{},{},{},{},{},[{}]",
+            start_date, end_date, pnl, avg_trade, avg_win, avg_loss, win_trades, loss_trades, trades, cycles
         )?;
     }
     Ok(())
@@ -457,13 +491,159 @@ fn btcusd_confluent_direction_backtest(
                 }
             }
             backtest.summarize();
-            backtest
+            (backtest, corr.cycles)
         });
         threads.push(thread);
     }
     for thread in threads {
         let backtest = thread.join().expect("Failed to join PFS confluent direction backtest thread");
-        backtests.push((backtest, vec![]));
+        backtests.push(backtest);
+    }
+    backtests.sort_by(|a, b| b.0.pnl.partial_cmp(&a.0.pnl).unwrap());
+    write_backtest_csv(backtests.clone(), backtest_file).expect("Failed to write PFS confluent direction backtest to CSV");
+    backtests
+}
+
+fn btcusd_confluent_reversal_backtest(
+    conf_pfs_rev: Vec<ConfluentPFSCorrelation>,
+    ticker_data: &TickerData,
+    backtest_file: &str,
+    trailing_stop_type: TrailingStopType,
+    trailing_stop: f64,
+    stop_loss_pct: f64,
+) -> Vec<(Backtest, Vec<u32>)> {
+    let capital = 1000.0;
+    let mut backtests = Vec::<(Backtest, Vec<u32>)>::new();
+    // iterate through PFS cycle combinations
+    let mut threads = vec![];
+    for corr in conf_pfs_rev.into_iter() {
+        let ticker_data = ticker_data.clone();
+        let thread = std::thread::spawn(move || {
+            let open_trade_mutex: Arc<Mutex<Option<Trade>>> = Arc::new(Mutex::new(None));
+            let mut backtest = Backtest::new(capital);
+
+            // iterate time series
+            for candle in ticker_data.get_candles().iter() {
+                let date = candle.date;
+                // find confluent PFS event on this candle date
+                let pfs_event = corr.events.iter().find(|&x| x.date == date);
+                let mut open_trade = open_trade_mutex.lock().expect("Failed to lock open trade mutex");
+
+                // confluent PFS direction on this date
+                match pfs_event {
+                    Some(pfs_event) => {
+                        if let Some(reversal) = &pfs_event.reversal {
+                            match reversal {
+                                // exit short, enter long
+                                ReversalType::Low => {
+                                    // exit short
+                                    if let Some(trade) = &*open_trade {
+                                        let mut trade = trade.clone();
+                                        if trade.order == Order::Short ||
+                                          stop_triggered(&trade.order, &trade.trailing_stop, &trade.stop_loss, candle)
+                                        {
+                                            trade.exit(date, candle.close);
+                                            backtest.add_trade(trade);
+                                            *open_trade = None;
+                                        }
+                                    }
+                                    // enter long
+                                    let qty = Trade::trade_quantity(capital, candle.close);
+                                    let trailing_stop = Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_type, trailing_stop);
+                                    let stop_loss = Trade::calc_stop_loss(Order::Long, candle.close, stop_loss_pct);
+                                    *open_trade = Some(Trade::new(
+                                        date,
+                                        Order::Long,
+                                        qty,
+                                        candle.close,
+                                        capital,
+                                        Some(trailing_stop),
+                                        Some(stop_loss)
+                                    ));
+                                }
+                                // exit long, enter short
+                                ReversalType::High => {
+                                    // exit long
+                                    if let Some(trade) = &*open_trade {
+                                        // clone is ok because value is overwritten after this block
+                                        let mut trade = trade.clone();
+                                        if trade.order == Order::Long ||
+                                          stop_triggered(&trade.order, &trade.trailing_stop, &trade.stop_loss,  candle)
+                                        {
+                                            trade.exit(date, candle.close);
+                                            backtest.add_trade(trade);
+                                            *open_trade = None;
+                                        }
+                                    }
+                                    // enter short
+                                    let qty = Trade::trade_quantity(capital, candle.close);
+                                    let trailing_stop = Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_type, trailing_stop);
+                                    let stop_loss = Trade::calc_stop_loss(Order::Short, candle.close, stop_loss_pct);
+                                    *open_trade = Some(Trade::new(
+                                        date,
+                                        Order::Short,
+                                        qty,
+                                        candle.close,
+                                        capital,
+                                        Some(trailing_stop),
+                                        Some(stop_loss)
+                                    ));
+                                }
+                            }
+                        }
+                    },
+                    // if no event, check trailing stop
+                    // if trailing stop is hit, exit trade
+                    // other update trailing stop
+                    None => {
+                        debug!("No PFS Direction: {}", date.to_string_daily());
+                        if let Some(trade) = &*open_trade {
+                            match trade.order {
+                                Order::Long => {
+                                    // Long trailing stop is hit, exit trade
+                                    if stop_triggered(&Order::Long, &trade.trailing_stop, &trade.stop_loss, candle)
+                                    {
+                                        let mut trade = trade.clone();
+                                        trade.exit(date, candle.close);
+                                        backtest.add_trade(trade);
+                                        *open_trade = None;
+                                    }
+                                    // Long trailing stop is not hit, update trailing stop
+                                    else {
+                                        let mut trade = trade.clone();
+                                        trade.trailing_stop = Some(Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_type, trailing_stop));
+                                        *open_trade = Some(trade);
+                                    }
+                                },
+                                Order::Short => {
+                                    // Short trailing stop is hit, exit trade
+                                    if stop_triggered(&Order::Short, &trade.trailing_stop, &trade.stop_loss, candle)
+                                    {
+                                        let mut trade = trade.clone();
+                                        trade.exit(date, candle.close);
+                                        backtest.add_trade(trade);
+                                        *open_trade = None;
+                                    }
+                                    // Short trailing stop is not hit, update trailing stop
+                                    else {
+                                        let mut trade = trade.clone();
+                                        trade.trailing_stop = Some(Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_type, trailing_stop));
+                                        *open_trade = Some(trade);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            backtest.summarize();
+            (backtest, corr.cycles)
+        });
+        threads.push(thread);
+    }
+    for thread in threads {
+        let backtest = thread.join().expect("Failed to join PFS confluent direction backtest thread");
+        backtests.push(backtest);
     }
     backtests.sort_by(|a, b| b.0.pnl.partial_cmp(&a.0.pnl).unwrap());
     write_backtest_csv(backtests.clone(), backtest_file).expect("Failed to write PFS confluent direction backtest to CSV");

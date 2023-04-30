@@ -162,7 +162,6 @@ impl PlotPFS {
           if prev_candle.date < cycle_date && candle.date >= cycle_date {
             let change = candle.percent_change(prev_candle.close);
             pfs.push(change);
-            // pfs = (pfs.0 + change, pfs.1 + 1);
             break;
           }
         }
@@ -515,9 +514,11 @@ impl PlotPFS {
         let next_pfs = pfs.iter().find(|p| &p.date == next_date);
         if let (Some(prev_pfs), Some(curr_pfs), Some(next_pfs)) = (prev_pfs, curr_pfs, next_pfs) {
           if prev_pfs.value < curr_pfs.value && curr_pfs.value > next_pfs.value {
+            println!("high, date: {}", date.to_string_daily());
             pfs_is_reversal.push(Some(ReversalType::High));
           } else if prev_pfs.value > curr_pfs.value && curr_pfs.value < next_pfs.value {
             pfs_is_reversal.push(Some(ReversalType::Low));
+            println!("low, date: {}", date.to_string_daily());
           }
         }
       }
@@ -552,7 +553,8 @@ impl PlotPFS {
         debug!("All PFS neither high nor low");
         total_count += 1;
       } else {
-        debug!("Failed to find confluent PFS for date: {}", date.to_string_daily())
+        debug!("Failed to find confluent PFS for date: {}", date.to_string_daily());
+        total_count += 1;
       }
     }
     ConfluentPFSCorrelation {
