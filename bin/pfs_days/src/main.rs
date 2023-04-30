@@ -139,42 +139,42 @@ async fn main() {
             btc_conf_rev_file.clone(),
         ).await;
         println!("Confluent PFS reversal results have been saved to {}", btc_conf_rev_file);
-        // let res = btcusd_confluent_reversal_backtest(
-        //     conf_rev,
-        //     &ticker_data,
-        //     &btc_conf_rev_backtest_file,
-        //     trailing_stop_type,
-        //     trailing_stop,
-        //     stop_loss_pct
-        // );
-        // println!("Confluent PFS reversal backtest results have been saved to {}", btc_conf_rev_backtest_file);
-        // res
+        let res = btcusd_confluent_reversal_backtest(
+            conf_rev,
+            &ticker_data,
+            &btc_conf_rev_backtest_file,
+            trailing_stop_type,
+            trailing_stop,
+            stop_loss_pct
+        );
+        println!("Confluent PFS reversal backtest results have been saved to {}", btc_conf_rev_backtest_file);
+        res
     });
     conf_rev_backtest.await.expect("Failed to run BTCUSD confluent reversal backtest");
 
-    // let ticker_data = btc_daily_ticker.clone();
-    // let pfs_conf_cycles = pfs_confluent_cycles;
-    // let conf_dir_backtest = tokio::spawn(async move {
-    //     let conf_dir = btcusd_pfs_confluent_direction(
-    //         start_date,
-    //         end_date,
-    //         &pfs_conf_cycles,
-    //         &ticker_data,
-    //         btc_conf_dir_file.clone()
-    //     ).await;
-    //     println!("Confluent PFS direction results have been saved to {}", btc_conf_dir_file);
-    //     let res = btcusd_confluent_direction_backtest(
-    //         conf_dir,
-    //         &btc_daily_ticker,
-    //         &btc_conf_dir_backtest_file,
-    //         trailing_stop_type,
-    //         trailing_stop,
-    //         stop_loss_pct
-    //     );
-    //     println!("Confluent PFS direction backtest results have been saved to {}", btc_conf_dir_backtest_file);
-    //     res
-    // });
-    // conf_dir_backtest.await.expect("Failed to run BTCUSD confluent direction backtest");
+    let ticker_data = btc_daily_ticker.clone();
+    let pfs_conf_cycles = pfs_confluent_cycles;
+    let conf_dir_backtest = tokio::spawn(async move {
+        let conf_dir = btcusd_pfs_confluent_direction(
+            start_date,
+            end_date,
+            &pfs_conf_cycles,
+            &ticker_data,
+            btc_conf_dir_file.clone()
+        ).await;
+        println!("Confluent PFS direction results have been saved to {}", btc_conf_dir_file);
+        let res = btcusd_confluent_direction_backtest(
+            conf_dir,
+            &btc_daily_ticker,
+            &btc_conf_dir_backtest_file,
+            trailing_stop_type,
+            trailing_stop,
+            stop_loss_pct
+        );
+        println!("Confluent PFS direction backtest results have been saved to {}", btc_conf_dir_backtest_file);
+        res
+    });
+    conf_dir_backtest.await.expect("Failed to run BTCUSD confluent direction backtest");
 }
 
 pub fn init_logger() {
