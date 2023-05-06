@@ -10,12 +10,15 @@ mod account;
 mod response;
 mod model;
 mod websocket;
+mod config;
 
 use alert::*;
 use client::Client;
 use builder::trade::Trade;
 use response::*;
 use account::Account;
+use config::Config;
+use websocket::{WebSockets, WebSocketEvent};
 
 use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Error, Result, get};
 use futures::StreamExt;
@@ -26,6 +29,7 @@ use simplelog::{
     ColorChoice, Config as SimpleLogConfig,
     TermLogger, TerminalMode,
 };
+use std::sync::atomic::AtomicBool;
 
 // Message buffer max size is 256k bytes
 const MAX_SIZE: usize = 262_144;
@@ -40,7 +44,6 @@ const BINANCE_API: &str = "https://api.binance.us";
 const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
 const BINANCE_TEST_API_KEY: &str = "hrCcYjjRCW6jCCOVGiOOXve1UVLK8jbYd08WyKQjuUI63VNmcuR0EDBtDsrW9KBJ";
 const BINANCE_TEST_API_SECRET: &str = "XGKu8AelLejzC6R5ZBWvbNzy4NC7d78ckU0sOJk3VeFRsWnJTajCfcFsArnPFEjP";
-const BINANCE_TEST_WS: &str = "";
 
 lazy_static! {
     static ref ACCOUNT: Mutex<Account> = Mutex::new(Account {
@@ -70,6 +73,7 @@ async fn main() -> std::io::Result<()> {
           .service(get_assets)
           .service(cancel_orders)
           .service(get_price)
+          .service(ticker)
           .route("/", web::get().to(test))
     })
       .bind(bind_address)?
@@ -258,8 +262,26 @@ async fn get_price() -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().json(res))
 }
 
-// #[get("/ticker")]
-// async fn ticker() -> Result<HttpResponse, Error> {
-//     let account = ACCOUNT.lock().unwrap();
-//     let ws =
-// }
+#[get("/ticker")]
+async fn ticker() -> Result<HttpResponse, Error> {
+    let config = Config::testnet();
+    let keep_running = AtomicBool::new(true);
+    let mut ws = WebSockets::new(|event: WebSocketEvent| {
+        if let WebSocketEvent::Kline(kline_event) = event {
+            println!(
+                "Symbol: {}, high: {}, low: {}",
+                kline_event.kline.symbol, kline_event.kline.low, kline_event.kline.high
+            );
+        }
+        Ok(())
+    });
+    let sub = String::from("btcbusd@kline_1m");
+    ws.connect_with_config(&sub, &config).expect("failed to connect to binance");
+    if let Err(e) = ws.event_loop(&keep_running) {
+        println!("Error: {}", e);
+    }
+    ws.disconnect().unwrap();
+    println!("disconnected");
+
+    Ok(HttpResponse::Ok().body("Dummy response..."))
+}

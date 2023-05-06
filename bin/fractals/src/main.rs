@@ -2,8 +2,11 @@ use log::*;
 // use plotters::prelude::full_palette::{BLUE, GREEN, RED};
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use std::env;
+use std::error::Error;
+use std::fs::File;
 use std::path::PathBuf;
 use time_series::*;
+use std::io::Write;
 
 #[tokio::main]
 async fn main() {
@@ -48,7 +51,8 @@ async fn main() {
     #[allow(unused_variables)]
     let btc_1h = path_to_dir.clone() + "/data/BTCUSD/input/BTC_1h.csv";
     #[allow(unused_variables)]
-    let btc_5min = path_to_dir.clone() + "data/BTCUSD/input/BTC_5min.csv";
+    let btc_5min = path_to_dir.clone() + "/data/BTCUSD/input/BTC_5min.csv";
+    let btc_fractal_results_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_fractal_results.txt";
 
     // SPX
     let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
@@ -66,6 +70,7 @@ async fn main() {
         use_time,
         num_compare,
         num_forecast,
+        &PathBuf::from(btc_fractal_results_file)
     );
 
     // spx(
@@ -104,6 +109,7 @@ fn btcusd(
     use_time: bool,
     num_compare: usize,
     num_forecast: usize,
+    out_file: &PathBuf
 ) {
     // BTC daily
     let mut ticker_data_daily = TickerData::new();
@@ -138,7 +144,34 @@ fn btcusd(
             timeframe: Timeframe::Min5,
         },
     ];
-    fractal.fractals(all_time_series);
+    let fractals = fractal.fractals(all_time_series);
+    write_fractals_txt(fractals, out_file).expect("Failed to write fractals to file");
+}
+
+fn write_fractals_txt(fractals: Vec<(Vec<PriceTimeVector>, Vec<PriceTimeVector>)>, out_file: &PathBuf) -> Result<(), Box<dyn Error>> {
+    if fractals.is_empty() {
+        return Err("No fractals found".into())
+    }
+    let mut file = File::create(out_file)?;
+    for (forecast, fractal) in fractals.iter() {
+        writeln!(file, "==========================================")?;
+        writeln!(file, "### Fractal {} ###", fractal[0].timeframe)?;
+        for (i, f) in fractal.iter().enumerate() {
+            writeln!(
+                file, "Point {}, Price: {}, Date: {}, Price %: {}, Time %: {}",
+                i, f.second_pivot.candle.close, f.second_pivot.candle.date.to_string(), f.price_pct_diff, f.unix_time_diff
+            )?;
+        }
+        writeln!(file, "### Forecast {} ###", forecast[0].timeframe)?;
+        for (i, f) in forecast.iter().enumerate() {
+            writeln!(
+                file, "Point {}, Price: {}, Date: {}, Price %: {}, Time %: {}",
+                i, f.second_pivot.candle.close, f.second_pivot.candle.date.to_string(), f.price_pct_diff, f.unix_time_diff
+            )?;
+        }
+    }
+    println!("Fractal results have been written to: {}", out_file.to_str().unwrap_or(""));
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

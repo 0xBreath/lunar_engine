@@ -2,6 +2,7 @@ use crate::*;
 use std::fmt::{Display, Formatter};
 use crate::backtest::{Direction, ReversalType};
 
+
 #[derive(Debug, Clone)]
 pub struct Pivot {
     pub candle: Candle,
@@ -41,7 +42,7 @@ pub struct TimeSeries {
 
 /// Price-Time Vector
 #[derive(Debug, Clone)]
-struct PriceTimeVector {
+pub struct PriceTimeVector {
     /// First pivot candle
     pub first_pivot: Pivot,
     #[allow(dead_code)]
@@ -103,8 +104,11 @@ impl Fractal {
 
     fn ptv(first_pivot: Pivot, second_pivot: Pivot, timeframe: Timeframe) -> PriceTimeVector {
         let unix_time_diff =
-            1.0 + (second_pivot.candle.date.to_unix() / first_pivot.candle.date.to_unix()) as f64;
-        let price_pct_diff = 1.0 + ((second_pivot.candle.close - first_pivot.candle.close) / first_pivot.candle.close);
+          (1.0 + ((second_pivot.candle.date.to_unix() as f64 - first_pivot.candle.date.to_unix() as f64) / first_pivot.candle.date.to_unix() as f64)) * 100.0;
+        println!("unix_time_diff = {}", unix_time_diff);
+        let price_pct_diff =
+          (1.0 + ((second_pivot.candle.close - first_pivot.candle.close) / first_pivot.candle.close)) * 100.0;
+        println!("price_pct_diff = {}", price_pct_diff);
         let direction = if second_pivot.candle.close > first_pivot.candle.close {
             Direction::Up
         } else {
@@ -131,7 +135,7 @@ impl Fractal {
     }
 
     /// Iterate both PriceTimeVector for past and present.
-    /// Check if time dimensions are within 2 stdev (<0.05) of each other.
+    /// Check if time dimensions are beyond 2 stdev (<0.05) of each other.
     fn fractal_time_dimension(
         &self,
         curr: &[PriceTimeVector],
@@ -159,7 +163,7 @@ impl Fractal {
     }
 
     /// Iterate both PriceTimeVector for past and present.
-    /// Check if price dimensions are within 2 stdev (<0.05) of each other.
+    /// Check if price dimensions are beyond 2 stdev (<0.05) of each other.
     fn fractal_price_dimension(
         &self,
         curr: &[PriceTimeVector],
@@ -247,13 +251,11 @@ impl Fractal {
                 directions_match = false;
             }
         }
-
-
         Ok(directions_match)
     }
 
     /// Compare time and price dimensions of past and present PriceTimeVectors.
-    /// If all points up to `num_compare` are proportional and directions are the same, fractals is found.
+    /// If all points up to `num_compare` are proportional and directions are the same, fractal is found.
     fn fractal_found(&self, curr: &[PriceTimeVector], past: &[PriceTimeVector]) -> bool {
         let frac_time = self
             .fractal_time_dimension(curr, past)
@@ -269,7 +271,7 @@ impl Fractal {
         }
     }
 
-    pub fn fractals(&self, all_time_series: Vec<TimeSeries>) {
+    pub fn fractals(&self, all_time_series: Vec<TimeSeries>) -> Vec<(Vec<PriceTimeVector>, Vec<PriceTimeVector>)> {
         let mut all_timeframe_ptvs = Vec::<Vec<PriceTimeVector>>::new();
         let mut latest_ptvs = Vec::<Vec<PriceTimeVector>>::new();
         // iterate each time_series in all_time_series
@@ -318,58 +320,23 @@ impl Fractal {
         }
 
         // iterate each timeframe vector of PTVs
+        let mut fractals = Vec::new();
         for timeframe_ptvs in all_timeframe_ptvs {
             for curr_ptvs in latest_ptvs.iter() {
-                let mut best_corr = 2.0;
-                let mut best_fractal_ptvs = Vec::new();
                 for i in 0..(timeframe_ptvs.len() - 1 - self.num_forecast) {
                     if timeframe_ptvs.len() < self.num_forecast {
                         break;
                     }
                     let compare_ptvs = &timeframe_ptvs[i..i + self.num_forecast];
                     if self.fractal_found(curr_ptvs, compare_ptvs) {
-                        let mut price_dim = 1.0;
-                        for (curr_ptv, past_ptv) in curr_ptvs.iter().zip(compare_ptvs.iter()) {
-                            if Self::compare_price_dimension(curr_ptv, past_ptv) {
-                                price_dim *= ((curr_ptv.price_pct_diff / past_ptv.price_pct_diff)
-                                    - 1.0)
-                                    .abs();
-                            }
-                        }
-                        if price_dim < best_corr {
-                            best_corr = price_dim;
-                            best_fractal_ptvs = compare_ptvs.to_vec();
-                        }
+                        fractals.push((curr_ptvs.to_vec(), compare_ptvs.to_vec()));
                     }
-                }
-                if best_corr == 2.0 || best_corr == 0.0 {
-                    continue;
-                }
-                println!("----------------------------------------");
-                println!("Best Correlation: {}", best_corr);
-                println!("Current Timeframe: {}", curr_ptvs[0].timeframe);
-                println!("Fractal Timeframe: {}", best_fractal_ptvs[0].timeframe);
-                for (i, last) in curr_ptvs.iter().enumerate() {
-                    println!(
-                        "New Point {}: {}, {}",
-                        i + 1,
-                        last.first_pivot.candle.date.to_string(),
-                        last.direction
-                    );
-                }
-                println!(
-                    "### Compare Timeframe: {} ###",
-                    best_fractal_ptvs[0].timeframe
-                );
-                for (i, past) in best_fractal_ptvs.iter().enumerate() {
-                    println!(
-                        "Past Point {}: {}, {}",
-                        i + 1,
-                        past.first_pivot.candle.date.to_string(),
-                        past.direction
-                    );
                 }
             }
         }
+        // remove fractals if curr_ptv[0] and past_ptv[0] have the same date and timeframe
+        fractals.into_iter().filter(|(curr, past)| {
+            curr[0].first_pivot.candle.date != past[0].first_pivot.candle.date && curr[0].timeframe != past[0].timeframe
+        }).collect::<Vec<_>>()
     }
 }

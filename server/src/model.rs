@@ -566,49 +566,6 @@ pub struct OrderTradeEvent {
   pub m_ignore: bool,
 }
 
-/// The Aggregate Trade Streams push trade information that is aggregated for a single taker order.
-///
-/// Stream Name: \<symbol\>@aggTrade
-///
-/// Update Speed: Real-time
-///
-/// <https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#aggregate-trade-streams>
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AggrTradesEvent {
-  #[serde(rename = "e")]
-  pub event_type: String,
-
-  #[serde(rename = "E")]
-  pub event_time: u64,
-
-  #[serde(rename = "s")]
-  pub symbol: String,
-
-  #[serde(rename = "a")]
-  pub aggregated_trade_id: u64,
-
-  #[serde(rename = "p")]
-  pub price: String,
-
-  #[serde(rename = "q")]
-  pub qty: String,
-
-  #[serde(rename = "f")]
-  pub first_break_trade_id: u64,
-
-  #[serde(rename = "l")]
-  pub last_break_trade_id: u64,
-
-  #[serde(rename = "T")]
-  pub trade_order_time: u64,
-
-  #[serde(rename = "m")]
-  pub is_buyer_maker: bool,
-
-  #[serde(skip, rename = "M")]
-  pub m_ignore: bool,
-}
 
 /// The Trade Streams push raw trade information; each trade has a unique buyer and seller.
 ///
@@ -750,132 +707,6 @@ pub struct LiquidationOrder {
 
   #[serde(rename = "T")]
   pub order_trade_time: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BookTickerEvent {
-  #[serde(rename = "u")]
-  pub update_id: u64,
-
-  #[serde(rename = "s")]
-  pub symbol: String,
-
-  #[serde(rename = "b")]
-  pub best_bid: String,
-
-  #[serde(rename = "B")]
-  pub best_bid_qty: String,
-
-  #[serde(rename = "a")]
-  pub best_ask: String,
-
-  #[serde(rename = "A")]
-  pub best_ask_qty: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct DayTickerEvent {
-  #[serde(rename = "e")]
-  pub event_type: String,
-
-  #[serde(rename = "E")]
-  pub event_time: u64,
-
-  #[serde(rename = "s")]
-  pub symbol: String,
-
-  #[serde(rename = "p")]
-  pub price_change: String,
-
-  #[serde(rename = "P")]
-  pub price_change_percent: String,
-
-  #[serde(rename = "w")]
-  pub average_price: String,
-
-  #[serde(rename = "x")]
-  pub prev_close: String,
-
-  #[serde(rename = "c")]
-  pub current_close: String,
-
-  #[serde(rename = "Q")]
-  pub current_close_qty: String,
-
-  #[serde(rename = "b")]
-  pub best_bid: String,
-
-  #[serde(rename = "B")]
-  pub best_bid_qty: String,
-
-  #[serde(rename = "a")]
-  pub best_ask: String,
-
-  #[serde(rename = "A")]
-  pub best_ask_qty: String,
-
-  #[serde(rename = "o")]
-  pub open: String,
-
-  #[serde(rename = "h")]
-  pub high: String,
-
-  #[serde(rename = "l")]
-  pub low: String,
-
-  #[serde(rename = "v")]
-  pub volume: String,
-
-  #[serde(rename = "q")]
-  pub quote_volume: String,
-
-  #[serde(rename = "O")]
-  pub open_time: u64,
-
-  #[serde(rename = "C")]
-  pub close_time: u64,
-
-  #[serde(rename = "F")]
-  pub first_trade_id: i64,
-
-  #[serde(rename = "L")]
-  pub last_trade_id: i64,
-
-  #[serde(rename = "n")]
-  pub num_trades: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct MiniTickerEvent {
-  #[serde(rename = "e")]
-  pub event_type: String,
-
-  #[serde(rename = "E")]
-  pub event_time: u64,
-
-  #[serde(rename = "s")]
-  pub symbol: String,
-
-  #[serde(rename = "c")]
-  pub close: String,
-
-  #[serde(rename = "o")]
-  pub open: String,
-
-  #[serde(rename = "h")]
-  pub high: String,
-
-  #[serde(rename = "l")]
-  pub low: String,
-
-  #[serde(rename = "v")]
-  pub volume: String,
-
-  #[serde(rename = "q")]
-  pub quote_volume: String,
 }
 
 
@@ -1061,67 +892,73 @@ pub(crate) mod string_or_bool {
   }
 }
 
-#[test]
-fn test_account_update_event() {
-  let json = r#"
-    {
-  "e": "ACCOUNT_UPDATE",
-  "E": 1564745798939,
-  "T": 1564745798938,
-  "a": {
-    "m": "ORDER",
-    "B": [
-      {
-        "a": "USDT",
-        "wb": "122624.12345678",
-        "cw": "100.12345678",
-        "bc": "50.12345678"
-      },
-      {
-        "a": "BUSD",
-        "wb": "1.00000000",
-        "cw": "0.00000000",
-        "bc": "-49.12345678"
-      }
-    ],
-    "P": [
-      {
-        "s": "BTCUSDT",
-        "pa": "0",
-        "ep": "0.00000",
-        "cr": "200",
-        "up": "0",
-        "mt": "isolated",
-        "iw": "0.00000000",
-        "ps": "BOTH"
-      },
-      {
-        "s": "BTCUSDT",
-        "pa": "20",
-        "ep": "6563.66500",
-        "cr": "0",
-        "up": "2850.21200",
-        "mt": "isolated",
-        "iw": "13200.70726908",
-        "ps": "LONG"
-      },
-      {
-        "s": "BTCUSDT",
-        "pa": "-10",
-        "ep": "6563.86000",
-        "cr": "-45.04000000",
-        "up": "-1423.15600",
-        "mt": "isolated",
-        "iw": "6570.42511771",
-        "ps": "SHORT"
-      }
-    ]
-  }
-}
-    "#;
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct KlineEvent {
+  #[serde(rename = "e")]
+  pub event_type: String,
 
-  let res = r#"AccountUpdateEvent { event_type: "ACCOUNT_UPDATE", event_time: 1564745798939, data: AccountUpdateDataEvent { reason: "ORDER", balances: [EventBalance { asset: "USDT", wallet_balance: "122624.12345678", cross_wallet_balance: "100.12345678", balance_change: "50.12345678" }, EventBalance { asset: "BUSD", wallet_balance: "1.00000000", cross_wallet_balance: "0.00000000", balance_change: "-49.12345678" }], positions: [EventPosition { symbol: "BTCUSDT", position_amount: "0", entry_price: "0.00000", accumulated_realized: "200", unrealized_pnl: "0", margin_type: "isolated", isolated_wallet: "0.00000000", position_side: "BOTH" }, EventPosition { symbol: "BTCUSDT", position_amount: "20", entry_price: "6563.66500", accumulated_realized: "0", unrealized_pnl: "2850.21200", margin_type: "isolated", isolated_wallet: "13200.70726908", position_side: "LONG" }, EventPosition { symbol: "BTCUSDT", position_amount: "-10", entry_price: "6563.86000", accumulated_realized: "-45.04000000", unrealized_pnl: "-1423.15600", margin_type: "isolated", isolated_wallet: "6570.42511771", position_side: "SHORT" }] } }"#;
-  let v: AccountUpdateEvent = serde_json::from_str(json).unwrap();
-  assert_eq!(format!("{:?}", v), res);
-  //let event =  from_value::<AccountUpdateEvent>(json).unwrap();
+  #[serde(rename = "E")]
+  pub event_time: u64,
+
+  #[serde(rename = "s")]
+  pub symbol: String,
+
+  #[serde(rename = "k")]
+  pub kline: Kline,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Kline {
+  #[serde(rename = "t")]
+  pub open_time: i64,
+
+  #[serde(rename = "T")]
+  pub close_time: i64,
+
+  #[serde(rename = "s")]
+  pub symbol: String,
+
+  #[serde(rename = "i")]
+  pub interval: String,
+
+  #[serde(rename = "f")]
+  pub first_trade_id: i64,
+
+  #[serde(rename = "L")]
+  pub last_trade_id: i64,
+
+  #[serde(rename = "o")]
+  pub open: String,
+
+  #[serde(rename = "c")]
+  pub close: String,
+
+  #[serde(rename = "h")]
+  pub high: String,
+
+  #[serde(rename = "l")]
+  pub low: String,
+
+  #[serde(rename = "v")]
+  pub volume: String,
+
+  #[serde(rename = "n")]
+  pub number_of_trades: i64,
+
+  #[serde(rename = "x")]
+  pub is_final_bar: bool,
+
+  #[serde(rename = "q")]
+  pub quote_asset_volume: String,
+
+  #[serde(rename = "V")]
+  pub taker_buy_base_asset_volume: String,
+
+  #[serde(rename = "Q")]
+  pub taker_buy_quote_asset_volume: String,
+
+  #[serde(skip, rename = "B")]
+  pub ignore_me: String,
 }

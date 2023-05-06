@@ -128,29 +128,29 @@ async fn main() {
     //     vec![cycle],
     // ).await;
 
-    let ticker_data = btc_daily_ticker.clone();
-    let pfs_conf_cycles = pfs_confluent_cycles.clone();
-    let conf_rev_backtest = tokio::spawn(async move {
-        let conf_rev = btcusd_pfs_confluent_reversal(
-            start_date,
-            end_date,
-            &pfs_conf_cycles,
-            &ticker_data,
-            btc_conf_rev_file.clone(),
-        ).await;
-        println!("Confluent PFS reversal results have been saved to {}", btc_conf_rev_file);
-        let res = btcusd_confluent_reversal_backtest(
-            conf_rev,
-            &ticker_data,
-            &btc_conf_rev_backtest_file,
-            trailing_stop_type,
-            trailing_stop,
-            stop_loss_pct
-        );
-        println!("Confluent PFS reversal backtest results have been saved to {}", btc_conf_rev_backtest_file);
-        res
-    });
-    conf_rev_backtest.await.expect("Failed to run BTCUSD confluent reversal backtest");
+    // let ticker_data = btc_daily_ticker.clone();
+    // let pfs_conf_cycles = pfs_confluent_cycles.clone();
+    // let conf_rev_backtest = tokio::spawn(async move {
+    //     let conf_rev = btcusd_pfs_confluent_reversal(
+    //         start_date,
+    //         end_date,
+    //         &pfs_conf_cycles,
+    //         &ticker_data,
+    //         btc_conf_rev_file.clone(),
+    //     ).await;
+    //     println!("Confluent PFS reversal results have been saved to {}", btc_conf_rev_file);
+    //     let res = btcusd_confluent_reversal_backtest(
+    //         conf_rev,
+    //         &ticker_data,
+    //         &btc_conf_rev_backtest_file,
+    //         trailing_stop_type,
+    //         trailing_stop,
+    //         stop_loss_pct
+    //     );
+    //     println!("Confluent PFS reversal backtest results have been saved to {}", btc_conf_rev_backtest_file);
+    //     res
+    // });
+    // conf_rev_backtest.await.expect("Failed to run BTCUSD confluent reversal backtest");
 
     let ticker_data = btc_daily_ticker.clone();
     let pfs_conf_cycles = pfs_confluent_cycles;

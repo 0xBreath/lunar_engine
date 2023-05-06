@@ -73,16 +73,16 @@ impl TickerData {
       let date = Time::from_unix(
         record[0].parse::<i64>().expect("failed to parse candle UNIX timestamp into i64")
       );
-      let volume = match record[5].parse::<String>() {
-        Err(_) => None,
-        Ok(vol) => {
+      let volume = match record.get(5) {
+        Some(vol) => {
           if vol == "NaN" {
             None
           } else {
-            let vol = f64::from_str(&vol).expect("failed to parse candle volume into f64");
+            let vol = f64::from_str(vol).expect("failed to parse candle volume into f64");
             Some(vol)
           }
         }
+        None => None
       };
       let candle = Candle {
         date,

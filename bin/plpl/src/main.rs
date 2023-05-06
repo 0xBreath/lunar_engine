@@ -72,10 +72,10 @@ async fn main() {
 
     let candle = Candle {
         date,
-        open: 30000.0,
-        high: 31000.0,
-        low: 29500.0,
-        close: 30500.0,
+        open: 29628.0,
+        high: 29643.0,
+        low: 29579.0,
+        close: 29599.0,
         volume: None,
     };
     let closest_plpl = plpl_system.closest_plpl(&candle).expect("Failed to get closest PLPL");
