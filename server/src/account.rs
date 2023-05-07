@@ -29,7 +29,7 @@ impl Account {
   }
 
   /// Place a trade
-  pub fn trade<T: DeserializeOwned>(&self, trade: Trade) -> Result<T> {
+  pub fn trade<T: DeserializeOwned>(&self, trade: BinanceTrade) -> Result<T> {
     let req = trade.request();
     self.client.post_signed::<T>(API::Spot(Spot::Order), req)
   }

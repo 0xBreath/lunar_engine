@@ -4,7 +4,7 @@ use crate::alert::*;
 use std::io::Result;
 
 #[derive(Debug, Clone)]
-pub struct Trade {
+pub struct BinanceTrade {
   /// Ticker symbol (e.g. BTCUSDC
   pub symbol: String,
   /// Side of the trade (BUY or SELL)
@@ -19,7 +19,7 @@ pub struct Trade {
   pub stop_loss: Option<f64>,
 }
 
-impl Trade {
+impl BinanceTrade {
   pub fn new(symbol: String, side: Side, order_type: OrderType, quantity: f64, price: Option<f64>, stop_loss: Option<f64>) -> Self {
     Self {
       symbol,

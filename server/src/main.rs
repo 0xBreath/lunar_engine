@@ -14,7 +14,7 @@ mod config;
 
 use alert::*;
 use client::Client;
-use builder::trade::Trade;
+use builder::trade::BinanceTrade;
 use response::*;
 use account::Account;
 use config::Config;
@@ -29,7 +29,7 @@ use simplelog::{
     TermLogger, TerminalMode,
 };
 use std::sync::atomic::AtomicBool;
-use time_series::{Candle, Time};
+use time_series::{Candle, Time, Trade, Order, TrailingStopType};
 use ephemeris::*;
 use futures::StreamExt;
 
@@ -124,10 +124,11 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
 
         let pre_trade_time = chrono::Utc::now().timestamp_millis();
         let res = match alert.order {
-            Order::Enter => {
+            AlertOrder::Enter => {
                 // get account token balances
                 let account_info = account.account_info().expect("failed to get account info");
                 let busd_balance = &account_info.balances.iter().find(|&x| x.asset == account.quote_asset).unwrap().free;
+                #[allow(unused_variables)]
                 let btc_balance = &account_info.balances.iter().find(|&x| x.asset == account.base_asset).unwrap().free;
                 info!("BUSD balance: {}", busd_balance);
                 // balance is busd_balance parsed to f64
@@ -142,7 +143,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                 match alert.side {
                     Side::Long => {
                         info!("Enter Long");
-                        let trade = Trade::new(
+                        let trade = BinanceTrade::new(
                             account.ticker.clone(),
                             alert.side,
                             OrderType::Market,
@@ -159,7 +160,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                     },
                     Side::Short => {
                         info!("Enter Short");
-                        let trade = Trade::new(
+                        let trade = BinanceTrade::new(
                             account.ticker.clone(),
                             alert.side,
                             OrderType::Market,
@@ -176,7 +177,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                     },
                 }
             },
-            Order::Exit => {
+            AlertOrder::Exit => {
                 // trade balance is to exit account.open_trade.quantity
                 match account.get_active_order() {
                     None => {
@@ -192,7 +193,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                         match alert.side {
                             Side::Long => {
                                 info!("Exit Long");
-                                let trade = Trade::new(
+                                let trade = BinanceTrade::new(
                                     account.ticker.clone(),
                                     Side::Short,
                                     OrderType::Market,
@@ -208,7 +209,7 @@ async fn post_alert(mut payload: web::Payload) -> Result<HttpResponse, Error> {
                             },
                             Side::Short => {
                                 info!("Exit Short");
-                                let trade = Trade::new(
+                                let trade = BinanceTrade::new(
                                     account.ticker.clone(),
                                     Side::Long,
                                     OrderType::Market,
@@ -273,10 +274,15 @@ async fn plpl() -> Result<HttpResponse, Error> {
     let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
     let mut account = ACCOUNT.lock().unwrap();
 
+    let trailing_stop_type = TrailingStopType::Percent;
+    let trailing_stop = 0.95;
+    let stop_loss_pct = 0.001;
+
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         if let WebSocketEvent::Kline(kline_event) = event {
             let date = Time::from_unix_msec(kline_event.event_time as i64);
 
+            // initialize PLPL
             let plpl_system =
               PLPLSystem::new(PLPLSystemConfig {
                 planet: Planet::from("Jupiter"),
@@ -298,9 +304,39 @@ async fn plpl() -> Result<HttpResponse, Error> {
                 volume: None
             };
 
+            // cache previous and current candle to assess PLPL trade conditions
             let mut prev = prev_candle.lock().expect("Failed to lock previous candle");
             let mut curr = curr_candle.lock().expect("Failed to lock current candle");
             let plpl = plpl_system.closest_plpl(&candle).expect("Failed to get closest plpl");
+
+            // get account balance for BTC and BUSD
+            // get account token balances
+            let account_info = account.account_info().expect("failed to get account info");
+            let busd_balance = &account_info.balances.iter().find(|&x| x.asset == account.quote_asset)
+              .unwrap().free
+              .parse::<f64>().unwrap();
+            info!("BTC balance: {}", busd_balance);
+            let btc_balance = &account_info.balances.iter().find(|&x| x.asset == account.base_asset)
+              .unwrap().free
+              .parse::<f64>().unwrap();
+            info!("BUSD balance: {}", btc_balance);
+            // get current price of symbol
+            info!("Current price: {}", candle.close);
+
+            // calculate quantity of base asset to trade
+            // Trade with $1000 or as close as the account can get
+            let mut long_qty = 0.0;
+            if btc_balance * candle.close < 1000.0 {
+               long_qty =  *btc_balance;
+            } else {
+                long_qty =  1000.0/candle.close;
+            }
+            let mut short_qty = 0.0;
+            if *busd_balance < 1000.0 {
+                short_qty = *busd_balance;
+            } else {
+                short_qty = 1000.0;
+            }
 
             match (&*prev, &*curr) {
                 (None, None) => {
@@ -317,6 +353,20 @@ async fn plpl() -> Result<HttpResponse, Error> {
                         match account.get_active_order() {
                             None => {
                                 info!("No active order, enter Long");
+                                let trailing_stop = Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_type, trailing_stop);
+                                let stop_loss = Trade::calc_stop_loss(Order::Long, candle.close, stop_loss_pct);
+                                let trade = BinanceTrade::new(
+                                    account.ticker.clone(),
+                                    Side::Long,
+                                    OrderType::Limit,
+                                    long_qty,
+                                    Some(trailing_stop),
+                                    Some(stop_loss),
+                                );
+                                let res = account.trade::<OrderResponse>(trade).expect("Failed to enter Long");
+                                debug!("{:?}", res);
+                                let active_order = res.clone();
+                                account.set_active_order(Some(active_order));
                             },
                             Some(active_order) => {
                                 match active_order.side() {
@@ -325,6 +375,20 @@ async fn plpl() -> Result<HttpResponse, Error> {
                                     },
                                     Side::Short => {
                                         info!("Close Short, enter Long");
+                                        let trailing_stop = Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_type, trailing_stop);
+                                        let stop_loss = Trade::calc_stop_loss(Order::Long, candle.close, stop_loss_pct);
+                                        let trade = BinanceTrade::new(
+                                            account.ticker.clone(),
+                                            Side::Long,
+                                            OrderType::Limit,
+                                            long_qty,
+                                            Some(trailing_stop),
+                                            Some(stop_loss),
+                                        );
+                                        let res = account.trade::<OrderResponse>(trade).expect("Failed to enter Long");
+                                        debug!("{:?}", res);
+                                        let active_order = res.clone();
+                                        account.set_active_order(Some(active_order));
                                     }
                                 }
                             }
@@ -341,11 +405,39 @@ async fn plpl() -> Result<HttpResponse, Error> {
                         match account.get_active_order() {
                             None => {
                                 info!("No active order, enter Short");
+                                let trailing_stop = Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_type, trailing_stop);
+                                let stop_loss = Trade::calc_stop_loss(Order::Short, candle.close, stop_loss_pct);
+                                let trade = BinanceTrade::new(
+                                    account.ticker.clone(),
+                                    Side::Short,
+                                    OrderType::Limit,
+                                    short_qty,
+                                    Some(trailing_stop),
+                                    Some(stop_loss),
+                                );
+                                let res = account.trade::<OrderResponse>(trade).expect("Failed to enter Long");
+                                debug!("{:?}", res);
+                                let active_order = res.clone();
+                                account.set_active_order(Some(active_order));
                             },
                             Some(active_order) => {
                                 match active_order.side() {
                                     Side::Long => {
                                         info!("Close Long, enter Short");
+                                        let trailing_stop = Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_type, trailing_stop);
+                                        let stop_loss = Trade::calc_stop_loss(Order::Short, candle.close, stop_loss_pct);
+                                        let trade = BinanceTrade::new(
+                                            account.ticker.clone(),
+                                            Side::Short,
+                                            OrderType::Limit,
+                                            short_qty,
+                                            Some(trailing_stop),
+                                            Some(stop_loss),
+                                        );
+                                        let res = account.trade::<OrderResponse>(trade).expect("Failed to enter Long");
+                                        debug!("{:?}", res);
+                                        let active_order = res.clone();
+                                        account.set_active_order(Some(active_order));
                                     },
                                     Side::Short => {
                                         info!("Already Short, ignoring");

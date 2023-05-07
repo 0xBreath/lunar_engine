@@ -26,16 +26,16 @@ impl Side {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Order {
+pub enum AlertOrder {
   Enter,
   Exit
 }
-impl FromStr for Order {
+impl FromStr for AlertOrder {
   type Err = ();
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     match s {
-      "Enter" => Ok(Order::Enter),
-      "Exit" => Ok(Order::Exit),
+      "Enter" => Ok(AlertOrder::Enter),
+      "Exit" => Ok(AlertOrder::Exit),
       _ => Err(()),
     }
   }
@@ -44,7 +44,7 @@ impl FromStr for Order {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Alert {
   pub side: Side,
-  pub order: Order,
+  pub order: AlertOrder,
   pub timestamp: i64,
 }
 
