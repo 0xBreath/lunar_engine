@@ -1,3 +1,4 @@
+use log::debug;
 use crate::*;
 use time_series::{Candle, TickerDataError, Time};
 
@@ -36,7 +37,7 @@ pub struct PLPLSystem {
 }
 
 impl PLPLSystem {
-  pub async fn new(config: PLPLSystemConfig) -> PLPLResult<Self> {
+  pub fn new(config: PLPLSystemConfig) -> PLPLResult<Self> {
     if config.num_plpls % 2 != 0 {
       return Err(PLPLError::NumPLPLsNotEven);
     }
@@ -51,20 +52,21 @@ impl PLPLSystem {
       cross_margin_pct: config.cross_margin_pct,
       num_plpls: config.num_plpls
     };
-    me.planet_angle = me.helio().await;
+    me.planet_angle = me.helio();
     me.plpls = me.plpls()?;
     Ok(me)
   }
 
-  async fn helio(&self) -> f32 {
+  fn helio(&self) -> f32 {
+    debug!("Querying ephemeris from Horizons API");
     let start_date = self.date.delta_date(-1);
-    let query = Query::query(
+    let query = Query::sync_query(
       self.origin,
       &self.planet,
       DataType::RightAscension,
       start_date,
       self.date
-    ).await.expect("failed to query planet angles");
+    ).expect("failed to query planet angles");
     let target = match query.last() {
       Some(last) => last,
       None => panic!("Planet longitude query returned no results")
@@ -151,5 +153,4 @@ impl PLPLSystem {
     let plpl = closest_plpl as f64;
     prev_candle.close >= plpl && candle.close < plpl + self.margin() as f64
   }
-
 }

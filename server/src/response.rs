@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use crate::alert::Side;
 use crate::model::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,10 +18,21 @@ pub struct OrderResponse {
   pub time_in_force: String,
   #[serde(rename = "type")]
   pub type_: String,
+  // BUY or SELL
   pub side: String,
   pub working_time: u64,
   pub self_trade_prevention_mode: String,
   pub fills: Vec<Fill>
+}
+
+impl OrderResponse {
+  pub fn side(&self) -> Side {
+    match self.side.as_str() {
+      "BUY" => Side::Long,
+      "SELL" => Side::Short,
+      _ => panic!("Invalid side {}", self.side)
+    }
+  }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

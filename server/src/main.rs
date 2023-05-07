@@ -21,7 +21,6 @@ use config::Config;
 use websocket::{WebSockets, WebSocketEvent};
 
 use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Error, Result, get};
-use futures::StreamExt;
 use regex::Regex;
 use std::sync::Mutex;
 use log::*;
@@ -30,6 +29,9 @@ use simplelog::{
     TermLogger, TerminalMode,
 };
 use std::sync::atomic::AtomicBool;
+use time_series::{Candle, Time};
+use ephemeris::*;
+use futures::StreamExt;
 
 // Message buffer max size is 256k bytes
 const MAX_SIZE: usize = 262_144;
@@ -73,12 +75,16 @@ async fn main() -> std::io::Result<()> {
           .service(get_assets)
           .service(cancel_orders)
           .service(get_price)
-          .service(ticker)
+          .service(plpl)
           .route("/", web::get().to(test))
     })
       .bind(bind_address)?
       .run()
       .await
+}
+
+async fn test() -> impl Responder {
+    HttpResponse::Ok().body("Server is running...")
 }
 
 fn init_logger() {
@@ -88,10 +94,6 @@ fn init_logger() {
         TerminalMode::Mixed,
         ColorChoice::Auto,
     ).expect("Failed to initialize logger");
-}
-
-async fn test() -> impl Responder {
-    HttpResponse::Ok().body("Server is running...")
 }
 
 #[post("/alert")]
@@ -262,26 +264,171 @@ async fn get_price() -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().json(res))
 }
 
-#[get("/ticker")]
-async fn ticker() -> Result<HttpResponse, Error> {
+#[get("/plpl")]
+async fn plpl() -> Result<HttpResponse, Error> {
     let config = Config::testnet();
     let keep_running = AtomicBool::new(true);
+
+    let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
+    let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
+    let mut account = ACCOUNT.lock().unwrap();
+
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         if let WebSocketEvent::Kline(kline_event) = event {
-            println!(
-                "Symbol: {}, high: {}, low: {}",
-                kline_event.kline.symbol, kline_event.kline.low, kline_event.kline.high
-            );
+            let date = Time::from_unix_msec(kline_event.event_time as i64);
+
+            let plpl_system =
+              PLPLSystem::new(PLPLSystemConfig {
+                planet: Planet::from("Jupiter"),
+                origin: Origin::Heliocentric,
+                date,
+                plpl_scale: 0.5,
+                plpl_price: 20000.0,
+                num_plpls: 2000,
+                cross_margin_pct: 55.0
+            }).expect("Failed to create PLPLSystem");
+            debug!("PLPLSystem initialized");
+
+            let candle = Candle {
+                date,
+                open: kline_event.kline.open.parse::<f64>().expect("Failed to parse Kline open to f64"),
+                high: kline_event.kline.high.parse::<f64>().expect("Failed to parse Kline high to f64"),
+                low: kline_event.kline.low.parse::<f64>().expect("Failed to parse Kline low to f64"),
+                close: kline_event.kline.close.parse::<f64>().expect("Failed to parse Kline close to f64"),
+                volume: None
+            };
+
+            let mut prev = prev_candle.lock().expect("Failed to lock previous candle");
+            let mut curr = curr_candle.lock().expect("Failed to lock current candle");
+            let plpl = plpl_system.closest_plpl(&candle).expect("Failed to get closest plpl");
+
+            match (&*prev, &*curr) {
+                (None, None) => {
+                    debug!("prev none & curr none");
+                    *prev = Some(candle);
+                },
+                (Some(prev_candle), None) => {
+                    debug!("prev some & curr none");
+                    *curr = Some(candle.clone());
+                    if plpl_system.long_signal(prev_candle, &candle, plpl) {
+                        // if position is Long, ignore
+                        // if position is Short, close short and open Long
+                        // if position is None, enter Long
+                        match account.get_active_order() {
+                            None => {
+                                info!("No active order, enter Long");
+                            },
+                            Some(active_order) => {
+                                match active_order.side() {
+                                    Side::Long => {
+                                        info!("Already Long, ignoring");
+                                    },
+                                    Side::Short => {
+                                        info!("Close Short, enter Long");
+                                    }
+                                }
+                            }
+                        }
+
+                        info!(
+                            "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                            kline_event.kline.symbol, date.to_string(), prev_candle.close, candle.close, plpl
+                        );
+                    } else if plpl_system.short_signal(prev_candle, &candle, plpl) {
+                        // if position is Short, ignore
+                        // if position is Long, close long and open Short
+                        // if position is None, enter Short
+                        match account.get_active_order() {
+                            None => {
+                                info!("No active order, enter Short");
+                            },
+                            Some(active_order) => {
+                                match active_order.side() {
+                                    Side::Long => {
+                                        info!("Close Long, enter Short");
+                                    },
+                                    Side::Short => {
+                                        info!("Already Short, ignoring");
+                                    }
+                                }
+                            }
+                        }
+
+                        info!(
+                            "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                            kline_event.kline.symbol, date.to_string(), prev_candle.close, candle.close, plpl
+                        );
+                    }
+                },
+                (None, Some(_)) => {
+                    error!("Previous candle is None and current candle is Some. Should never occur!");
+                    unreachable!()
+                },
+                (Some(_prev_candle), Some(curr_candle)) => {
+                    debug!("prev some & curr some");
+                    if plpl_system.long_signal(curr_candle, &candle, plpl) {
+                        // if position is Long, ignore
+                        // if position is Short, close short and enter Long
+                        // if position is None, enter Long
+                        match account.get_active_order() {
+                            None => {
+                                info!("No active order, enter Long");
+                            },
+                            Some(active_order) => {
+                                match active_order.side() {
+                                    Side::Long => {
+                                        info!("Already Long, ignoring");
+                                    },
+                                    Side::Short => {
+                                        info!("Close Short, enter Long");
+                                    }
+                                }
+                            }
+                        }
+
+                        info!(
+                            "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                            kline_event.kline.symbol, date.to_string(), curr_candle.close, candle.close, plpl
+                        );
+                    } else if plpl_system.short_signal(curr_candle, &candle, plpl) {
+                        // if position is Short, ignore
+                        // if position is Long, close long and enter Short
+                        // if position is None, enter Short
+                        match account.get_active_order() {
+                            None => {
+                                info!("No active order, enter Short");
+                            },
+                            Some(active_order) => {
+                                match active_order.side() {
+                                    Side::Long => {
+                                        info!("Close Long, enter Short");
+                                    },
+                                    Side::Short => {
+                                        info!("Already Short, ignoring");
+                                    }
+                                }
+                            }
+                        }
+
+                        info!(
+                            "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                            kline_event.kline.symbol, date.to_string(), curr_candle.close, candle.close, plpl
+                        );
+                    }
+                    *prev = Some(curr_candle.clone());
+                    *curr = Some(candle);
+                }
+            }
         }
         Ok(())
     });
     let sub = String::from("btcbusd@kline_1m");
     ws.connect_with_config(&sub, &config).expect("failed to connect to binance");
     if let Err(e) = ws.event_loop(&keep_running) {
-        println!("Error: {}", e);
+        println!("Binance websocket error: {}", e);
     }
     ws.disconnect().unwrap();
-    println!("disconnected");
+    println!("Binance websocket disconnected");
 
-    Ok(HttpResponse::Ok().body("Dummy response..."))
+    Ok(HttpResponse::Ok().body("Ok"))
 }

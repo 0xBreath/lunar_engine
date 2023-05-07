@@ -47,6 +47,37 @@ impl Query {
     }
   }
 
+  pub fn sync_query(
+    origin: Origin,
+    planet: &Planet,
+    data_type: DataType,
+    start_time: Time,
+    stop_time: Time,
+  ) -> Result<Vec<(Time, f32)>, Error> {
+    // swap start and stop time if period is historical rather than for the future
+    if start_time.diff_days(&stop_time) < 0 {
+      //std::mem::swap(&mut start_time, &mut stop_time);
+      return Err(Error::new(std::io::ErrorKind::InvalidInput, "start time must be before stop time"));
+    }
+    let query = Query::build_query(
+      Target::new(planet),
+      start_time,
+      stop_time,
+      Quantities::default(),
+      origin
+    );
+
+    let data = reqwest::blocking::get(query.value)
+      .expect("failed to request data")
+      .text()
+      .expect("failed to read response");
+    let data = Self::extract_data(data);
+    match data_type {
+      DataType::RightAscension => Ok(Self::format_for_right_ascension(data)),
+      DataType::Declination => Ok(Self::format_for_declination(data)),
+    }
+  }
+
   /// Construct a query to interact with the 'Horizon API'
   fn build_query(
     command: Target,

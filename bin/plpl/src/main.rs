@@ -66,9 +66,7 @@ async fn main() {
         num_plpls: 2000,
         cross_margin_pct
     };
-    let plpl_system = PLPLSystem::new(config)
-      .await
-      .expect("Failed to init PLPL");
+    let plpl_system = PLPLSystem::new(config).expect("Failed to init PLPL");
 
     let candle = Candle {
         date,

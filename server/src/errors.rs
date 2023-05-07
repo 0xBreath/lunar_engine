@@ -15,6 +15,11 @@ error_chain! {
             description("invalid Vec for Kline"),
             display("{} at {} is missing", name, index),
         }
+        
+        NoActiveOrderError(symbol: String) {
+            description("no active order"),
+            display("no active order for {}", symbol),
+        }
      }
 
     foreign_links {
