@@ -353,15 +353,16 @@ async fn plpl() -> Result<HttpResponse, Error> {
                         match account.get_active_order() {
                             None => {
                                 info!("No active order, enter Long");
+                                account.cancel_all_active_orders().expect("Failed to cancel all active orders");
                                 let trailing_stop = Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_type, trailing_stop);
                                 let stop_loss = Trade::calc_stop_loss(Order::Long, candle.close, stop_loss_pct);
                                 let trade = BinanceTrade::new(
                                     account.ticker.clone(),
                                     Side::Long,
-                                    OrderType::Limit,
+                                    OrderType::TakeProfitLimit,
                                     long_qty,
                                     Some(trailing_stop),
-                                    Some(stop_loss),
+                                    None,
                                 );
                                 let res = account.trade::<OrderResponse>(trade).expect("Failed to enter Long");
                                 debug!("{:?}", res);
@@ -375,15 +376,16 @@ async fn plpl() -> Result<HttpResponse, Error> {
                                     },
                                     Side::Short => {
                                         info!("Close Short, enter Long");
+                                        account.cancel_all_active_orders().expect("Failed to cancel all active orders");
                                         let trailing_stop = Trade::calc_trailing_stop(Order::Long, candle.close, trailing_stop_type, trailing_stop);
                                         let stop_loss = Trade::calc_stop_loss(Order::Long, candle.close, stop_loss_pct);
                                         let trade = BinanceTrade::new(
                                             account.ticker.clone(),
                                             Side::Long,
-                                            OrderType::Limit,
+                                            OrderType::TakeProfitLimit,
                                             long_qty,
                                             Some(trailing_stop),
-                                            Some(stop_loss),
+                                            None,
                                         );
                                         let res = account.trade::<OrderResponse>(trade).expect("Failed to enter Long");
                                         debug!("{:?}", res);
@@ -404,16 +406,17 @@ async fn plpl() -> Result<HttpResponse, Error> {
                         // if position is None, enter Short
                         match account.get_active_order() {
                             None => {
+                                account.cancel_all_active_orders().expect("Failed to cancel all active orders");
                                 info!("No active order, enter Short");
                                 let trailing_stop = Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_type, trailing_stop);
                                 let stop_loss = Trade::calc_stop_loss(Order::Short, candle.close, stop_loss_pct);
                                 let trade = BinanceTrade::new(
                                     account.ticker.clone(),
                                     Side::Short,
-                                    OrderType::Limit,
+                                    OrderType::TakeProfitLimit,
                                     short_qty,
                                     Some(trailing_stop),
-                                    Some(stop_loss),
+                                    ,
                                 );
                                 let res = account.trade::<OrderResponse>(trade).expect("Failed to enter Long");
                                 debug!("{:?}", res);
@@ -423,16 +426,17 @@ async fn plpl() -> Result<HttpResponse, Error> {
                             Some(active_order) => {
                                 match active_order.side() {
                                     Side::Long => {
+                                        account.cancel_all_active_orders().expect("Failed to cancel all active orders");
                                         info!("Close Long, enter Short");
                                         let trailing_stop = Trade::calc_trailing_stop(Order::Short, candle.close, trailing_stop_type, trailing_stop);
                                         let stop_loss = Trade::calc_stop_loss(Order::Short, candle.close, stop_loss_pct);
                                         let trade = BinanceTrade::new(
                                             account.ticker.clone(),
                                             Side::Short,
-                                            OrderType::Limit,
+                                            OrderType::TakeProfitLimit,
                                             short_qty,
                                             Some(trailing_stop),
-                                            Some(stop_loss),
+                                            None,
                                         );
                                         let res = account.trade::<OrderResponse>(trade).expect("Failed to enter Long");
                                         debug!("{:?}", res);
