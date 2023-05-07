@@ -518,7 +518,7 @@ async fn plpl() -> Result<HttpResponse, Error> {
         }
         Ok(())
     });
-    let sub = String::from("btcbusd@kline_1m");
+    let sub = String::from("btcbusd@kline_5m");
     ws.connect_with_config(&sub, &config).expect("failed to connect to binance");
     if let Err(e) = ws.event_loop(&keep_running) {
         println!("Binance websocket error: {}", e);
