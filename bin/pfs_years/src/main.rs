@@ -45,6 +45,7 @@ async fn main() {
     .map(|&x| x.trim())
     .collect();
   // map to u32
+  #[allow(unused_variables)]
   let pfs_confluent_years: Vec<u32> = pfs_confluent_years
     .iter()
     .map(|&x| x.parse::<u32>().expect("PFS_CONFLUENT_YEARS not a number"))
@@ -55,6 +56,7 @@ async fn main() {
     .expect("TRAILING_STOP_USE_PCT not set")
     .parse::<bool>()
     .expect("TRAILING_STOP_USE_PCT not a bool");
+  #[allow(unused_variables)]
   let trailing_stop_type: TrailingStopType = if trailing_stop_use_pct {
     TrailingStopType::Percent
   } else {
@@ -62,11 +64,13 @@ async fn main() {
   };
 
   // trailing stop in pips or percentage
+  #[allow(unused_variables)]
   let trailing_stop = env::var("TRAILING_STOP")
     .expect("TRAILING_STOP not set")
     .parse::<f64>()
     .expect("TRAILING_STOP not a number");
 
+  #[allow(unused_variables)]
   let stop_loss_pct = env::var("STOP_LOSS_PCT")
     .expect("STOP_LOSS_PCT not set")
     .parse::<f64>()
@@ -76,11 +80,13 @@ async fn main() {
   let cycle_years = pfs_cycle_years.parse::<u32>().expect("PFS_CYCLE_YEARS not a number");
 
   // SPX
+  #[allow(unused_variables)]
   let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
   #[allow(unused_variables)]
   let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_direction.csv";
   #[allow(unused_variables)]
   let spx_confluent_reversal_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_reversal.csv";
+  #[allow(unused_variables)]
   let spx_confluent_backtest_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_backtest.csv";
   #[allow(unused_variables)]
   let spx_pfs_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_" + &pfs_cycle_years + ".png";
@@ -96,13 +102,15 @@ async fn main() {
   #[allow(unused_variables)]
   let btc_pfs_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_" + &pfs_cycle_years + ".png";
 
+  #[allow(unused_variables)]
   let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
+  #[allow(unused_variables)]
   let end_date = Time::new(end_year, &Month::from_num(end_month), &Day::from_num(end_day), None, None);
 
   let mut btc_ticker_data = TickerData::new();
   btc_ticker_data.add_csv_series(&PathBuf::from(btc_daily)).expect("Failed to add BTC CSV series");
 
-  let mut spx_ticker_data = TickerData::new();
+  // let mut spx_ticker_data = TickerData::new();
   // spx_ticker_data.build_series(
   //   "SPX",
   //   Interval::Daily,
@@ -180,7 +188,7 @@ async fn spx_confluent_reversal_backtest(
   stop_loss_pct: f64
 ) {
   // ======================== Polarity Factor System ============================
-  let mut pfs = PlotPFS::new(start_date, end_date);
+  let pfs = PlotPFS::new(start_date, end_date);
   let _ = pfs.backtest_confluent_pfs_reversal(
     ticker_data,
     pfs_confluent_years,
@@ -225,7 +233,7 @@ async fn spx_pfs_confluent_reversal(
     pfs_confluence_file: String,
 ) {
   // ======================== Polarity Factor System ============================
-  let mut pfs = PlotPFS::new(start_date, end_date);
+  let pfs = PlotPFS::new(start_date, end_date);
   let backtest_corr = pfs.confluent_pfs_reversal(
     ticker_data,
     pfs_confluent_years,

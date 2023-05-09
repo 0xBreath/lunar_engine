@@ -63,6 +63,7 @@ async fn main() {
 
     // SPX
     let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
+    #[allow(unused_variables)]
     let spx_history = path_to_dir.clone() + "/data/SPX/output/SPX_history.csv";
     let spx_confluent_direction_file = path_to_dir.clone() + "/data/SPX/output/SPX_PFS_confluent_direction.csv";
     let spx_hda_pfs_backtest_file = path_to_dir.clone() + "/data/SPX/output/SPX_HDA_PFS_confluent_direction_backtest.csv";
@@ -218,7 +219,7 @@ async fn spx_pfs_confluent_direction(
     pfs_confluence_file: String,
 ) -> Vec<ConfluentPFSCorrelation> {
     // ======================== Polarity Factor System ============================
-    let mut pfs = PlotPFS::new(start_date, end_date);
+    let pfs = PlotPFS::new(start_date, end_date);
     pfs.confluent_pfs_direction(ticker_data, pfs_confluent_years, timeframe, &pfs_confluence_file)
 }
 

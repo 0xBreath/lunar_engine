@@ -1,6 +1,7 @@
 use error_chain::bail;
 use hex::encode as hex_encode;
 use hmac::{Hmac, Mac};
+use log::info;
 use crate::errors::{BinanceContentError, ErrorKind, Result};
 use reqwest::StatusCode;
 use reqwest::blocking::Response;
@@ -45,12 +46,12 @@ impl Client {
 
   pub fn post_signed<T: DeserializeOwned>(&self, endpoint: API, request: String) -> Result<T> {
     let url = self.sign_request(endpoint, Some(request));
+    info!("url: {}", url);
     let client = &self.inner_client;
     let response = client
       .post(url.as_str())
       .headers(self.build_headers(true)?)
       .send()?;
-
     self.handler(response)
   }
 
@@ -63,7 +64,6 @@ impl Client {
       .delete(url.as_str())
       .headers(self.build_headers(true)?)
       .send()?;
-
     self.handler(response)
   }
 
@@ -74,50 +74,45 @@ impl Client {
         url.push_str(format!("?{}", request).as_str());
       }
     }
-
     let client = &self.inner_client;
     let response = client.get(url.as_str()).send()?;
-
     self.handler(response)
   }
 
+  #[allow(dead_code)]
   pub fn post<T: DeserializeOwned>(&self, endpoint: API) -> Result<T> {
     let url: String = format!("{}{}", self.host, String::from(endpoint));
-
     let client = &self.inner_client;
     let response = client
       .post(url.as_str())
       .headers(self.build_headers(false)?)
       .send()?;
-
     self.handler(response)
   }
 
+  #[allow(dead_code)]
   pub fn put<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
     let url: String = format!("{}{}", self.host, String::from(endpoint));
     let data: String = format!("listenKey={}", listen_key);
-
     let client = &self.inner_client;
     let response = client
       .put(url.as_str())
       .headers(self.build_headers(false)?)
       .body(data)
       .send()?;
-
     self.handler(response)
   }
 
+  #[allow(dead_code)]
   pub fn delete<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
     let url: String = format!("{}{}", self.host, String::from(endpoint));
     let data: String = format!("listenKey={}", listen_key);
-
     let client = &self.inner_client;
     let response = client
       .delete(url.as_str())
       .headers(self.build_headers(false)?)
       .body(data)
       .send()?;
-
     self.handler(response)
   }
 
@@ -140,7 +135,6 @@ impl Client {
 
   fn build_headers(&self, content_type: bool) -> Result<HeaderMap> {
     let mut custom_headers = HeaderMap::new();
-
     custom_headers.insert(USER_AGENT, HeaderValue::from_static("binance-rs"));
     if content_type {
       custom_headers.insert(
@@ -152,7 +146,6 @@ impl Client {
       HeaderName::from_static("x-mbx-apikey"),
       HeaderValue::from_str(self.api_key.as_str())?,
     );
-
     Ok(custom_headers)
   }
 
@@ -170,7 +163,6 @@ impl Client {
       }
       StatusCode::BAD_REQUEST => {
         let error: BinanceContentError = response.json()?;
-
         Err(ErrorKind::BinanceError(error).into())
       }
       s => {

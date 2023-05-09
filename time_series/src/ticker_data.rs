@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
-use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::path::PathBuf;
 use csv;
@@ -510,58 +509,6 @@ impl TickerData {
       }
     }
     reversals
-  }
-
-  /// Compute mean candle close for `self.period` candles back from `candle`.
-  pub fn mean(&self, candle: &Candle, period: usize) -> Option<f64> {
-    // search self.candles for candle,
-    // if index candle == candle and index > self.period, return index
-    // else return None
-    for (index, index_candle) in self.candles.iter().enumerate() {
-      if index_candle == candle && index >= period {
-        let range = &self.candles[(index-period)..index];
-        let mut sum = 0.0;
-        for candle in range.iter() {
-          sum += candle.close;
-        }
-        return Some(sum / range.len() as f64);
-      }
-    }
-    None
-  }
-
-  /// Compute standard deviation of a candle close for `self.period` candles back from `candle`.
-  fn std_dev(&self, candle: &Candle, period: usize) -> Option<f64> {
-    if !self.candles.is_empty() {
-      match self.mean(candle, period) {
-        Some(mean_price) => {
-          let start_index = self.candles.len() - 1 - period;
-          let variance = self.candles.iter().map(|candle| {
-            let diff = mean_price - candle.close;
-            diff * diff
-          }).sum::<f64>() / self.candles.len() as f64;
-
-          Some(variance.sqrt() as f64)
-        },
-        _ => None
-      }
-    } else {
-      None
-    }
-  }
-
-  /// Compute Z-Score of a candle for `self.period` candles back from `candle`.
-  /// Z-Score is the number of standard deviations a candle's close spans away from the mean of the data set.
-  /// >3 standard deviations is significant.
-  pub fn z_score(&self, candle: &Candle, period: usize) -> Option<f64> {
-    if !self.candles.is_empty() {
-      let mean = self.mean(candle, period).expect("Mean is not defined");
-      let std_dev = self.std_dev(candle, period).expect("Std dev is not defined");
-      let z_score = (candle.close - mean) / std_dev;
-      Some(z_score)
-    } else {
-      None
-    }
   }
 
   /// Remove duplicate Candles from the data set.

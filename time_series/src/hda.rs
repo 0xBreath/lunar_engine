@@ -1,5 +1,5 @@
-use chrono::Duration;
 use chrono::{Local, NaiveDate, TimeZone};
+use log::trace;
 use crate::*;
 use plotters::prelude::*;
 
@@ -236,6 +236,7 @@ impl PlotHDA {
         }
       }
     }
+    trace!("not_found: {}", not_found);
     panic!("Date not found");
   }
 

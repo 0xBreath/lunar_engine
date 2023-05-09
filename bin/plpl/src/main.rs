@@ -34,14 +34,17 @@ async fn main() {
       .expect("Failed to parse CROSS_MARGIN_PCT to float");
 
     // trade settings
+    #[allow(unused_variables)]
     let stop_loss_pct = env::var("STOP_LOSS_PCT")
       .expect("STOP_LOSS_PCT not set")
       .parse::<f64>()
       .expect("failed to parse stop loss pct to float");
+    #[allow(unused_variables)]
     let ts_type = env::var("TRAILING_STOP_USE_PCT")
       .expect("TRAILING_STOP_USE_PCT not set")
       .parse::<bool>()
       .expect("failed to parse trailing stop type to bool");
+    #[allow(unused_variables)]
     let ts = env::var("TRAILING_STOP")
       .expect("TRAILING_STOP not set")
       .parse::<f64>()

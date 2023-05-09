@@ -49,6 +49,7 @@ async fn main() {
 
     // SPX
     let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
+    #[allow(unused_variables)]
     let spx_history = path_to_dir.clone() + "/data/SPX/output/SPX_history.csv";
     let spx_hda_file = path_to_dir.clone() + "/data/SPX/output/SPX_hda.png";
     // BTCUSD

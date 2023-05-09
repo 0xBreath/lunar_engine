@@ -82,16 +82,25 @@ async fn main() {
     let btc_daily = path_to_dir.clone() + "/data/BTCUSD/input/BTC_daily.csv";
     #[allow(unused_variables)]
     let btc_pfs_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_" + &pfs_cycle + ".png";
+    #[allow(unused_variables)]
     let btc_conf_dir_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_conf_dir.csv";
+    #[allow(unused_variables)]
     let btc_conf_rev_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_conf_rev.csv";
+    #[allow(unused_variables)]
     let btc_conf_dir_backtest_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_conf_dir_backtest.csv";
+    #[allow(unused_variables)]
     let btc_conf_rev_backtest_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_pfs_days_conf_rev_backtest.csv";
 
     // SPX
+    #[allow(unused_variables)]
     let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
+    #[allow(unused_variables)]
     let spx_pfs_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_days_" + &pfs_cycle + ".png";
+    #[allow(unused_variables)]
     let spx_conf_dir_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_days_conf_dir.csv";
+    #[allow(unused_variables)]
     let spx_conf_rev_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_days_conf_rev.csv";
+    #[allow(unused_variables)]
     let spx_conf_dir_backtest_file = path_to_dir.clone() + "/data/SPX/output/SPX_pfs_days_conf_dir_backtest.csv";
 
     let start_date = Time::new(start_year, &Month::from_num(start_month), &Day::from_num(start_day), None, None);
@@ -504,6 +513,7 @@ fn btcusd_confluent_direction_backtest(
     backtests
 }
 
+#[allow(dead_code)]
 fn btcusd_confluent_reversal_backtest(
     conf_pfs_rev: Vec<ConfluentPFSCorrelation>,
     ticker_data: &TickerData,

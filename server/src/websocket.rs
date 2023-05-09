@@ -73,6 +73,7 @@ impl<'a> WebSockets<'a> {
     }
   }
 
+  #[allow(dead_code)]
   pub fn connect(&mut self, subscription: &str) -> Result<()> {
     self.connect_wss(&WebSocketAPI::Default.params(subscription))
   }
@@ -81,6 +82,7 @@ impl<'a> WebSockets<'a> {
     self.connect_wss(&WebSocketAPI::Custom(config.ws_endpoint.clone()).params(subscription))
   }
 
+  #[allow(dead_code)]
   pub fn connect_multiple_streams(&mut self, endpoints: &[String]) -> Result<()> {
     self.connect_wss(&WebSocketAPI::MultiStream.params(&endpoints.join("/")))
   }
@@ -104,6 +106,7 @@ impl<'a> WebSockets<'a> {
     bail!("Not able to close the connection");
   }
 
+  #[allow(dead_code)]
   pub fn test_handle_msg(&mut self, msg: &str) -> Result<()> {
     self.handle_msg(msg)
   }

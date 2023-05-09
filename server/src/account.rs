@@ -4,7 +4,6 @@ use crate::client::Client;
 use crate::response::{AccountInfoResponse, OrderCanceled, OrderResponse, PriceResponse};
 use crate::errors::Result;
 use crate::builder::*;
-// use crate::model::Transaction;
 
 #[derive(Clone)]
 pub struct Account {
@@ -17,6 +16,7 @@ pub struct Account {
 }
 
 impl Account {
+  #[allow(dead_code)]
   pub fn new(client: Client, recv_window: u64, base_asset: String, quote_asset: String, ticker: String) -> Self {
     Self {
       client,
@@ -31,6 +31,7 @@ impl Account {
   /// Place a trade
   pub fn trade<T: DeserializeOwned>(&self, trade: BinanceTrade) -> Result<T> {
     let req = trade.request();
+    println!("Trade Request: {:?}", req);
     self.client.post_signed::<T>(API::Spot(Spot::Order), req)
   }
 

@@ -262,6 +262,7 @@ pub struct Bids {
 }
 
 impl Bids {
+  #[allow(dead_code)]
   pub fn new(price: f64, qty: f64) -> Bids {
     Bids { price, qty }
   }
@@ -866,6 +867,7 @@ pub(crate) mod string_or_bool {
 
   use serde::{de, Serializer, Deserialize, Deserializer};
 
+  #[allow(dead_code)]
   pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
       T: fmt::Display,
@@ -874,6 +876,7 @@ pub(crate) mod string_or_bool {
     serializer.collect_str(value)
   }
 
+  #[allow(dead_code)]
   pub fn deserialize<'de, D>(deserializer: D) -> Result<bool, D::Error>
     where
       D: Deserializer<'de>,

@@ -55,9 +55,13 @@ async fn main() {
     let btc_fractal_results_file = path_to_dir.clone() + "/data/BTCUSD/output/BTC_fractal_results.txt";
 
     // SPX
+    #[allow(unused_variables)]
     let spx_daily = path_to_dir.clone() + "/data/SPX/input/SPX_daily.csv";
+    #[allow(unused_variables)]
     let spx_1h = path_to_dir.clone() + "/data/SPX/input/SPX_1h.csv";
+    #[allow(unused_variables)]
     let spx_5min = path_to_dir.clone() + "/data/SPX/input/SPX_5min.csv";
+    #[allow(unused_variables)]
     let spx_1month = path_to_dir + "/data/SPX/input/SPX_1month.csv";
 
     btcusd(
@@ -175,6 +179,7 @@ fn write_fractals_txt(fractals: Vec<(Vec<PriceTimeVector>, Vec<PriceTimeVector>)
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(dead_code)]
 async fn spx(
     spx_daily_csv: &PathBuf,
     spx_1h_csv: &PathBuf,
