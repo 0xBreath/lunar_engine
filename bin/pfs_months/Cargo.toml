@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 # internal deps
 time_series = { path = "../../time_series" }
-dataframe = { path = "../../dataframe" }
 # external deps
 tokio = { version = "1.24.1", features = ["full"] }
 log = "0.4"

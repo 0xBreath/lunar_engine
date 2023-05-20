@@ -168,3 +168,13 @@ pub struct HistoricalOrder {
     pub working_time: i64,
     pub self_trade_prevention_mode: String,
 }
+
+impl HistoricalOrder {
+    pub fn side(&self) -> Side {
+        match self.side.as_str() {
+            "BUY" => Side::Long,
+            "SELL" => Side::Short,
+            _ => panic!("Invalid side {}", self.side),
+        }
+    }
+}

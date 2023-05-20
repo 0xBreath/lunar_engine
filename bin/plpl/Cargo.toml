@@ -9,7 +9,6 @@ edition = "2021"
 # internal deps
 ephemeris = { path = "../../ephemeris" }
 time_series = { path = "../../time_series" }
-dataframe = { path = "../../dataframe" }
 server_lib = { path = "../../server/server_lib" }
 # external deps
 tokio = { version = "1.24.1", features = ["full"] }

@@ -3,6 +3,5 @@ members = [
     "bin/*",
     "ephemeris",
     "time_series",
-    "dataframe",
     "server/*"
 ]

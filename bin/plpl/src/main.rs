@@ -49,23 +49,27 @@ async fn main() {
     let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
     let mut account = ACCOUNT.lock().unwrap();
 
+    // PLPL parameters; tuned for 5 minute candles
     let trailing_stop = 0.95;
-    #[allow(unused_variables)]
     let stop_loss_pct = 0.001;
+    let planet = Planet::from("Jupiter");
+    let plpl_scale = 0.5;
+    let plpl_price = 20000.0;
+    let num_plpls = 2000;
+    let cross_margin_pct = 55.0;
 
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         if let WebSocketEvent::Kline(kline_event) = event {
             let date = Time::from_unix_msec(kline_event.event_time as i64);
-
             // initialize PLPL
             let plpl_system = PLPLSystem::new(PLPLSystemConfig {
-                planet: Planet::from("Jupiter"),
+                planet: planet.clone(),
                 origin: Origin::Heliocentric,
                 date,
-                plpl_scale: 0.5,
-                plpl_price: 20000.0,
-                num_plpls: 2000,
-                cross_margin_pct: 55.0,
+                plpl_scale,
+                plpl_price,
+                num_plpls,
+                cross_margin_pct,
             })
             .expect("Failed to create PLPLSystem");
             debug!("PLPLSystem initialized");
@@ -169,7 +173,6 @@ async fn main() {
                                     .trade::<LimitOrderResponse>(trade.clone())
                                     .expect("Failed to enter Long");
                                 info!("{:?}", res);
-                                account.set_active_order(Some(trade));
                                 info!(
                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -179,7 +182,7 @@ async fn main() {
                                     plpl
                                 );
                             }
-                            Some(active_order) => match active_order.side {
+                            Some(active_order) => match active_order.side() {
                                 Side::Long => {
                                     info!("Already Long, ignoring");
                                 }
@@ -204,7 +207,6 @@ async fn main() {
                                         .trade::<LimitOrderResponse>(trade.clone())
                                         .expect("Failed to enter Long");
                                     info!("{:?}", res);
-                                    account.set_active_order(Some(trade));
                                     info!(
                                         "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -242,7 +244,6 @@ async fn main() {
                                     .trade::<LimitOrderResponse>(trade.clone())
                                     .expect("Failed to enter Short");
                                 info!("{:?}", res);
-                                account.set_active_order(Some(trade));
                                 info!(
                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -252,7 +253,7 @@ async fn main() {
                                     plpl
                                 );
                             }
-                            Some(active_order) => match active_order.side {
+                            Some(active_order) => match active_order.side() {
                                 Side::Long => {
                                     info!("Close Long, enter Short");
                                     match account.cancel_all_active_orders() {
@@ -274,7 +275,6 @@ async fn main() {
                                         .trade::<LimitOrderResponse>(trade.clone())
                                         .expect("Failed to enter Short");
                                     info!("{:?}", res);
-                                    account.set_active_order(Some(trade));
                                     info!(
                                         "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -324,7 +324,6 @@ async fn main() {
                                     .trade::<LimitOrderResponse>(trade.clone())
                                     .expect("Failed to enter Long");
                                 info!("{:?}", res);
-                                account.set_active_order(Some(trade));
                                 info!(
                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -334,7 +333,7 @@ async fn main() {
                                     plpl
                                 );
                             }
-                            Some(active_order) => match active_order.side {
+                            Some(active_order) => match active_order.side() {
                                 Side::Long => {
                                     info!("Already Long, ignoring");
                                 }
@@ -359,7 +358,6 @@ async fn main() {
                                         .trade::<LimitOrderResponse>(trade.clone())
                                         .expect("Failed to enter Long");
                                     info!("{:?}", res);
-                                    account.set_active_order(Some(trade));
                                     info!(
                                         "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -397,7 +395,6 @@ async fn main() {
                                     .trade::<LimitOrderResponse>(trade.clone())
                                     .expect("Failed to enter Short");
                                 debug!("{:?}", res);
-                                account.set_active_order(Some(trade));
                                 info!(
                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -407,7 +404,7 @@ async fn main() {
                                     plpl
                                 );
                             }
-                            Some(active_order) => match active_order.side {
+                            Some(active_order) => match active_order.side() {
                                 Side::Long => {
                                     info!("Close Long, enter Short");
                                     match account.cancel_all_active_orders() {
@@ -429,7 +426,6 @@ async fn main() {
                                         .trade::<LimitOrderResponse>(trade.clone())
                                         .expect("Failed to enter Short");
                                     debug!("{:?}", res);
-                                    account.set_active_order(Some(trade));
                                     info!(
                                         "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,

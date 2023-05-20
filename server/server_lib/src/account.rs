@@ -14,7 +14,7 @@ pub struct Account {
     pub base_asset: String,
     pub quote_asset: String,
     pub ticker: String,
-    pub active_order: Option<BinanceTrade>,
+    pub active_order: Option<HistoricalOrder>,
 }
 
 impl Account {
@@ -44,10 +44,12 @@ impl Account {
     }
 
     /// Place a trade
-    pub fn trade<T: DeserializeOwned>(&self, trade: BinanceTrade) -> Result<T> {
+    pub fn trade<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
         let req = trade.request();
         debug!("Trade Request: {:?}", req);
-        self.client.post_signed::<T>(API::Spot(Spot::Order), req)
+        let res = self.client.post_signed::<T>(API::Spot(Spot::Order), req)?;
+        self.set_active_order()?;
+        Ok(res)
     }
 
     /// Get account info which includes token balances
@@ -99,12 +101,14 @@ impl Account {
     }
 
     /// Set current active trade to track quantity to exit trade
-    pub fn set_active_order(&mut self, trade: Option<BinanceTrade>) {
-        self.active_order = trade;
+    pub fn set_active_order(&mut self) -> Result<()> {
+        let last_order = self.last_order(self.ticker.clone())?;
+        self.active_order = last_order;
+        Ok(())
     }
 
     /// Get current active trade
-    pub fn get_active_order(&self) -> Option<BinanceTrade> {
+    pub fn get_active_order(&self) -> Option<HistoricalOrder> {
         self.active_order.clone()
     }
 }
