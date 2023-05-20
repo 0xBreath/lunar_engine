@@ -8,7 +8,7 @@ heroku buildpacks:set emk/rust
 ```
 Make sure a `Procfile` exists in the root directory with the following contents:
 ```shell
-web: target/release/server
+web: target/release/server_app
 ```
 The Heroku app should be set up to deploy with every push to `main` branch.
 If it does not, navigate to the Heroku website and manually deploy the app.

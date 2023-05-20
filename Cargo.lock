@@ -1620,7 +1620,9 @@ dependencies = [
  "chrono",
  "dataframe",
  "ephemeris",
+ "lazy_static",
  "log",
+ "server_lib",
  "simplelog",
  "time_series",
  "tokio",
@@ -1927,7 +1929,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "server"
+name = "server_app"
+version = "0.1.0"
+dependencies = [
+ "actix",
+ "actix-web",
+ "chrono",
+ "error-chain",
+ "futures",
+ "hex",
+ "hmac",
+ "lazy_static",
+ "log",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "server_lib",
+ "sha2",
+ "simplelog",
+ "time 0.3.17",
+ "time_series",
+ "tokio",
+ "tungstenite",
+ "url",
+]
+
+[[package]]
+name = "server_lib"
 version = "0.1.0"
 dependencies = [
  "actix",

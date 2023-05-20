@@ -24,4 +24,4 @@ runs:
       with:
         name: lunar-engine
         retention-days: 5
-        path: target/release/server
+        path: target/release/server_app

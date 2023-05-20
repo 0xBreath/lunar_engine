@@ -1,14 +1,8 @@
 [workspace]
 members = [
-    "bin/plpl",
-    "bin/fractals",
-    "bin/pfs_years",
-    "bin/hda",
-    "bin/hda_pfs",
-    "bin/pfs_months",
-    "bin/pfs_days",
+    "bin/*",
     "ephemeris",
     "time_series",
     "dataframe",
-    "server"
+    "server/*"
 ]

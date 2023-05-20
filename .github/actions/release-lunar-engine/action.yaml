@@ -12,7 +12,7 @@ runs:
 
     - name: Setting version variable
       shell: bash
-      run: echo "VER=$(cat server/Cargo.toml | grep -m 1 "^version" | cut -d"=" -f 2 | xargs )" >> $GITHUB_ENV
+      run: echo "VER=$(cat server_app/Cargo.toml | grep -m 1 "^version" | cut -d"=" -f 2 | xargs )" >> $GITHUB_ENV
 
     - name: Release
       uses: softprops/action-gh-release@v1

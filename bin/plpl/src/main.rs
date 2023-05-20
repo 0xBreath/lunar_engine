@@ -1,101 +1,521 @@
-use log::*;
-use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
-use time_series::*;
+#[macro_use]
+extern crate lazy_static;
+
 use ephemeris::*;
-use std::env;
+use log::*;
+use server_lib::*;
+use simplelog::{ColorChoice, Config as SimpleLogConfig, TermLogger, TerminalMode};
+use std::sync::atomic::AtomicBool;
+use std::sync::Mutex;
+use time_series::{Candle, Time};
+
+// Binance US API endpoint
+// Data returned in ascending order, oldest first
+// Timestamps are in milliseconds
+#[allow(dead_code)]
+const BINANCE_API: &str = "https://api.binance.us";
+
+// Binance Spot Test Network API credentials
+const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
+const BINANCE_TEST_API_KEY: &str =
+    "hrCcYjjRCW6jCCOVGiOOXve1UVLK8jbYd08WyKQjuUI63VNmcuR0EDBtDsrW9KBJ";
+const BINANCE_TEST_API_SECRET: &str =
+    "XGKu8AelLejzC6R5ZBWvbNzy4NC7d78ckU0sOJk3VeFRsWnJTajCfcFsArnPFEjP";
+
+lazy_static! {
+    static ref ACCOUNT: Mutex<Account> = Mutex::new(Account {
+        client: Client::new(
+            Some(BINANCE_TEST_API_KEY.to_string()),
+            Some(BINANCE_TEST_API_SECRET.to_string()),
+            BINANCE_TEST_API.to_string()
+        ),
+        recv_window: 5000,
+        base_asset: "BTC".to_string(),
+        quote_asset: "BUSD".to_string(),
+        ticker: "BTCBUSD".to_string(),
+        active_order: None
+    });
+}
 
 #[tokio::main]
 async fn main() {
     init_logger();
 
-    // planet data settings
-    let planet_input = env::var("PLANET").expect("PLANET not set");
-    let year = env::var("YEAR")
-      .expect("YEAR not set")
-      .parse::<i32>()
-      .expect("YEAR not a number");
-    let month = env::var("MONTH")
-      .expect("MONTH not set")
-      .parse::<u32>()
-      .expect("MONTH not a number");
-    let day = env::var("DAY")
-      .expect("DAY not set")
-      .parse::<u32>()
-      .expect("DAY not a number");
+    info!("Starting Binance PLPL!");
+    let config = Config::testnet();
+    let keep_running = AtomicBool::new(true);
 
-    let date = Time::new(year, &Month::from_num(month), &Day::from_num(day), None, None);
+    let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
+    let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
+    let mut account = ACCOUNT.lock().unwrap();
 
-    // PLPL trade signal inputs
-    let plpl_scale = env::var("PLPL_SCALE").expect("PLPL_SCALE not set")
-      .parse::<f32>()
-      .expect("Failed to parse PLPL_SCALE to float");
-    let cross_margin_pct = env::var("CROSS_MARGIN_PCT").expect("CROSS_MARGIN_PCT not set")
-      .parse::<f32>()
-      .expect("Failed to parse CROSS_MARGIN_PCT to float");
-
-    // trade settings
+    let trailing_stop = 0.95;
     #[allow(unused_variables)]
-    let stop_loss_pct = env::var("STOP_LOSS_PCT")
-      .expect("STOP_LOSS_PCT not set")
-      .parse::<f64>()
-      .expect("failed to parse stop loss pct to float");
+    let stop_loss_pct = 0.001;
+
+    let mut ws = WebSockets::new(|event: WebSocketEvent| {
+        if let WebSocketEvent::Kline(kline_event) = event {
+            let date = Time::from_unix_msec(kline_event.event_time as i64);
+
+            // initialize PLPL
+            let plpl_system = PLPLSystem::new(PLPLSystemConfig {
+                planet: Planet::from("Jupiter"),
+                origin: Origin::Heliocentric,
+                date,
+                plpl_scale: 0.5,
+                plpl_price: 20000.0,
+                num_plpls: 2000,
+                cross_margin_pct: 55.0,
+            })
+            .expect("Failed to create PLPLSystem");
+            debug!("PLPLSystem initialized");
+
+            let candle = Candle {
+                date,
+                open: kline_event
+                    .kline
+                    .open
+                    .parse::<f64>()
+                    .expect("Failed to parse Kline open to f64"),
+                high: kline_event
+                    .kline
+                    .high
+                    .parse::<f64>()
+                    .expect("Failed to parse Kline high to f64"),
+                low: kline_event
+                    .kline
+                    .low
+                    .parse::<f64>()
+                    .expect("Failed to parse Kline low to f64"),
+                close: kline_event
+                    .kline
+                    .close
+                    .parse::<f64>()
+                    .expect("Failed to parse Kline close to f64"),
+                volume: None,
+            };
+
+            // cache previous and current candle to assess PLPL trade conditions
+            let mut prev = prev_candle.lock().expect("Failed to lock previous candle");
+            let mut curr = curr_candle.lock().expect("Failed to lock current candle");
+            let plpl = plpl_system
+                .closest_plpl(&candle)
+                .expect("Failed to get closest plpl");
+
+            // get account balance for BTC and BUSD
+            // get account token balances
+            let account_info = account.account_info().expect("failed to get account info");
+            let busd_balance = account_info
+                .balances
+                .iter()
+                .find(|&x| x.asset == account.quote_asset)
+                .unwrap()
+                .free
+                .parse::<f64>()
+                .unwrap();
+            info!("BUSD balance: {}", busd_balance);
+            let btc_balance = account_info
+                .balances
+                .iter()
+                .find(|&x| x.asset == account.base_asset)
+                .unwrap()
+                .free
+                .parse::<f64>()
+                .unwrap();
+            info!("BTC balance: {}", btc_balance);
+            // get current price of symbol
+            info!("Current price: {}", candle.close);
+
+            // calculate quantity of base asset to trade
+            // Trade with $1000 or as close as the account can get
+            let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
+                btc_balance
+            } else {
+                BinanceTrade::round_quantity(1000.0 / candle.close)
+            };
+            let short_qty: f64 = if busd_balance < 1000.0 {
+                busd_balance
+            } else {
+                BinanceTrade::round_quantity(1000.0 / candle.close)
+            };
+
+            match (&*prev, &*curr) {
+                (None, None) => *prev = Some(candle),
+                (Some(prev_candle), None) => {
+                    *curr = Some(candle.clone());
+                    if plpl_system.long_signal(prev_candle, &candle, plpl) {
+                        // if position is Long, ignore
+                        // if position is Short, close short and open Long
+                        // if position is None, enter Long
+                        match account.get_active_order() {
+                            None => {
+                                info!("No active order, enter Long");
+                                match account.cancel_all_active_orders() {
+                                    Err(_) => {
+                                        warn!("No active orders to cancel");
+                                    }
+                                    Ok(_) => {
+                                        info!("All active orders canceled");
+                                    }
+                                }
+                                let trade = plpl_long(
+                                    account.ticker.clone(),
+                                    &candle,
+                                    trailing_stop,
+                                    stop_loss_pct,
+                                    long_qty,
+                                );
+                                let res = account
+                                    .trade::<LimitOrderResponse>(trade.clone())
+                                    .expect("Failed to enter Long");
+                                info!("{:?}", res);
+                                account.set_active_order(Some(trade));
+                                info!(
+                                    "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                    kline_event.kline.symbol,
+                                    date.to_string(),
+                                    prev_candle.close,
+                                    candle.close,
+                                    plpl
+                                );
+                            }
+                            Some(active_order) => match active_order.side {
+                                Side::Long => {
+                                    info!("Already Long, ignoring");
+                                }
+                                Side::Short => {
+                                    info!("Close Short, enter Long");
+                                    match account.cancel_all_active_orders() {
+                                        Err(_) => {
+                                            warn!("No active orders to cancel");
+                                        }
+                                        Ok(_) => {
+                                            info!("All active orders canceled");
+                                        }
+                                    }
+                                    let trade = plpl_long(
+                                        account.ticker.clone(),
+                                        &candle,
+                                        trailing_stop,
+                                        stop_loss_pct,
+                                        long_qty,
+                                    );
+                                    let res = account
+                                        .trade::<LimitOrderResponse>(trade.clone())
+                                        .expect("Failed to enter Long");
+                                    info!("{:?}", res);
+                                    account.set_active_order(Some(trade));
+                                    info!(
+                                        "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                        kline_event.kline.symbol,
+                                        date.to_string(),
+                                        prev_candle.close,
+                                        candle.close,
+                                        plpl
+                                    );
+                                }
+                            },
+                        }
+                    } else if plpl_system.short_signal(prev_candle, &candle, plpl) {
+                        // if position is Short, ignore
+                        // if position is Long, close long and open Short
+                        // if position is None, enter Short
+                        match account.get_active_order() {
+                            None => {
+                                info!("No active order, enter Short");
+                                match account.cancel_all_active_orders() {
+                                    Err(_) => {
+                                        warn!("No active orders to cancel");
+                                    }
+                                    Ok(_) => {
+                                        info!("All active orders canceled");
+                                    }
+                                }
+                                let trade = plpl_short(
+                                    account.ticker.clone(),
+                                    &candle,
+                                    trailing_stop,
+                                    stop_loss_pct,
+                                    short_qty,
+                                );
+                                let res = account
+                                    .trade::<LimitOrderResponse>(trade.clone())
+                                    .expect("Failed to enter Short");
+                                info!("{:?}", res);
+                                account.set_active_order(Some(trade));
+                                info!(
+                                    "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                    kline_event.kline.symbol,
+                                    date.to_string(),
+                                    prev_candle.close,
+                                    candle.close,
+                                    plpl
+                                );
+                            }
+                            Some(active_order) => match active_order.side {
+                                Side::Long => {
+                                    info!("Close Long, enter Short");
+                                    match account.cancel_all_active_orders() {
+                                        Err(_) => {
+                                            warn!("No active orders to cancel");
+                                        }
+                                        Ok(_) => {
+                                            info!("All active orders canceled");
+                                        }
+                                    }
+                                    let trade = plpl_short(
+                                        account.ticker.clone(),
+                                        &candle,
+                                        trailing_stop,
+                                        stop_loss_pct,
+                                        short_qty,
+                                    );
+                                    let res = account
+                                        .trade::<LimitOrderResponse>(trade.clone())
+                                        .expect("Failed to enter Short");
+                                    info!("{:?}", res);
+                                    account.set_active_order(Some(trade));
+                                    info!(
+                                        "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                        kline_event.kline.symbol,
+                                        date.to_string(),
+                                        prev_candle.close,
+                                        candle.close,
+                                        plpl
+                                    );
+                                }
+                                Side::Short => {
+                                    info!("Already Short, ignoring");
+                                }
+                            },
+                        }
+                    }
+                }
+                (None, Some(_)) => {
+                    error!(
+                        "Previous candle is None and current candle is Some. Should never occur!"
+                    );
+                    unreachable!()
+                }
+                (Some(_prev_candle), Some(curr_candle)) => {
+                    if plpl_system.long_signal(curr_candle, &candle, plpl) {
+                        // if position is Long, ignore
+                        // if position is Short, close short and enter Long
+                        // if position is None, enter Long
+                        match account.get_active_order() {
+                            None => {
+                                info!("No active order, enter Long");
+                                match account.cancel_all_active_orders() {
+                                    Err(_) => {
+                                        info!("No active orders to cancel");
+                                    }
+                                    Ok(_) => {
+                                        info!("All active orders canceled");
+                                    }
+                                }
+                                let trade = plpl_long(
+                                    account.ticker.clone(),
+                                    &candle,
+                                    trailing_stop,
+                                    stop_loss_pct,
+                                    long_qty,
+                                );
+                                let res = account
+                                    .trade::<LimitOrderResponse>(trade.clone())
+                                    .expect("Failed to enter Long");
+                                info!("{:?}", res);
+                                account.set_active_order(Some(trade));
+                                info!(
+                                    "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                    kline_event.kline.symbol,
+                                    date.to_string(),
+                                    curr_candle.close,
+                                    candle.close,
+                                    plpl
+                                );
+                            }
+                            Some(active_order) => match active_order.side {
+                                Side::Long => {
+                                    info!("Already Long, ignoring");
+                                }
+                                Side::Short => {
+                                    info!("Close Short, enter Long");
+                                    match account.cancel_all_active_orders() {
+                                        Err(_) => {
+                                            info!("No active orders to cancel");
+                                        }
+                                        Ok(_) => {
+                                            info!("All active orders canceled");
+                                        }
+                                    }
+                                    let trade = plpl_long(
+                                        account.ticker.clone(),
+                                        &candle,
+                                        trailing_stop,
+                                        stop_loss_pct,
+                                        long_qty,
+                                    );
+                                    let res = account
+                                        .trade::<LimitOrderResponse>(trade.clone())
+                                        .expect("Failed to enter Long");
+                                    info!("{:?}", res);
+                                    account.set_active_order(Some(trade));
+                                    info!(
+                                        "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                        kline_event.kline.symbol,
+                                        date.to_string(),
+                                        curr_candle.close,
+                                        candle.close,
+                                        plpl
+                                    );
+                                }
+                            },
+                        }
+                    } else if plpl_system.short_signal(curr_candle, &candle, plpl) {
+                        // if position is Short, ignore
+                        // if position is Long, close long and enter Short
+                        // if position is None, enter Short
+                        match account.get_active_order() {
+                            None => {
+                                info!("No active order, enter Short");
+                                match account.cancel_all_active_orders() {
+                                    Err(_) => {
+                                        info!("No active orders to cancel");
+                                    }
+                                    Ok(_) => {
+                                        info!("All active orders canceled");
+                                    }
+                                }
+                                let trade = plpl_short(
+                                    account.ticker.clone(),
+                                    &candle,
+                                    trailing_stop,
+                                    stop_loss_pct,
+                                    short_qty,
+                                );
+                                let res = account
+                                    .trade::<LimitOrderResponse>(trade.clone())
+                                    .expect("Failed to enter Short");
+                                debug!("{:?}", res);
+                                account.set_active_order(Some(trade));
+                                info!(
+                                    "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                    kline_event.kline.symbol,
+                                    date.to_string(),
+                                    curr_candle.close,
+                                    candle.close,
+                                    plpl
+                                );
+                            }
+                            Some(active_order) => match active_order.side {
+                                Side::Long => {
+                                    info!("Close Long, enter Short");
+                                    match account.cancel_all_active_orders() {
+                                        Err(_) => {
+                                            info!("No active orders to cancel");
+                                        }
+                                        Ok(_) => {
+                                            info!("All active orders canceled");
+                                        }
+                                    }
+                                    let trade = plpl_short(
+                                        account.ticker.clone(),
+                                        &candle,
+                                        trailing_stop,
+                                        stop_loss_pct,
+                                        short_qty,
+                                    );
+                                    let res = account
+                                        .trade::<LimitOrderResponse>(trade.clone())
+                                        .expect("Failed to enter Short");
+                                    debug!("{:?}", res);
+                                    account.set_active_order(Some(trade));
+                                    info!(
+                                        "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                        kline_event.kline.symbol,
+                                        date.to_string(),
+                                        curr_candle.close,
+                                        candle.close,
+                                        plpl
+                                    );
+                                }
+                                Side::Short => {
+                                    info!("Already Short, ignoring");
+                                }
+                            },
+                        }
+                    }
+                    *prev = Some(curr_candle.clone());
+                    *curr = Some(candle);
+                }
+            }
+        }
+        Ok(())
+    });
+    let sub = String::from("btcbusd@kline_5m");
+    ws.connect_with_config(&sub, &config)
+        .expect("failed to connect to binance");
+    if let Err(e) = ws.event_loop(&keep_running) {
+        println!("Binance websocket error: {}", e);
+    }
+    ws.disconnect().unwrap();
+    println!("Binance websocket disconnected");
+}
+
+fn plpl_long(
+    ticker: String,
+    candle: &Candle,
+    trailing_stop_pct: f64,
+    stop_loss_pct: f64,
+    qty: f64,
+) -> BinanceTrade {
     #[allow(unused_variables)]
-    let ts_type = env::var("TRAILING_STOP_USE_PCT")
-      .expect("TRAILING_STOP_USE_PCT not set")
-      .parse::<bool>()
-      .expect("failed to parse trailing stop type to bool");
+    let trailing_stop = BinanceTrade::bips_trailing_stop(trailing_stop_pct);
     #[allow(unused_variables)]
-    let ts = env::var("TRAILING_STOP")
-      .expect("TRAILING_STOP not set")
-      .parse::<f64>()
-      .expect("failed to parse trailing stop to float");
-
-    // BTCUSD ticker data file paths
-    let path_to_dir = env::var("PATH_TO_DIR").expect("PATH_TO_DIR not set");
+    let stop_loss = BinanceTrade::calc_stop_loss(Side::Long, candle.close, stop_loss_pct);
     #[allow(unused_variables)]
-    let btc_daily = path_to_dir.clone() + "/data/BTCUSD/input/BTC_daily.csv";
+    let limit = BinanceTrade::round_price(candle.close);
+    BinanceTrade::new(
+        ticker,
+        Side::Long,
+        OrderType::TakeProfitLimit,
+        qty,
+        Some(limit),
+        None,
+        Some(trailing_stop),
+    )
+}
+
+fn plpl_short(
+    ticker: String,
+    candle: &Candle,
+    trailing_stop_pct: f64,
+    stop_loss_pct: f64,
+    qty: f64,
+) -> BinanceTrade {
     #[allow(unused_variables)]
-    let btc_1h = path_to_dir.clone() + "/data/BTCUSD/input/BTC_1h.csv";
+    let trailing_stop = BinanceTrade::bips_trailing_stop(trailing_stop_pct);
     #[allow(unused_variables)]
-    let btc_5min = path_to_dir.clone() + "/data/BTCUSD/input/BTC_5min.csv";
-
-    // get planet longitude
-    let config = PLPLSystemConfig {
-        planet: Planet::from(&*planet_input),
-        origin: Origin::Heliocentric,
-        date,
-        plpl_scale,
-        plpl_price: 20000.0,
-        num_plpls: 2000,
-        cross_margin_pct
-    };
-    let plpl_system = PLPLSystem::new(config).expect("Failed to init PLPL");
-
-    let candle = Candle {
-        date,
-        open: 29628.0,
-        high: 29643.0,
-        low: 29579.0,
-        close: 29599.0,
-        volume: None,
-    };
-    let closest_plpl = plpl_system.closest_plpl(&candle).expect("Failed to get closest PLPL");
-    println!("Closest PLPL: {}, Close: {}", closest_plpl, candle.close);
-
-    // compute stop loss by percentage
-
-    // compute trailing stop by pips or percentage
-
-
-
+    let stop_loss = BinanceTrade::calc_stop_loss(Side::Short, candle.close, stop_loss_pct);
+    #[allow(unused_variables)]
+    let limit = BinanceTrade::round_price(candle.close);
+    BinanceTrade::new(
+        ticker,
+        Side::Short,
+        OrderType::TakeProfitLimit,
+        qty,
+        Some(limit),
+        None,
+        Some(trailing_stop),
+    )
 }
 
 pub fn init_logger() {
     TermLogger::init(
         LevelFilter::Info,
-        Config::default(),
+        SimpleLogConfig::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
     )
-      .expect("failed to initialize logger");
+    .expect("failed to initialize logger");
 }
