@@ -82,7 +82,7 @@ impl Account {
         let req = AllOrders::request(symbol);
         let orders = self
             .client
-            .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::OpenOrders), Some(req))?;
+            .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))?;
         // filter out orders that are not open
         let open_orders = orders
             .into_iter()

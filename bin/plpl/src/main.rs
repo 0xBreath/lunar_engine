@@ -31,8 +31,8 @@ lazy_static! {
         ),
         recv_window: 5000,
         base_asset: "BTC".to_string(),
-        quote_asset: "BUSD".to_string(),
-        ticker: "BTCBUSD".to_string(),
+        quote_asset: "USDT".to_string(),
+        ticker: "BTCUSDT".to_string(),
         active_order: None
     });
 }
@@ -170,7 +170,7 @@ async fn main() {
                                     long_qty,
                                 );
                                 let res = account
-                                    .trade::<LimitOrderResponse>(trade.clone())
+                                    .trade::<LimitOrderResponse>(trade)
                                     .expect("Failed to enter Long");
                                 info!("{:?}", res);
                                 info!(
@@ -204,7 +204,7 @@ async fn main() {
                                         long_qty,
                                     );
                                     let res = account
-                                        .trade::<LimitOrderResponse>(trade.clone())
+                                        .trade::<LimitOrderResponse>(trade)
                                         .expect("Failed to enter Long");
                                     info!("{:?}", res);
                                     info!(
@@ -241,7 +241,7 @@ async fn main() {
                                     short_qty,
                                 );
                                 let res = account
-                                    .trade::<LimitOrderResponse>(trade.clone())
+                                    .trade::<LimitOrderResponse>(trade)
                                     .expect("Failed to enter Short");
                                 info!("{:?}", res);
                                 info!(
@@ -272,7 +272,7 @@ async fn main() {
                                         short_qty,
                                     );
                                     let res = account
-                                        .trade::<LimitOrderResponse>(trade.clone())
+                                        .trade::<LimitOrderResponse>(trade)
                                         .expect("Failed to enter Short");
                                     info!("{:?}", res);
                                     info!(
@@ -321,7 +321,7 @@ async fn main() {
                                     long_qty,
                                 );
                                 let res = account
-                                    .trade::<LimitOrderResponse>(trade.clone())
+                                    .trade::<LimitOrderResponse>(trade)
                                     .expect("Failed to enter Long");
                                 info!("{:?}", res);
                                 info!(
@@ -355,7 +355,7 @@ async fn main() {
                                         long_qty,
                                     );
                                     let res = account
-                                        .trade::<LimitOrderResponse>(trade.clone())
+                                        .trade::<LimitOrderResponse>(trade)
                                         .expect("Failed to enter Long");
                                     info!("{:?}", res);
                                     info!(
@@ -392,7 +392,7 @@ async fn main() {
                                     short_qty,
                                 );
                                 let res = account
-                                    .trade::<LimitOrderResponse>(trade.clone())
+                                    .trade::<LimitOrderResponse>(trade)
                                     .expect("Failed to enter Short");
                                 debug!("{:?}", res);
                                 info!(
@@ -423,7 +423,7 @@ async fn main() {
                                         short_qty,
                                     );
                                     let res = account
-                                        .trade::<LimitOrderResponse>(trade.clone())
+                                        .trade::<LimitOrderResponse>(trade)
                                         .expect("Failed to enter Short");
                                     debug!("{:?}", res);
                                     info!(
@@ -465,11 +465,8 @@ fn plpl_long(
     stop_loss_pct: f64,
     qty: f64,
 ) -> BinanceTrade {
-    #[allow(unused_variables)]
     let trailing_stop = BinanceTrade::bips_trailing_stop(trailing_stop_pct);
-    #[allow(unused_variables)]
     let stop_loss = BinanceTrade::calc_stop_loss(Side::Long, candle.close, stop_loss_pct);
-    #[allow(unused_variables)]
     let limit = BinanceTrade::round_price(candle.close);
     BinanceTrade::new(
         ticker,
@@ -477,7 +474,7 @@ fn plpl_long(
         OrderType::TakeProfitLimit,
         qty,
         Some(limit),
-        None,
+        Some(stop_loss),
         Some(trailing_stop),
     )
 }
@@ -489,11 +486,8 @@ fn plpl_short(
     stop_loss_pct: f64,
     qty: f64,
 ) -> BinanceTrade {
-    #[allow(unused_variables)]
     let trailing_stop = BinanceTrade::bips_trailing_stop(trailing_stop_pct);
-    #[allow(unused_variables)]
     let stop_loss = BinanceTrade::calc_stop_loss(Side::Short, candle.close, stop_loss_pct);
-    #[allow(unused_variables)]
     let limit = BinanceTrade::round_price(candle.close);
     BinanceTrade::new(
         ticker,
@@ -501,7 +495,7 @@ fn plpl_short(
         OrderType::TakeProfitLimit,
         qty,
         Some(limit),
-        None,
+        Some(stop_loss),
         Some(trailing_stop),
     )
 }
