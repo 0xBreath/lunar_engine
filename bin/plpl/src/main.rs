@@ -477,6 +477,15 @@ async fn main() -> Result<()> {
         }
         None => error!("Stream terminated before receiving SIGTERM signal"),
     }
+    let mut sigquit = signal(SignalKind::quit())?;
+    match sigquit.recv().await {
+        Some(()) => {
+            warn!("Received SIGQUIT signal");
+            ws.disconnect()
+                .expect("Failed to disconnect from Binance websocket");
+        }
+        None => error!("Stream terminated before receiving SIGQUIT signal"),
+    }
 
     ws.disconnect()
         .expect("Failed to disconnect from Binance websocket");
