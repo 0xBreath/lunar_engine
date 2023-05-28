@@ -119,7 +119,16 @@ async fn main() -> Result<()> {
                 .free
                 .parse::<f64>()
                 .unwrap();
-            info!("BUSD balance: {}", busd_balance);
+            info!("BUSD balance free: {}", busd_balance);
+            let busd_balance_locked = account_info
+                .balances
+                .iter()
+                .find(|&x| x.asset == account.quote_asset)
+                .unwrap()
+                .locked
+                .parse::<f64>()
+                .unwrap();
+            info!("BUSD balance locked: {}", busd_balance_locked);
             let btc_balance = account_info
                 .balances
                 .iter()
@@ -128,7 +137,16 @@ async fn main() -> Result<()> {
                 .free
                 .parse::<f64>()
                 .unwrap();
-            info!("BTC balance: {}", btc_balance);
+            info!("BTC balance free: {}", btc_balance);
+            let btc_balance_locked = account_info
+                .balances
+                .iter()
+                .find(|&x| x.asset == account.base_asset)
+                .unwrap()
+                .locked
+                .parse::<f64>()
+                .unwrap();
+            info!("BTC balance locked: {}", btc_balance_locked);
             // get current price of symbol
             info!("Current price: {}", candle.close);
 
