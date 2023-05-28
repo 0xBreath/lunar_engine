@@ -1601,6 +1601,7 @@ dependencies = [
 name = "plpl"
 version = "0.1.0"
 dependencies = [
+ "actix-web",
  "chrono",
  "ephemeris",
  "lazy_static",
@@ -1915,7 +1916,6 @@ dependencies = [
 name = "server_app"
 version = "0.1.0"
 dependencies = [
- "actix",
  "actix-web",
  "chrono",
  "error-chain",

@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+use actix_web::{App, HttpServer};
 use ephemeris::*;
 use log::*;
 use server_lib::*;
@@ -38,8 +39,14 @@ lazy_static! {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> std::io::Result<()> {
     init_logger();
+
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let bind_address = format!("0.0.0.0:{}", port);
+    HttpServer::new(App::new)
+        .bind(bind_address)
+        .expect("Failed to bind to port");
 
     info!("Starting Binance PLPL!");
     let config = Config::testnet();
@@ -456,6 +463,7 @@ async fn main() {
     }
     ws.disconnect().unwrap();
     println!("Binance websocket disconnected");
+    Ok(())
 }
 
 fn plpl_long(
