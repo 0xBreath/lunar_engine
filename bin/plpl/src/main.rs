@@ -32,8 +32,8 @@ lazy_static! {
         ),
         recv_window: 5000,
         base_asset: "BTC".to_string(),
-        quote_asset: "USDT".to_string(),
-        ticker: "BTCUSDT".to_string(),
+        quote_asset: "BUSD".to_string(),
+        ticker: "BTCBUSD".to_string(),
         active_order: None
     });
 }
@@ -44,9 +44,9 @@ async fn main() -> std::io::Result<()> {
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let bind_address = format!("0.0.0.0:{}", port);
-    HttpServer::new(App::new)
-        .bind(bind_address)
-        .expect("Failed to bind to port");
+
+    info!("Starting Server...");
+    HttpServer::new(App::new).bind(bind_address)?.run().await?;
 
     info!("Starting Binance PLPL!");
     let config = Config::testnet();
@@ -457,12 +457,14 @@ async fn main() -> std::io::Result<()> {
     });
     let sub = String::from("btcbusd@kline_5m");
     ws.connect_with_config(&sub, &config)
-        .expect("failed to connect to binance");
+        .expect("Failed to connect to Binance websocket");
+    info!("Binance websocket connected");
     if let Err(e) = ws.event_loop(&keep_running) {
-        println!("Binance websocket error: {}", e);
+        info!("Binance websocket error: {}", e);
     }
-    ws.disconnect().unwrap();
-    println!("Binance websocket disconnected");
+    ws.disconnect()
+        .expect("Failed to disconnect from Binance websocket");
+    info!("Binance websocket disconnected");
     Ok(())
 }
 
