@@ -171,9 +171,11 @@ async fn main() -> Result<()> {
                                     stop_loss_pct,
                                     long_qty,
                                 );
-                                let res = account
-                                    .trade::<LimitOrderResponse>(trade)
-                                    .expect("Failed to enter Long");
+                                let res = account.trade::<LimitOrderResponse>(trade);
+                                if let Err(e) = res {
+                                    error!("Failed to enter Long: {}", e);
+                                    return Err(e);
+                                }
                                 info!("{:?}", res);
                                 info!(
                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
@@ -205,9 +207,11 @@ async fn main() -> Result<()> {
                                         stop_loss_pct,
                                         long_qty,
                                     );
-                                    let res = account
-                                        .trade::<LimitOrderResponse>(trade)
-                                        .expect("Failed to enter Long");
+                                    let res = account.trade::<LimitOrderResponse>(trade);
+                                    if let Err(e) = res {
+                                        error!("Failed to enter Long: {}", e);
+                                        return Err(e);
+                                    }
                                     info!("{:?}", res);
                                     info!(
                                         "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
@@ -242,9 +246,11 @@ async fn main() -> Result<()> {
                                     stop_loss_pct,
                                     short_qty,
                                 );
-                                let res = account
-                                    .trade::<LimitOrderResponse>(trade)
-                                    .expect("Failed to enter Short");
+                                let res = account.trade::<LimitOrderResponse>(trade);
+                                if let Err(e) = res {
+                                    error!("Failed to enter Short: {}", e);
+                                    return Err(e);
+                                }
                                 info!("{:?}", res);
                                 info!(
                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
@@ -273,9 +279,11 @@ async fn main() -> Result<()> {
                                         stop_loss_pct,
                                         short_qty,
                                     );
-                                    let res = account
-                                        .trade::<LimitOrderResponse>(trade)
-                                        .expect("Failed to enter Short");
+                                    let res = account.trade::<LimitOrderResponse>(trade);
+                                    if let Err(e) = res {
+                                        error!("Failed to enter Short: {}", e);
+                                        return Err(e);
+                                    }
                                     info!("{:?}", res);
                                     info!(
                                         "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
@@ -322,9 +330,11 @@ async fn main() -> Result<()> {
                                     stop_loss_pct,
                                     long_qty,
                                 );
-                                let res = account
-                                    .trade::<LimitOrderResponse>(trade)
-                                    .expect("Failed to enter Long");
+                                let res = account.trade::<LimitOrderResponse>(trade);
+                                if let Err(e) = res {
+                                    error!("Failed to enter Long: {}", e);
+                                    return Err(e);
+                                }
                                 info!("{:?}", res);
                                 info!(
                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
@@ -356,9 +366,11 @@ async fn main() -> Result<()> {
                                         stop_loss_pct,
                                         long_qty,
                                     );
-                                    let res = account
-                                        .trade::<LimitOrderResponse>(trade)
-                                        .expect("Failed to enter Long");
+                                    let res = account.trade::<LimitOrderResponse>(trade);
+                                    if let Err(e) = res {
+                                        error!("Failed to enter Long: {}", e);
+                                        return Err(e);
+                                    }
                                     info!("{:?}", res);
                                     info!(
                                         "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
@@ -393,9 +405,11 @@ async fn main() -> Result<()> {
                                     stop_loss_pct,
                                     short_qty,
                                 );
-                                let res = account
-                                    .trade::<LimitOrderResponse>(trade)
-                                    .expect("Failed to enter Short");
+                                let res = account.trade::<LimitOrderResponse>(trade);
+                                if let Err(e) = res {
+                                    error!("Failed to enter Short: {}", e);
+                                    return Err(e);
+                                }
                                 debug!("{:?}", res);
                                 info!(
                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
@@ -424,9 +438,11 @@ async fn main() -> Result<()> {
                                         stop_loss_pct,
                                         short_qty,
                                     );
-                                    let res = account
-                                        .trade::<LimitOrderResponse>(trade)
-                                        .expect("Failed to enter Short");
+                                    let res = account.trade::<LimitOrderResponse>(trade);
+                                    if let Err(e) = res {
+                                        error!("Failed to enter Short: {}", e);
+                                        return Err(e);
+                                    }
                                     debug!("{:?}", res);
                                     info!(
                                         "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
