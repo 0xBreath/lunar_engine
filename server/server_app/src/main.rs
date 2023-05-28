@@ -29,8 +29,8 @@ lazy_static! {
         ),
         recv_window: 5000,
         base_asset: "BTC".to_string(),
-        quote_asset: "USDT".to_string(),
-        ticker: "BTCUSDT".to_string(),
+        quote_asset: "BUSD".to_string(),
+        ticker: "BTCBUSD".to_string(),
         active_order: None
     });
 }

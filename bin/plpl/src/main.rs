@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-use actix_web::{get, App, Error as HttpError, HttpResponse, HttpServer, Result};
+use actix_web::{get, web, App, Error as HttpError, HttpResponse, HttpServer, Responder, Result};
 use ephemeris::*;
 use log::*;
 use server_lib::*;
@@ -46,10 +46,14 @@ async fn main() -> std::io::Result<()> {
     let bind_address = format!("0.0.0.0:{}", port);
 
     info!("Starting Server...");
-    HttpServer::new(|| App::new().service(run_plpl))
+    HttpServer::new(|| App::new().service(run_plpl).route("/", web::get().to(test)))
         .bind(bind_address)?
         .run()
         .await
+}
+
+async fn test() -> impl Responder {
+    HttpResponse::Ok().body("Server is running...")
 }
 
 #[get("/plpl")]
@@ -471,7 +475,7 @@ async fn run_plpl() -> Result<HttpResponse, HttpError> {
     ws.disconnect()
         .expect("Failed to disconnect from Binance websocket");
     info!("Binance websocket disconnected");
-    Ok(HttpResponse::Ok().body("Ok"))
+    Ok(HttpResponse::Ok().body("Binance PLPL is running..."))
 }
 
 fn plpl_long(
