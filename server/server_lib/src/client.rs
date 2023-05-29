@@ -2,7 +2,7 @@ use crate::api::API;
 use crate::errors::{BinanceContentError, ErrorKind, Result};
 use hex::encode as hex_encode;
 use hmac::{Hmac, Mac};
-use log::info;
+use log::{error, info};
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use serde::de::DeserializeOwned;
@@ -151,6 +151,7 @@ impl Client {
             Ok(response.json::<T>()?)
         } else {
             let error: BinanceContentError = response.json()?;
+            error!("Error: {:?}", error);
             Err(ErrorKind::BinanceError(error).into())
         }
     }

@@ -175,7 +175,7 @@ async fn main() -> Result<()> {
                                 info!("No active order, enter Long");
                                 match account.cancel_all_active_orders() {
                                     Err(_) => {
-                                        warn!("No active orders to cancel");
+                                        warn!("No active orders to cancel")
                                     }
                                     Ok(_) => {
                                         info!("All active orders canceled");
@@ -193,7 +193,6 @@ async fn main() -> Result<()> {
                                     error!("Failed to enter Long: {}", e);
                                     // return Err(e);
                                 }
-                                debug!("{:?}", res);
                                 info!(
                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -229,7 +228,6 @@ async fn main() -> Result<()> {
                                         error!("Failed to enter Long: {}", e);
                                         // return Err(e);
                                     }
-                                    debug!("{:?}", res);
                                     info!(
                                         "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -268,7 +266,6 @@ async fn main() -> Result<()> {
                                     error!("Failed to enter Short: {}", e);
                                     // return Err(e);
                                 }
-                                debug!("{:?}", res);
                                 info!(
                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -301,7 +298,6 @@ async fn main() -> Result<()> {
                                         error!("Failed to enter Short: {}", e);
                                         // return Err(e);
                                     }
-                                    debug!("{:?}", res);
                                     info!(
                                         "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -352,7 +348,6 @@ async fn main() -> Result<()> {
                                     error!("Failed to enter Long: {}", e);
                                     // return Err(e);
                                 }
-                                debug!("{:?}", res);
                                 info!(
                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -388,7 +383,6 @@ async fn main() -> Result<()> {
                                         error!("Failed to enter Long: {}", e);
                                         // return Err(e);
                                     }
-                                    debug!("{:?}", res);
                                     info!(
                                         "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -427,7 +421,6 @@ async fn main() -> Result<()> {
                                     error!("Failed to enter Short: {}", e);
                                     // return Err(e);
                                 }
-                                debug!("{:?}", res);
                                 info!(
                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -460,7 +453,6 @@ async fn main() -> Result<()> {
                                         error!("Failed to enter Short: {}", e);
                                         // return Err(e);
                                     }
-                                    debug!("{:?}", res);
                                     info!(
                                         "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -575,5 +567,5 @@ pub fn init_logger() {
         TerminalMode::Mixed,
         ColorChoice::Auto,
     )
-    .expect("failed to initialize logger");
+    .expect("Failed to initialize logger");
 }
