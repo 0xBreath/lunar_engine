@@ -473,6 +473,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
+        warn!("returning Ok");
         Ok(())
     });
     let sub = String::from("btcbusd@kline_5m");
