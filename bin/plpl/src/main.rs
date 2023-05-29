@@ -193,7 +193,7 @@ async fn main() -> Result<()> {
                                     error!("Failed to enter Long: {}", e);
                                     // return Err(e);
                                 }
-                                info!("{:?}", res);
+                                debug!("{:?}", res);
                                 info!(
                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -229,7 +229,7 @@ async fn main() -> Result<()> {
                                         error!("Failed to enter Long: {}", e);
                                         // return Err(e);
                                     }
-                                    info!("{:?}", res);
+                                    debug!("{:?}", res);
                                     info!(
                                         "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
