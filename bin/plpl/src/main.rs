@@ -189,18 +189,22 @@ async fn main() -> Result<()> {
                                     long_qty,
                                 );
                                 let res = account.trade::<LimitOrderResponse>(trade);
-                                if let Err(e) = &res {
-                                    error!("Failed to enter Long: {}", e);
-                                    // return Err(e);
-                                }
-                                info!(
-                                    "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                    kline_event.kline.symbol,
-                                    date.to_string(),
-                                    prev_candle.close,
-                                    candle.close,
-                                    plpl
-                                );
+                                match res {
+                                    Err(e) => {
+                                        error!("Failed to enter Long: {}", e);
+                                    }
+                                    Ok(res) => {
+                                        debug!("{:?}", res);
+                                        info!(
+                                            "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                            kline_event.kline.symbol,
+                                            date.to_string(),
+                                            prev_candle.close,
+                                            candle.close,
+                                            plpl
+                                        );
+                                    }
+                                };
                             }
                             Some(active_order) => match active_order.side() {
                                 Side::Long => {
@@ -224,18 +228,22 @@ async fn main() -> Result<()> {
                                         long_qty,
                                     );
                                     let res = account.trade::<LimitOrderResponse>(trade);
-                                    if let Err(e) = &res {
-                                        error!("Failed to enter Long: {}", e);
-                                        // return Err(e);
-                                    }
-                                    info!(
-                                        "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                        kline_event.kline.symbol,
-                                        date.to_string(),
-                                        prev_candle.close,
-                                        candle.close,
-                                        plpl
-                                    );
+                                    match res {
+                                        Err(e) => {
+                                            error!("Failed to enter Long: {}", e);
+                                        }
+                                        Ok(res) => {
+                                            debug!("{:?}", res);
+                                            info!(
+                                                "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                kline_event.kline.symbol,
+                                                date.to_string(),
+                                                prev_candle.close,
+                                                candle.close,
+                                                plpl
+                                            );
+                                        }
+                                    };
                                 }
                             },
                         }
@@ -262,18 +270,22 @@ async fn main() -> Result<()> {
                                     short_qty,
                                 );
                                 let res = account.trade::<LimitOrderResponse>(trade);
-                                if let Err(e) = &res {
-                                    error!("Failed to enter Short: {}", e);
-                                    // return Err(e);
-                                }
-                                info!(
-                                    "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                    kline_event.kline.symbol,
-                                    date.to_string(),
-                                    prev_candle.close,
-                                    candle.close,
-                                    plpl
-                                );
+                                match res {
+                                    Err(e) => {
+                                        error!("Failed to enter Short: {}", e);
+                                    }
+                                    Ok(res) => {
+                                        debug!("{:?}", res);
+                                        info!(
+                                            "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                            kline_event.kline.symbol,
+                                            date.to_string(),
+                                            prev_candle.close,
+                                            candle.close,
+                                            plpl
+                                        );
+                                    }
+                                };
                             }
                             Some(active_order) => match active_order.side() {
                                 Side::Long => {
@@ -294,18 +306,22 @@ async fn main() -> Result<()> {
                                         short_qty,
                                     );
                                     let res = account.trade::<LimitOrderResponse>(trade);
-                                    if let Err(e) = &res {
-                                        error!("Failed to enter Short: {}", e);
-                                        // return Err(e);
-                                    }
-                                    info!(
-                                        "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                        kline_event.kline.symbol,
-                                        date.to_string(),
-                                        prev_candle.close,
-                                        candle.close,
-                                        plpl
-                                    );
+                                    match res {
+                                        Err(e) => {
+                                            error!("Failed to enter Short: {}", e);
+                                        }
+                                        Ok(res) => {
+                                            debug!("{:?}", res);
+                                            info!(
+                                                "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                kline_event.kline.symbol,
+                                                date.to_string(),
+                                                prev_candle.close,
+                                                candle.close,
+                                                plpl
+                                            );
+                                        }
+                                    };
                                 }
                                 Side::Short => {
                                     info!("Already Short, ignoring");
@@ -344,18 +360,22 @@ async fn main() -> Result<()> {
                                     long_qty,
                                 );
                                 let res = account.trade::<LimitOrderResponse>(trade);
-                                if let Err(e) = &res {
-                                    error!("Failed to enter Long: {}", e);
-                                    // return Err(e);
-                                }
-                                info!(
-                                    "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                    kline_event.kline.symbol,
-                                    date.to_string(),
-                                    curr_candle.close,
-                                    candle.close,
-                                    plpl
-                                );
+                                match res {
+                                    Err(e) => {
+                                        error!("Failed to enter Long: {}", e);
+                                    }
+                                    Ok(res) => {
+                                        debug!("{:?}", res);
+                                        info!(
+                                            "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                            kline_event.kline.symbol,
+                                            date.to_string(),
+                                            curr_candle.close,
+                                            candle.close,
+                                            plpl
+                                        );
+                                    }
+                                };
                             }
                             Some(active_order) => match active_order.side() {
                                 Side::Long => {
@@ -379,18 +399,22 @@ async fn main() -> Result<()> {
                                         long_qty,
                                     );
                                     let res = account.trade::<LimitOrderResponse>(trade);
-                                    if let Err(e) = &res {
-                                        error!("Failed to enter Long: {}", e);
-                                        // return Err(e);
-                                    }
-                                    info!(
-                                        "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                        kline_event.kline.symbol,
-                                        date.to_string(),
-                                        curr_candle.close,
-                                        candle.close,
-                                        plpl
-                                    );
+                                    match res {
+                                        Err(e) => {
+                                            error!("Failed to enter Long: {}", e);
+                                        }
+                                        Ok(res) => {
+                                            debug!("{:?}", res);
+                                            info!(
+                                                "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                kline_event.kline.symbol,
+                                                date.to_string(),
+                                                curr_candle.close,
+                                                candle.close,
+                                                plpl
+                                            );
+                                        }
+                                    };
                                 }
                             },
                         }
@@ -417,18 +441,22 @@ async fn main() -> Result<()> {
                                     short_qty,
                                 );
                                 let res = account.trade::<LimitOrderResponse>(trade);
-                                if let Err(e) = &res {
-                                    error!("Failed to enter Short: {}", e);
-                                    // return Err(e);
-                                }
-                                info!(
-                                    "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                    kline_event.kline.symbol,
-                                    date.to_string(),
-                                    curr_candle.close,
-                                    candle.close,
-                                    plpl
-                                );
+                                match res {
+                                    Err(e) => {
+                                        error!("Failed to enter Short: {}", e);
+                                    }
+                                    Ok(res) => {
+                                        debug!("{:?}", res);
+                                        info!(
+                                            "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                            kline_event.kline.symbol,
+                                            date.to_string(),
+                                            curr_candle.close,
+                                            candle.close,
+                                            plpl
+                                        );
+                                    }
+                                };
                             }
                             Some(active_order) => match active_order.side() {
                                 Side::Long => {
@@ -449,18 +477,22 @@ async fn main() -> Result<()> {
                                         short_qty,
                                     );
                                     let res = account.trade::<LimitOrderResponse>(trade);
-                                    if let Err(e) = &res {
-                                        error!("Failed to enter Short: {}", e);
-                                        // return Err(e);
-                                    }
-                                    info!(
-                                        "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                        kline_event.kline.symbol,
-                                        date.to_string(),
-                                        curr_candle.close,
-                                        candle.close,
-                                        plpl
-                                    );
+                                    match res {
+                                        Err(e) => {
+                                            error!("Failed to enter Short: {}", e);
+                                        }
+                                        Ok(res) => {
+                                            debug!("{:?}", res);
+                                            info!(
+                                                "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                kline_event.kline.symbol,
+                                                date.to_string(),
+                                                curr_candle.close,
+                                                candle.close,
+                                                plpl
+                                            );
+                                        }
+                                    };
                                 }
                                 Side::Short => {
                                     info!("Already Short, ignoring");

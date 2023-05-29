@@ -50,7 +50,6 @@ impl Client {
         let client = &self.inner_client;
         let request = client.post(url.as_str()).headers(self.build_headers(true)?);
         let response = request.send()?;
-        info!("pre-handler response: {:?}", response);
         self.handler(response)
     }
 
@@ -152,7 +151,6 @@ impl Client {
             Ok(response.json::<T>()?)
         } else {
             let error: BinanceContentError = response.json()?;
-            error!("Error: {:?}", error);
             Err(ErrorKind::BinanceError(error).into())
         }
     }
