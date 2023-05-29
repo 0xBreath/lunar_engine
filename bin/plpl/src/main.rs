@@ -39,6 +39,56 @@ lazy_static! {
     });
 }
 
+fn kline_to_candle(kline_event: &KlineEvent) -> Candle {
+    let date = Time::from_unix_msec(kline_event.event_time as i64);
+    Candle {
+        date,
+        open: kline_event
+            .kline
+            .open
+            .parse::<f64>()
+            .expect("Failed to parse Kline open to f64"),
+        high: kline_event
+            .kline
+            .high
+            .parse::<f64>()
+            .expect("Failed to parse Kline high to f64"),
+        low: kline_event
+            .kline
+            .low
+            .parse::<f64>()
+            .expect("Failed to parse Kline low to f64"),
+        close: kline_event
+            .kline
+            .close
+            .parse::<f64>()
+            .expect("Failed to parse Kline close to f64"),
+        volume: None,
+    }
+}
+
+fn free_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
+    account_info
+        .balances
+        .iter()
+        .find(|&x| x.asset == asset)
+        .unwrap()
+        .free
+        .parse::<f64>()
+        .unwrap()
+}
+
+fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
+    account_info
+        .balances
+        .iter()
+        .find(|&x| x.asset == asset)
+        .unwrap()
+        .locked
+        .parse::<f64>()
+        .unwrap()
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     init_logger();
@@ -76,30 +126,7 @@ async fn main() -> Result<()> {
             .expect("Failed to create PLPLSystem");
             debug!("PLPLSystem initialized");
 
-            let candle = Candle {
-                date,
-                open: kline_event
-                    .kline
-                    .open
-                    .parse::<f64>()
-                    .expect("Failed to parse Kline open to f64"),
-                high: kline_event
-                    .kline
-                    .high
-                    .parse::<f64>()
-                    .expect("Failed to parse Kline high to f64"),
-                low: kline_event
-                    .kline
-                    .low
-                    .parse::<f64>()
-                    .expect("Failed to parse Kline low to f64"),
-                close: kline_event
-                    .kline
-                    .close
-                    .parse::<f64>()
-                    .expect("Failed to parse Kline close to f64"),
-                volume: None,
-            };
+            let candle = kline_to_candle(&kline_event);
 
             // cache previous and current candle to assess PLPL trade conditions
             let mut prev = prev_candle.lock().expect("Failed to lock previous candle");
@@ -111,41 +138,13 @@ async fn main() -> Result<()> {
             // get account balance for BTC and BUSD
             // get account token balances
             let account_info = account.account_info().expect("failed to get account info");
-            let busd_balance = account_info
-                .balances
-                .iter()
-                .find(|&x| x.asset == account.quote_asset)
-                .unwrap()
-                .free
-                .parse::<f64>()
-                .unwrap();
+            let busd_balance = free_asset(&account_info, &account.quote_asset);
             info!("BUSD balance free: {}", busd_balance);
-            let busd_balance_locked = account_info
-                .balances
-                .iter()
-                .find(|&x| x.asset == account.quote_asset)
-                .unwrap()
-                .locked
-                .parse::<f64>()
-                .unwrap();
+            let busd_balance_locked = locked_asset(&account_info, &account.quote_asset);
             info!("BUSD balance locked: {}", busd_balance_locked);
-            let btc_balance = account_info
-                .balances
-                .iter()
-                .find(|&x| x.asset == account.base_asset)
-                .unwrap()
-                .free
-                .parse::<f64>()
-                .unwrap();
+            let btc_balance = free_asset(&account_info, &account.base_asset);
             info!("BTC balance free: {}", btc_balance);
-            let btc_balance_locked = account_info
-                .balances
-                .iter()
-                .find(|&x| x.asset == account.base_asset)
-                .unwrap()
-                .locked
-                .parse::<f64>()
-                .unwrap();
+            let btc_balance_locked = locked_asset(&account_info, &account.base_asset);
             info!("BTC balance locked: {}", btc_balance_locked);
             // get current price of symbol
             info!("Current price: {}", candle.close);
@@ -190,9 +189,9 @@ async fn main() -> Result<()> {
                                     long_qty,
                                 );
                                 let res = account.trade::<LimitOrderResponse>(trade);
-                                if let Err(e) = res {
+                                if let Err(e) = &res {
                                     error!("Failed to enter Long: {}", e);
-                                    return Err(e);
+                                    // return Err(e);
                                 }
                                 info!("{:?}", res);
                                 info!(
@@ -226,9 +225,9 @@ async fn main() -> Result<()> {
                                         long_qty,
                                     );
                                     let res = account.trade::<LimitOrderResponse>(trade);
-                                    if let Err(e) = res {
+                                    if let Err(e) = &res {
                                         error!("Failed to enter Long: {}", e);
-                                        return Err(e);
+                                        // return Err(e);
                                     }
                                     info!("{:?}", res);
                                     info!(
@@ -265,11 +264,11 @@ async fn main() -> Result<()> {
                                     short_qty,
                                 );
                                 let res = account.trade::<LimitOrderResponse>(trade);
-                                if let Err(e) = res {
+                                if let Err(e) = &res {
                                     error!("Failed to enter Short: {}", e);
-                                    return Err(e);
+                                    // return Err(e);
                                 }
-                                info!("{:?}", res);
+                                debug!("{:?}", res);
                                 info!(
                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -298,11 +297,11 @@ async fn main() -> Result<()> {
                                         short_qty,
                                     );
                                     let res = account.trade::<LimitOrderResponse>(trade);
-                                    if let Err(e) = res {
+                                    if let Err(e) = &res {
                                         error!("Failed to enter Short: {}", e);
-                                        return Err(e);
+                                        // return Err(e);
                                     }
-                                    info!("{:?}", res);
+                                    debug!("{:?}", res);
                                     info!(
                                         "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -349,11 +348,11 @@ async fn main() -> Result<()> {
                                     long_qty,
                                 );
                                 let res = account.trade::<LimitOrderResponse>(trade);
-                                if let Err(e) = res {
+                                if let Err(e) = &res {
                                     error!("Failed to enter Long: {}", e);
-                                    return Err(e);
+                                    // return Err(e);
                                 }
-                                info!("{:?}", res);
+                                debug!("{:?}", res);
                                 info!(
                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                     kline_event.kline.symbol,
@@ -385,11 +384,11 @@ async fn main() -> Result<()> {
                                         long_qty,
                                     );
                                     let res = account.trade::<LimitOrderResponse>(trade);
-                                    if let Err(e) = res {
+                                    if let Err(e) = &res {
                                         error!("Failed to enter Long: {}", e);
-                                        return Err(e);
+                                        // return Err(e);
                                     }
-                                    info!("{:?}", res);
+                                    debug!("{:?}", res);
                                     info!(
                                         "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                         kline_event.kline.symbol,
@@ -424,9 +423,9 @@ async fn main() -> Result<()> {
                                     short_qty,
                                 );
                                 let res = account.trade::<LimitOrderResponse>(trade);
-                                if let Err(e) = res {
+                                if let Err(e) = &res {
                                     error!("Failed to enter Short: {}", e);
-                                    return Err(e);
+                                    // return Err(e);
                                 }
                                 debug!("{:?}", res);
                                 info!(
@@ -457,9 +456,9 @@ async fn main() -> Result<()> {
                                         short_qty,
                                     );
                                     let res = account.trade::<LimitOrderResponse>(trade);
-                                    if let Err(e) = res {
+                                    if let Err(e) = &res {
                                         error!("Failed to enter Short: {}", e);
-                                        return Err(e);
+                                        // return Err(e);
                                     }
                                     debug!("{:?}", res);
                                     info!(
