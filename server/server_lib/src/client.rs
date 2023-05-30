@@ -2,7 +2,7 @@ use crate::api::API;
 use crate::errors::{BinanceContentError, ErrorKind, Result};
 use hex::encode as hex_encode;
 use hmac::{Hmac, Mac};
-use log::{error, info};
+use log::info;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use serde::de::DeserializeOwned;

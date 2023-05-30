@@ -122,21 +122,27 @@ async fn main() -> Result<()> {
                 plpl_price,
                 num_plpls,
                 cross_margin_pct,
-            })
-            .expect("Failed to create PLPLSystem");
-            debug!("PLPLSystem initialized");
-
-            let candle = kline_to_candle(&kline_event);
+            });
+            let plpl_system = match plpl_system {
+                Err(e) => {
+                    error!("Failed to initialize PLPL system: {}", e);
+                    return Ok(());
+                }
+                Ok(plpl_system) => plpl_system,
+            };
 
             // cache previous and current candle to assess PLPL trade conditions
             let mut prev = prev_candle.lock().expect("Failed to lock previous candle");
             let mut curr = curr_candle.lock().expect("Failed to lock current candle");
+            // cast Kline to Candle
+            let candle = kline_to_candle(&kline_event);
+            info!("Current price: {}", candle.close);
+            // compute closest PLPL to current Candle
             let plpl = plpl_system
                 .closest_plpl(&candle)
                 .expect("Failed to get closest plpl");
 
-            // get account balance for BTC and BUSD
-            // get account token balances
+            // get account balances for BTC and BUSD
             let account_info = account.account_info().expect("failed to get account info");
             let busd_balance = free_asset(&account_info, &account.quote_asset);
             info!("BUSD balance free: {}", busd_balance);
@@ -146,8 +152,6 @@ async fn main() -> Result<()> {
             info!("BTC balance free: {}", btc_balance);
             let btc_balance_locked = locked_asset(&account_info, &account.base_asset);
             info!("BTC balance locked: {}", btc_balance_locked);
-            // get current price of symbol
-            info!("Current price: {}", candle.close);
 
             // calculate quantity of base asset to trade
             // Trade with $1000 or as close as the account can get
@@ -192,6 +196,7 @@ async fn main() -> Result<()> {
                                 match res {
                                     Err(e) => {
                                         error!("Failed to enter Long: {}", e);
+                                        return Ok(());
                                     }
                                     Ok(res) => {
                                         debug!("{:?}", res);
@@ -231,6 +236,7 @@ async fn main() -> Result<()> {
                                     match res {
                                         Err(e) => {
                                             error!("Failed to enter Long: {}", e);
+                                            return Ok(());
                                         }
                                         Ok(res) => {
                                             debug!("{:?}", res);
@@ -273,6 +279,7 @@ async fn main() -> Result<()> {
                                 match res {
                                     Err(e) => {
                                         error!("Failed to enter Short: {}", e);
+                                        return Ok(());
                                     }
                                     Ok(res) => {
                                         debug!("{:?}", res);
@@ -309,6 +316,7 @@ async fn main() -> Result<()> {
                                     match res {
                                         Err(e) => {
                                             error!("Failed to enter Short: {}", e);
+                                            return Ok(());
                                         }
                                         Ok(res) => {
                                             debug!("{:?}", res);
@@ -363,6 +371,7 @@ async fn main() -> Result<()> {
                                 match res {
                                     Err(e) => {
                                         error!("Failed to enter Long: {}", e);
+                                        return Ok(());
                                     }
                                     Ok(res) => {
                                         debug!("{:?}", res);
@@ -402,6 +411,7 @@ async fn main() -> Result<()> {
                                     match res {
                                         Err(e) => {
                                             error!("Failed to enter Long: {}", e);
+                                            return Ok(());
                                         }
                                         Ok(res) => {
                                             debug!("{:?}", res);
@@ -444,6 +454,7 @@ async fn main() -> Result<()> {
                                 match res {
                                     Err(e) => {
                                         error!("Failed to enter Short: {}", e);
+                                        return Ok(());
                                     }
                                     Ok(res) => {
                                         debug!("{:?}", res);
@@ -480,6 +491,7 @@ async fn main() -> Result<()> {
                                     match res {
                                         Err(e) => {
                                             error!("Failed to enter Short: {}", e);
+                                            return Ok(());
                                         }
                                         Ok(res) => {
                                             debug!("{:?}", res);
@@ -505,49 +517,21 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        warn!("returning Ok");
         Ok(())
     });
     let sub = String::from("btcbusd@kline_5m");
     ws.connect_with_config(&sub, &config)
         .expect("Failed to connect to Binance websocket");
     info!("Binance websocket connected");
+
     if let Err(e) = ws.event_loop(&keep_running) {
         info!("Binance websocket error: {}", e);
-    }
-
-    // listen to SIGINT/SIGTERM signals
-    let mut sigint = signal(SignalKind::interrupt())?;
-    match sigint.recv().await {
-        Some(()) => {
-            warn!("Received SIGINT signal");
-            ws.disconnect()
-                .expect("Failed to disconnect from Binance websocket");
-        }
-        None => error!("Stream terminated before receiving SIGINT signal"),
-    }
-    let mut sigterm = signal(SignalKind::terminate())?;
-    match sigterm.recv().await {
-        Some(()) => {
-            warn!("Received SIGTERM signal");
-            ws.disconnect()
-                .expect("Failed to disconnect from Binance websocket");
-        }
-        None => error!("Stream terminated before receiving SIGTERM signal"),
-    }
-    let mut sigquit = signal(SignalKind::quit())?;
-    match sigquit.recv().await {
-        Some(()) => {
-            warn!("Received SIGQUIT signal");
-            ws.disconnect()
-                .expect("Failed to disconnect from Binance websocket");
-        }
-        None => error!("Stream terminated before receiving SIGQUIT signal"),
     }
 
     ws.disconnect()
         .expect("Failed to disconnect from Binance websocket");
     info!("Binance websocket disconnected");
+
     Ok(())
 }
 

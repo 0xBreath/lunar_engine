@@ -1,4 +1,4 @@
-use std::io::Error;
+use std::fmt::Display;
 use crate::{Alignment, DataType, Declination, Origin, Planet, RightAscension};
 use crate::target::Target;
 use crate::quantities::Quantities;
@@ -6,6 +6,19 @@ use crate::step_size::StepSize;
 use time_series::time::Time;
 
 pub const BASE_QUERY: &str = "https://ssd.jpl.nasa.gov/api/horizons.api?format=text";
+
+#[derive(Debug, Clone)]
+pub enum QueryError {
+  StopTimeBeforeEndTime,
+}
+
+impl Display for QueryError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      QueryError::StopTimeBeforeEndTime => write!(f, "Stop time must be after start time"),
+    }
+  }
+}
 
 pub struct Query {
     pub value: String
@@ -20,11 +33,11 @@ impl Query {
     data_type: DataType,
     start_time: Time,
     stop_time: Time,
-  ) -> Result<Vec<(Time, f32)>, Error> {
+  ) -> Result<Vec<(Time, f32)>, QueryError> {
     // swap start and stop time if period is historical rather than for the future
     if start_time.diff_days(&stop_time) < 0 {
       //std::mem::swap(&mut start_time, &mut stop_time);
-      return Err(Error::new(std::io::ErrorKind::InvalidInput, "start time must be before stop time"));
+      return Err(QueryError::StopTimeBeforeEndTime);
     }
     let query = Query::build_query(
       Target::new(planet),
@@ -35,11 +48,9 @@ impl Query {
     );
 
     let data = reqwest::get(query.value)
-      .await
-      .expect("failed to request data")
+      .await?
       .text()
-      .await
-      .expect("failed to read response");
+      .await?;
     let data = Self::extract_data(data);
     match data_type {
       DataType::RightAscension => Ok(Self::format_for_right_ascension(data)),
@@ -53,11 +64,11 @@ impl Query {
     data_type: DataType,
     start_time: Time,
     stop_time: Time,
-  ) -> Result<Vec<(Time, f32)>, Error> {
+  ) -> Result<Vec<(Time, f32)>, QueryError> {
     // swap start and stop time if period is historical rather than for the future
     if start_time.diff_days(&stop_time) < 0 {
       //std::mem::swap(&mut start_time, &mut stop_time);
-      return Err(Error::new(std::io::ErrorKind::InvalidInput, "start time must be before stop time"));
+      return Err(QueryError::StopTimeBeforeEndTime);
     }
     let query = Query::build_query(
       Target::new(planet),
@@ -67,10 +78,7 @@ impl Query {
       origin
     );
 
-    let data = reqwest::blocking::get(query.value)
-      .expect("failed to request data")
-      .text()
-      .expect("failed to read response");
+    let data = reqwest::blocking::get(query.value)?.text()?;
     let data = Self::extract_data(data);
     match data_type {
       DataType::RightAscension => Ok(Self::format_for_right_ascension(data)),
