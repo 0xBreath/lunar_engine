@@ -277,19 +277,19 @@ impl PlotHDA {
                 return i;
             }
         }
-        let mut not_found = true;
+        let mut _not_found = true;
         let mut change_date = *date;
-        while not_found {
+        while _not_found {
             change_date = change_date.delta_date(-1);
             // get previous index in data
             for (i, (d, _)) in data.iter().enumerate() {
                 if d == &change_date.to_string_daily() {
-                    not_found = false;
+                    _not_found = false;
                     return i;
                 }
             }
         }
-        trace!("not_found: {}", not_found);
+        trace!("not_found: {}", _not_found);
         panic!("Date not found");
     }
 

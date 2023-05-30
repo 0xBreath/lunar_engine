@@ -9,7 +9,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use time_series::{Candle, Time};
 use tokio::io::Result;
-use tokio::signal::unix::{signal, SignalKind};
 
 // Binance US API endpoint
 // Data returned in ascending order, oldest first
