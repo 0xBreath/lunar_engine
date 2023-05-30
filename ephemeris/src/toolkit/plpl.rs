@@ -3,7 +3,7 @@ use log::debug;
 use std::fmt::Display;
 use time_series::{Candle, TickerDataError, Time};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum PLPLError {
     NumPLPLsNotEven,
     NoPLPLForDate,
