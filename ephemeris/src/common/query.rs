@@ -2,6 +2,7 @@ use crate::quantities::Quantities;
 use crate::step_size::StepSize;
 use crate::target::Target;
 use crate::{Alignment, DataType, Declination, Origin, Planet, RightAscension};
+use log::{error, info};
 use std::fmt::Display;
 use time_series::time::Time;
 
@@ -83,7 +84,10 @@ impl Query {
             origin,
         );
 
-        let data = reqwest::blocking::get(query.value)?.text()?;
+        let res = reqwest::blocking::get(query.value)?;
+        info!("Horizons API Status: {}", res.status());
+        let data = res.text()?;
+
         let data = Self::extract_data(data);
         match data_type {
             DataType::RightAscension => Ok(Self::format_for_right_ascension(data)),
