@@ -2,7 +2,7 @@ use crate::quantities::Quantities;
 use crate::step_size::StepSize;
 use crate::target::Target;
 use crate::{Alignment, DataType, Declination, Origin, Planet, RightAscension};
-use log::{error, info};
+use log::info;
 use std::fmt::Display;
 use time_series::time::Time;
 
