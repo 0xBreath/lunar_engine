@@ -98,7 +98,7 @@ async fn main() -> Result<()> {
 
     let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
     let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
-    let mut account = ACCOUNT.lock().unwrap();
+    let mut account = ACCOUNT.lock().expect("Failed to lock account");
 
     // PLPL parameters; tuned for 5 minute candles
     let trailing_stop = 0.95;
@@ -144,7 +144,13 @@ async fn main() -> Result<()> {
                 .expect("Failed to get closest plpl");
 
             // get account balances for BTC and BUSD
-            let account_info = account.account_info().expect("failed to get account info");
+            let account_info = match account.account_info() {
+                Err(e) => {
+                    error!("Failed to get account info: {}", e);
+                    return Ok(());
+                }
+                Ok(account_info) => account_info,
+            };
             let busd_balance = free_asset(&account_info, &account.quote_asset);
             info!("BUSD balance free: {}", busd_balance);
             let busd_balance_locked = locked_asset(&account_info, &account.quote_asset);
