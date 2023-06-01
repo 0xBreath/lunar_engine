@@ -159,6 +159,10 @@ async fn main() -> Result<()> {
             info!("BTC balance free: {}", btc_balance);
             let btc_balance_locked = locked_asset(&account_info, &account.base_asset);
             info!("BTC balance locked: {}", btc_balance_locked);
+            info!(
+                "Total account value: {}",
+                (busd_balance / candle.close) + btc_balance * candle.close
+            );
 
             // calculate quantity of base asset to trade
             // Trade with $1000 or as close as the account can get
