@@ -7,7 +7,7 @@ use server_lib::*;
 use simplelog::{ColorChoice, Config as SimpleLogConfig, TermLogger, TerminalMode};
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
-use time_series::{Candle, Time};
+use time_series::{Candle, Day, Month, Time};
 use tokio::io::Result;
 
 // Binance US API endpoint
@@ -109,26 +109,28 @@ async fn main() -> Result<()> {
     let num_plpls = 2000;
     let cross_margin_pct = 55.0;
 
+    let plpl_system = PLPLSystem::new(PLPLSystemConfig {
+        planet,
+        origin: Origin::Heliocentric,
+        first_date: Time::new(2023, &Month::from_num(6), &Day::from_num(1), None, None),
+        last_date: Time::new(2050, &Month::from_num(6), &Day::from_num(1), None, None),
+        plpl_scale,
+        plpl_price,
+        num_plpls,
+        cross_margin_pct,
+    });
+    let plpl_system = match plpl_system {
+        Err(e) => {
+            error!("Failed to initialize PLPL system: {}", e);
+            return Ok(());
+        }
+        Ok(plpl_system) => plpl_system,
+    };
+
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         if let WebSocketEvent::Kline(kline_event) = event {
             let date = Time::from_unix_msec(kline_event.event_time as i64);
             // initialize PLPL
-            let plpl_system = PLPLSystem::new(PLPLSystemConfig {
-                planet: planet.clone(),
-                origin: Origin::Heliocentric,
-                date,
-                plpl_scale,
-                plpl_price,
-                num_plpls,
-                cross_margin_pct,
-            });
-            let plpl_system = match plpl_system {
-                Err(e) => {
-                    error!("Failed to initialize PLPL system: {}", e);
-                    return Ok(());
-                }
-                Ok(plpl_system) => plpl_system,
-            };
 
             // cache previous and current candle to assess PLPL trade conditions
             let mut prev = prev_candle.lock().expect("Failed to lock previous candle");

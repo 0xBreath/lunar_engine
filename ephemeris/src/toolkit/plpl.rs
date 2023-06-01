@@ -1,5 +1,5 @@
 use crate::*;
-use log::debug;
+use log::{debug, error};
 use std::fmt::Display;
 use time_series::{Candle, TickerDataError, Time};
 
@@ -30,7 +30,8 @@ pub type PLPLResult<T> = Result<T, PLPLError>;
 pub struct PLPLSystemConfig {
     pub planet: Planet,
     pub origin: Origin,
-    pub date: Time,
+    pub first_date: Time,
+    pub last_date: Time,
     pub plpl_scale: f32,
     pub plpl_price: f32,
     pub num_plpls: u32,
@@ -41,13 +42,20 @@ pub struct PLPLSystemConfig {
 pub struct PLPLSystem {
     pub planet: Planet,
     pub origin: Origin,
-    pub date: Time,
-    pub planet_angle: f32,
-    pub plpls: Vec<f32>,
+    pub first_date: Time,
+    pub last_date: Time,
+    pub planet_angles: Vec<(Time, f32)>,
+    pub plpls: Vec<PLPL>,
     pub scale: f32,
     pub price: f32,
     pub cross_margin_pct: f32,
     pub num_plpls: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct PLPL {
+    pub date: Time,
+    pub plpls: Vec<f32>,
 }
 
 impl PLPLSystem {
@@ -58,41 +66,35 @@ impl PLPLSystem {
         let mut me = Self {
             planet: config.planet,
             origin: config.origin,
-            date: config.date,
-            planet_angle: 0.0,
+            first_date: config.first_date,
+            last_date: config.last_date,
+            planet_angles: vec![],
             plpls: vec![],
             scale: config.plpl_scale,
             price: config.plpl_price,
             cross_margin_pct: config.cross_margin_pct,
             num_plpls: config.num_plpls,
         };
-        me.planet_angle = me.helio()?;
+        me.planet_angles = me.helio()?;
         me.plpls = me.plpls()?;
         Ok(me)
     }
 
-    fn helio(&self) -> PLPLResult<f32> {
+    fn helio(&self) -> PLPLResult<Vec<(Time, f32)>> {
         debug!("Querying ephemeris from Horizons API");
-        let start_date = self.date.delta_date(-1);
+        let start_date = self.first_date.delta_date(-1);
+        let end_date = self.last_date.delta_date(1);
         let query = Query::sync_query(
             self.origin,
             &self.planet,
             DataType::RightAscension,
             start_date,
-            self.date,
+            end_date,
         );
-        let query = match query {
-            Ok(query) => query,
-            Err(e) => return Err(PLPLError::QueryError(e)),
-        };
-        let target = match query.last() {
-            Some(last) => last,
-            None => return Err(PLPLError::NoPLPLForDate),
-        };
-        if target.0 != self.date {
-            return Err(PLPLError::NoPLPLClosest);
+        match query {
+            Ok(query) => Ok(query),
+            Err(e) => Err(PLPLError::QueryError(e)),
         }
-        Ok(target.1)
     }
 
     fn up_op(&self) -> f32 {
@@ -106,12 +108,17 @@ impl PLPLSystem {
     /// Compute the PLPL for today based on the planet longitude, scale and price
     /// Find all PLPL values (360 cycles) scaled up and down from the base PLPL
     /// Find all PLPLs for each date
-    pub fn plpls(&self) -> PLPLResult<Vec<f32>> {
-        let angle = self.planet_angle;
-        let price_factor = (self.price / (360.0 * self.scale)).round();
-        let scale_360 = 360.0 * self.scale;
-        let plpl = price_factor * scale_360 + angle;
-        self.plpls_inner(plpl)
+    pub fn plpls(&self) -> PLPLResult<Vec<PLPL>> {
+        let mut plpls = Vec::<PLPL>::new();
+        for planet_angle in self.planet_angles.iter() {
+            let angle = planet_angle.1;
+            let price_factor = (self.price / (360.0 * self.scale)).round();
+            let scale_360 = 360.0 * self.scale;
+            let plpl = price_factor * scale_360 + angle;
+            let res = self.plpls_inner(plpl)?;
+            plpls.push(PLPL { date: planet_angle.0, plpls: res });
+        }
+        Ok(plpls)
     }
 
     /// All PLPL values (360 cycles) scaled up and down
@@ -137,14 +144,15 @@ impl PLPLSystem {
     pub fn closest_plpl(&self, candle: &Candle) -> PLPLResult<f32> {
         let mut closest_plpl = None;
         let mut closest_plpl_distance: Option<f64> = None;
-        for plpl in self.plpls.iter() {
+        let plpls = self.plpls_for_date(candle.date)?;
+        for plpl in plpls {
             match closest_plpl_distance {
                 None => {
-                    closest_plpl_distance = Some((*plpl as f64 - candle.close).abs());
+                    closest_plpl_distance = Some((plpl as f64 - candle.close).abs());
                     closest_plpl = Some(plpl);
                 }
                 Some(closest_distance) => {
-                    let curr_distance = (*plpl as f64 - candle.close).abs();
+                    let curr_distance = (plpl as f64 - candle.close).abs();
                     if curr_distance < closest_distance {
                         closest_plpl_distance = Some(curr_distance);
                         closest_plpl = Some(plpl);
@@ -153,8 +161,25 @@ impl PLPLSystem {
             }
         }
         match closest_plpl {
-            Some(plpl) => Ok(*plpl),
-            None => Err(PLPLError::NoPLPLClosest),
+            Some(plpl) => Ok(plpl),
+            None => {
+                error!("No closest PLPL found for date {}", candle.date.to_string());
+                Err(PLPLError::NoPLPLClosest)
+            },
+        }
+    }
+    
+    fn plpls_for_date(&self, date: Time) -> PLPLResult<Vec<f32>> {
+        let mut plpls = None;
+        for plpl in self.plpls.iter() {
+            if plpl.date == date {
+                plpls = Some(plpl.plpls.clone());
+                break;
+            }
+        }
+        match plpls {
+            Some(plpls) => Ok(plpls),
+            None => Err(PLPLError::NoPLPLForDate),
         }
     }
 
