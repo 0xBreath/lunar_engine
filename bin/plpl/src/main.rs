@@ -188,7 +188,9 @@ async fn main() -> Result<()> {
             info!("BTC balance locked: {}", btc_balance_locked);
             info!(
                 "Total account value: {}",
-                (busd_balance / candle.close) + btc_balance * btc_balance_locked
+                ((busd_balance + busd_balance_locked) / candle.close)
+                    + btc_balance
+                    + btc_balance_locked
             );
 
             // calculate quantity of base asset to trade
