@@ -4,7 +4,12 @@ extern crate lazy_static;
 use ephemeris::*;
 use log::*;
 use server_lib::*;
-use simplelog::{ColorChoice, Config as SimpleLogConfig, TermLogger, TerminalMode};
+use simplelog::{
+    ColorChoice, CombinedLogger, Config as SimpleLogConfig, ConfigBuilder, TermLogger,
+    TerminalMode, WriteLogger,
+};
+use std::fs::File;
+use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use time_series::{Candle, Day, Month, Time};
@@ -36,6 +41,27 @@ lazy_static! {
         ticker: "BTCBUSD".to_string(),
         active_order: None
     });
+}
+
+pub fn init_logger(log_file: &PathBuf) {
+    CombinedLogger::init(vec![
+        TermLogger::new(
+            LevelFilter::Info,
+            SimpleLogConfig::default(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(
+            LevelFilter::Info,
+            ConfigBuilder::new()
+                .set_time_format_custom(simplelog::format_description!(
+                    "[hour]:[minute]:[second].[subsecond]"
+                ))
+                .build(),
+            File::create(log_file).expect("Failed to create star_stream log file"),
+        ),
+    ])
+    .expect("Failed to initialize logger");
 }
 
 fn kline_to_candle(kline_event: &KlineEvent) -> Candle {
@@ -90,7 +116,8 @@ fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    init_logger();
+    let log_file = std::env::var("LOG_FILE").unwrap_or("plpl.log".to_string());
+    init_logger(&PathBuf::from(log_file));
 
     info!("Starting Binance PLPL!");
     let config = Config::testnet();
@@ -586,14 +613,4 @@ fn plpl_short(
         Some(stop_loss),
         Some(trailing_stop),
     )
-}
-
-pub fn init_logger() {
-    TermLogger::init(
-        LevelFilter::Info,
-        SimpleLogConfig::default(),
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    )
-    .expect("Failed to initialize logger");
 }
