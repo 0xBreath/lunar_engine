@@ -150,7 +150,13 @@ impl Client {
             Ok(response.json::<T>()?)
         } else {
             let status = response.status();
-            error!("Status: {}, Url: {}", status, response.url());
+            let headers = response.headers();
+            error!(
+                "Status: {}, Headers: {:?}, Url: {}",
+                status,
+                headers,
+                response.url()
+            );
             let error: BinanceContentError = response.json()?;
             Err(ErrorKind::BinanceError(error).into())
         }
