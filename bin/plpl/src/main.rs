@@ -175,6 +175,7 @@ async fn main() -> Result<()> {
         if let WebSocketEvent::Kline(kline_event) = event {
             let count = update_counter.fetch_add(1, Ordering::SeqCst);
             if count % 3 != 0 {
+                info!("Atomic counter exit: {}", count);
                 return Ok(());
             }
             info!("Atomic counter: {}", count);
