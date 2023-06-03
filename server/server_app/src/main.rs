@@ -31,7 +31,11 @@ lazy_static! {
         base_asset: "BTC".to_string(),
         quote_asset: "BUSD".to_string(),
         ticker: "BTCBUSD".to_string(),
-        active_order: None
+        active_order: None,
+        quote_asset_free: None,
+        quote_asset_locked: None,
+        base_asset_free: None,
+        base_asset_locked: None,
     });
 }
 
@@ -45,6 +49,7 @@ async fn main() -> std::io::Result<()> {
     info!("Starting Server...");
     HttpServer::new(|| {
         App::new()
+            .service(account_info)
             .service(get_assets)
             .service(cancel_orders)
             .service(get_price)
@@ -72,10 +77,18 @@ async fn test() -> impl Responder {
     HttpResponse::Ok().body("Server is running...")
 }
 
+#[get("/account")]
+async fn account_info() -> Result<HttpResponse, Error> {
+    let account = ACCOUNT.lock().unwrap();
+    let res = account.account_info().expect("failed to get account info");
+    Ok(HttpResponse::Ok().json(res))
+}
+
 #[get("/assets")]
 async fn get_assets() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().unwrap();
-    let res = account.account_info().expect("failed to get account info");
+    let res = account.all_assets().expect("failed to get assets");
+    debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }
 

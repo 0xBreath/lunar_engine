@@ -1,18 +1,17 @@
+use crate::config::Config;
 use crate::errors::Result;
 use crate::model::{
     AccountUpdateEvent, BalanceUpdateEvent, KlineEvent, OrderBook, OrderTradeEvent, TradeEvent,
 };
 use error_chain::bail;
 use serde::{Deserialize, Serialize};
+use std::net::TcpStream;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tungstenite::handshake::client::Response;
 use tungstenite::protocol::WebSocket;
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{connect, Message};
 use url::Url;
-
-use crate::config::Config;
-use std::net::TcpStream;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 #[allow(clippy::all)]
 enum WebSocketAPI {

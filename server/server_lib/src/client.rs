@@ -40,7 +40,6 @@ impl Client {
             .get(url.as_str())
             .headers(self.build_headers(true)?)
             .send()?;
-
         self.handler(response)
     }
 
@@ -50,7 +49,6 @@ impl Client {
         let client = &self.inner_client;
         let request = client.post(url.as_str()).headers(self.build_headers(true)?);
         let response = request.send()?;
-        info!("Trade Response Status: {:?}", response.status());
         self.handler(response)
     }
 
@@ -152,6 +150,7 @@ impl Client {
             Ok(response.json::<T>()?)
         } else {
             let status = response.status();
+            error!("Status: {}, Url: {}", status, response.url());
             let error: BinanceContentError = response.json()?;
             error!("Status: {}, Error: {:?}", status, error);
             Err(ErrorKind::BinanceError(error).into())

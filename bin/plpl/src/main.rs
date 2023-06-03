@@ -10,7 +10,7 @@ use simplelog::{
 };
 use std::fs::File;
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use time_series::{Candle, Day, Month, Time};
 use tokio::io::Result;
@@ -39,7 +39,19 @@ lazy_static! {
         base_asset: "BTC".to_string(),
         quote_asset: "BUSD".to_string(),
         ticker: "BTCBUSD".to_string(),
-        active_order: None
+        active_order: None,
+        quote_asset_free: None,
+        quote_asset_locked: None,
+        base_asset_free: None,
+        base_asset_locked: None,
+    });
+    static ref USER_STREAM: Mutex<UserStream> = Mutex::new(UserStream {
+        client: Client::new(
+            Some(BINANCE_TEST_API_KEY.to_string()),
+            Some(BINANCE_TEST_API_SECRET.to_string()),
+            BINANCE_TEST_API.to_string()
+        ),
+        recv_window: 5000,
     });
 }
 
@@ -136,6 +148,7 @@ async fn main() -> Result<()> {
     let num_plpls = 2000;
     let cross_margin_pct = 55.0;
 
+    // initialize PLPL
     let plpl_system = PLPLSystem::new(PLPLSystemConfig {
         planet,
         origin: Origin::Heliocentric,
@@ -154,11 +167,18 @@ async fn main() -> Result<()> {
         Ok(plpl_system) => plpl_system,
     };
 
+    // atomic counter to attempt trade every 2 candles
+    let update_counter = AtomicUsize::new(0);
+
+    // Kline Websocket
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
+        let old_count = update_counter.fetch_add(1, Ordering::SeqCst);
+        if old_count % 2 == 0 {
+            return Ok(());
+        }
+        info!("counter: {}", update_counter.load(Ordering::SeqCst));
         if let WebSocketEvent::Kline(kline_event) = event {
             let date = Time::from_unix_msec(kline_event.event_time as i64);
-            // initialize PLPL
-
             // cache previous and current candle to assess PLPL trade conditions
             let mut prev = prev_candle.lock().expect("Failed to lock previous candle");
             let mut curr = curr_candle.lock().expect("Failed to lock current candle");
@@ -559,6 +579,7 @@ async fn main() -> Result<()> {
         }
         Ok(())
     });
+
     let sub = String::from("btcbusd@kline_5m");
     ws.connect_with_config(&sub, &config)
         .expect("Failed to connect to Binance websocket");
