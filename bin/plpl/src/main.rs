@@ -238,10 +238,13 @@ async fn main() -> Result<()> {
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         if let WebSocketEvent::Kline(kline_event) = event {
             let count = update_counter.fetch_add(1, Ordering::SeqCst);
-            if count % 3 != 0 {
+            // if count % 3 != 0 {
+            //     return Ok(());
+            // }
+            info!("Atomic counter: {}", count);
+            if !kline_event.kline.is_final_bar {
                 return Ok(());
             }
-            debug!("Atomic counter: {}", count);
 
             let date = Time::from_unix_msec(kline_event.event_time as i64);
             // cache previous and current candle to assess PLPL trade conditions
