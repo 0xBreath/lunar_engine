@@ -1,65 +1,22 @@
-16:41:45.162439 [INFO] Starting Binance PLPL!
-16:41:46.628329 [INFO] Horizons API Status: 200 OK
-16:41:47.931246 [INFO] Binance websocket connected
-16:41:58.872687 [INFO] counter: 2
-16:41:58.872992 [INFO] Current price: 27295.39
-16:41:59.420463 [INFO] BUSD balance free: 7149.50868487
-16:41:59.42067 [INFO] BUSD balance locked: 1000.0790168
-16:41:59.420892 [INFO] BTC balance free: 1.155037
-16:41:59.421008 [INFO] BTC balance locked: 0
-16:41:59.421109 [INFO] Total account value: 1.4536071139155733
-16:42:04.869525 [INFO] counter: 4
-16:42:04.869999 [INFO] Current price: 27293.67
-16:42:05.346891 [INFO] BUSD balance free: 7149.50868487
-16:42:05.348201 [INFO] BUSD balance locked: 1000.0790168
-16:42:05.348467 [INFO] BTC balance free: 1.155037
-16:42:05.34891 [INFO] BTC balance locked: 0
-16:42:05.349213 [INFO] Total account value: 1.453625929289099
-16:42:05.34948 [INFO] No active order, enter Short
-16:42:05.521005 [INFO] All active orders canceled
-16:42:05.521455 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=SELL&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03664&price=27293.67&trailingDelta=95&stopPrice=27320.96&timestamp=1685810525521&signature=234945dac279d72911cbe33d3c0d6108f6112423d1c52d97225cc55909450a6b
-16:42:06.779866 [INFO] Short BTCBUSD @ 2023-06-03.16.42, Prev: 27295.39, Curr: 27293.67, PLPL: 27204.762
-16:42:11.532169 [INFO] counter: 6
-16:42:11.532472 [INFO] Current price: 27291.69
-16:42:12.003067 [INFO] BUSD balance free: 8149.58770167
-16:42:12.003318 [INFO] BUSD balance locked: 0
-16:42:12.003436 [INFO] BTC balance free: 1.118397
-16:42:12.003618 [INFO] BTC balance locked: 0.03664
-16:42:12.003747 [INFO] Total account value: 1.453647591783433
-16:42:12.003884 [INFO] Close Long, enter Short
-16:42:12.479783 [INFO] All active orders canceled
-16:42:12.480137 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=SELL&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03664&price=27291.69&trailingDelta=95&stopPrice=27318.98&timestamp=1685810532480&signature=6351681923cb1762757b92bbaa7c038bfbcba179846fba162afcca0f261fa80c
-16:42:13.735956 [INFO] Short BTCBUSD @ 2023-06-03.16.42, Prev: 27293.67, Curr: 27291.69, PLPL: 27204.762
-16:42:15.866518 [INFO] counter: 8
-16:42:15.866676 [INFO] Current price: 27291.09
-16:42:16.037921 [INFO] BUSD balance free: 8149.58770167
-16:42:16.038316 [INFO] BUSD balance locked: 0
-16:42:16.038544 [INFO] BTC balance free: 1.118397
-16:42:16.038799 [INFO] BTC balance locked: 0.03664
-16:42:16.039536 [INFO] Total account value: 1.4536541567962291
-16:42:16.053264 [INFO] Close Long, enter Short
-16:42:16.311537 [INFO] All active orders canceled
-16:42:16.3119 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=SELL&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03664&price=27291.09&trailingDelta=95&stopPrice=27318.38&timestamp=1685810536311&signature=a0b0adf0d205c0c8f03e60ca2c0a2a95e5774783e74859b2728321978204b187
-16:42:17.565295 [INFO] Short BTCBUSD @ 2023-06-03.16.42, Prev: 27291.69, Curr: 27291.09, PLPL: 27204.762
-16:42:20.866761 [INFO] counter: 10
-16:42:20.867289 [INFO] Current price: 27290.39
-16:42:21.342526 [INFO] BUSD balance free: 8149.58770167
-16:42:21.342778 [INFO] BUSD balance locked: 0
-16:42:21.342879 [INFO] BTC balance free: 1.118397
-16:42:21.342992 [INFO] BTC balance locked: 0.03664
-16:42:21.343106 [INFO] Total account value: 1.453661816342676
-16:42:21.343346 [INFO] Close Long, enter Short
-16:42:21.513518 [INFO] All active orders canceled
-16:42:21.513979 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=SELL&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03664&price=27290.39&trailingDelta=95&stopPrice=27317.68&timestamp=1685810541513&signature=eeaf3a0762faffb8aefaf3f44b803644c644f3ac59ea2e7bc9ec5d978cb5af26
-16:42:23.155825 [INFO] Short BTCBUSD @ 2023-06-03.16.42, Prev: 27291.09, Curr: 27290.39, PLPL: 27204.762
-16:42:27.863415 [INFO] counter: 12
-16:42:27.863492 [INFO] Current price: 27290.21
-16:42:28.340043 [INFO] BUSD balance free: 8149.58770167
-16:42:28.340116 [INFO] BUSD balance locked: 0
-16:42:28.340159 [INFO] BTC balance free: 1.118397
-16:42:28.340204 [INFO] BTC balance locked: 0.03664
-16:42:28.340233 [INFO] Total account value: 1.4536637860038455
-16:42:28.340265 [INFO] Close Long, enter Short
-16:42:28.512763 [INFO] All active orders canceled
-16:42:28.51282 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=SELL&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03664&price=27290.21&trailingDelta=95&stopPrice=27317.5&timestamp=1685810548512&signature=f6fc381095388db216e0568fa0a0a47417eb31431bfc6c4bc06245afb0c1f53e
-16:42:30.063627 [INFO] Short BTCBUSD @ 2023-06-03.16.42, Prev: 27290.39, Curr: 27290.21, PLPL: 27204.762
+17:47:02.298237 [INFO] Starting Binance PLPL!
+17:47:03.812664 [INFO] Horizons API Status: 200 OK
+17:47:05.205131 [INFO] Binance websocket connected
+17:47:06.147222 [INFO] Atomic counter: 0
+17:47:06.147301 [INFO] Current price: 27151.91
+17:47:06.381977 [INFO] BUSD balance free: 7149.63147197
+17:47:06.382058 [INFO] BUSD balance locked: 999.9562297
+17:47:06.382092 [INFO] BTC balance free: 1.155037
+17:47:06.382124 [INFO] BTC balance locked: 0
+17:47:06.382157 [INFO] Total account value: 1.4551848607460767
+17:47:10.222775 [INFO] Atomic counter exit: 1
+17:47:14.831354 [INFO] Atomic counter exit: 2
+17:47:17.149055 [INFO] Atomic counter: 3
+17:47:17.149369 [INFO] Current price: 27153.3
+17:47:17.702366 [INFO] BUSD balance free: 7149.63147197
+17:47:17.70266 [INFO] BUSD balance locked: 999.9562297
+17:47:17.702779 [INFO] BTC balance free: 1.155037
+17:47:17.703016 [INFO] BTC balance locked: 0
+17:47:17.703109 [INFO] Total account value: 1.455169495927567
+17:47:17.703216 [INFO] No active order, enter Long
+17:47:18.210406 [INFO] All active orders canceled
+17:47:18.210647 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=BUY&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03683&price=27153.3&trailingDelta=95&stopPrice=27126.15&timestamp=1685814438210&signature=79a2d9248e1eaffbc1e8a7a9067d17f8bf83869e59f6861061b3cef6c709bcc0

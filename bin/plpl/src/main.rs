@@ -168,17 +168,16 @@ async fn main() -> Result<()> {
     };
 
     // atomic counter to attempt trade every 2 candles
-    let mut update_counter = AtomicUsize::new(0);
+    let update_counter = AtomicUsize::new(0);
 
     // Kline Websocket
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         if let WebSocketEvent::Kline(kline_event) = event {
             let count = update_counter.fetch_add(1, Ordering::SeqCst);
             if count % 3 != 0 {
-                info!("Atomic counter exit: {}", count);
                 return Ok(());
             }
-            info!("Atomic counter: {}", count);
+            debug!("Atomic counter: {}", count);
 
             let date = Time::from_unix_msec(kline_event.event_time as i64);
             // cache previous and current candle to assess PLPL trade conditions
