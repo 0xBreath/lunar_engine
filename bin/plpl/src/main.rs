@@ -173,7 +173,7 @@ async fn main() -> Result<()> {
     // Kline Websocket
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         let old_count = update_counter.fetch_add(1, Ordering::SeqCst);
-        if old_count % 2 == 0 {
+        if old_count % 3 != 0 {
             return Ok(());
         }
         info!("counter: {}", update_counter.load(Ordering::SeqCst));
