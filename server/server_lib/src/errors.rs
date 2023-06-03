@@ -1,10 +1,10 @@
-use serde::Deserialize;
 use error_chain::error_chain;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct BinanceContentError {
-  pub code: i16,
-  pub msg: String,
+    pub code: i16,
+    pub msg: String,
 }
 
 error_chain! {
@@ -15,7 +15,7 @@ error_chain! {
             description("invalid Vec for Kline"),
             display("{} at {} is missing", name, index),
         }
-        
+
         NoActiveOrderError(symbol: String) {
             description("no active order"),
             display("no active order for {}", symbol),
@@ -33,9 +33,6 @@ error_chain! {
         TimestampError(std::time::SystemTimeError);
     }
 }
-
-
-
 
 // use std::error::Error;
 // use serde::Deserialize;

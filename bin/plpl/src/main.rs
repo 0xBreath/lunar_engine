@@ -126,6 +126,70 @@ fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
         .unwrap()
 }
 
+fn calc_long_qty(candle: &Candle) -> errors::Result<f64> {
+    let account = ACCOUNT.lock().expect("Failed to lock account");
+    // get account balances for BTC and BUSD
+    let account_info = match account.account_info() {
+        Err(e) => {
+            error!("Failed to get account info: {}", e);
+            return Err(e);
+        }
+        Ok(account_info) => account_info,
+    };
+    let busd_balance = free_asset(&account_info, &account.quote_asset);
+    let busd_balance_locked = locked_asset(&account_info, &account.quote_asset);
+    let btc_balance = free_asset(&account_info, &account.base_asset);
+    let btc_balance_locked = locked_asset(&account_info, &account.base_asset);
+    let total_balances =
+        ((busd_balance + busd_balance_locked) / candle.close) + btc_balance + btc_balance_locked;
+    info!(
+        "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
+        busd_balance_locked, busd_balance, btc_balance_locked, btc_balance
+    );
+    info!("Total account balance: {}", total_balances);
+
+    // calculate quantity of base asset to trade
+    // Trade with $1000 or as close as the account can get
+    let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
+        btc_balance
+    } else {
+        BinanceTrade::round_quantity(1000.0 / candle.close)
+    };
+    Ok(long_qty)
+}
+
+fn calc_short_qty(candle: &Candle) -> errors::Result<f64> {
+    // get account balances for BTC and BUSD
+    let account = ACCOUNT.lock().expect("Failed to lock account");
+    let account_info = match account.account_info() {
+        Err(e) => {
+            error!("Failed to get account info: {}", e);
+            return Err(e);
+        }
+        Ok(account_info) => account_info,
+    };
+    let busd_balance = free_asset(&account_info, &account.quote_asset);
+    let busd_balance_locked = locked_asset(&account_info, &account.quote_asset);
+    let btc_balance = free_asset(&account_info, &account.base_asset);
+    let btc_balance_locked = locked_asset(&account_info, &account.base_asset);
+    let total_balances =
+        ((busd_balance + busd_balance_locked) / candle.close) + btc_balance + btc_balance_locked;
+    info!(
+        "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
+        busd_balance_locked, busd_balance, btc_balance_locked, btc_balance
+    );
+    info!("Total account balance: {}", total_balances);
+
+    // calculate quantity of base asset to trade
+    // Trade with $1000 or as close as the account can get
+    let short_qty: f64 = if busd_balance < 1000.0 {
+        busd_balance
+    } else {
+        BinanceTrade::round_quantity(1000.0 / candle.close)
+    };
+    Ok(short_qty)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let log_file = std::env::var("LOG_FILE").unwrap_or("plpl.log".to_string());
@@ -191,40 +255,6 @@ async fn main() -> Result<()> {
                 .closest_plpl(&candle)
                 .expect("Failed to get closest plpl");
 
-            // get account balances for BTC and BUSD
-            let account_info = match account.account_info() {
-                Err(e) => {
-                    error!("Failed to get account info: {}", e);
-                    return Ok(());
-                }
-                Ok(account_info) => account_info,
-            };
-            let busd_balance = free_asset(&account_info, &account.quote_asset);
-            let busd_balance_locked = locked_asset(&account_info, &account.quote_asset);
-            let btc_balance = free_asset(&account_info, &account.base_asset);
-            let btc_balance_locked = locked_asset(&account_info, &account.base_asset);
-            let total_balances = ((busd_balance + busd_balance_locked) / candle.close)
-                + btc_balance
-                + btc_balance_locked;
-            info!(
-                "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                busd_balance_locked, busd_balance, btc_balance_locked, btc_balance
-            );
-            info!("Total account balance: {}", total_balances);
-
-            // calculate quantity of base asset to trade
-            // Trade with $1000 or as close as the account can get
-            let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                btc_balance
-            } else {
-                BinanceTrade::round_quantity(1000.0 / candle.close)
-            };
-            let short_qty: f64 = if busd_balance < 1000.0 {
-                busd_balance
-            } else {
-                BinanceTrade::round_quantity(1000.0 / candle.close)
-            };
-
             match (&*prev, &*curr) {
                 (None, None) => *prev = Some(candle),
                 (Some(prev_candle), None) => {
@@ -244,6 +274,13 @@ async fn main() -> Result<()> {
                                         info!("All active orders canceled");
                                     }
                                 }
+                                let long_qty = match calc_long_qty(&candle) {
+                                    Err(e) => {
+                                        error!("Failed to calculate long quantity: {}", e);
+                                        return Ok(());
+                                    }
+                                    Ok(long_qty) => long_qty,
+                                };
                                 let trade = plpl_long(
                                     account.ticker.clone(),
                                     &candle,
@@ -284,6 +321,13 @@ async fn main() -> Result<()> {
                                             info!("All active orders canceled");
                                         }
                                     }
+                                    let long_qty = match calc_long_qty(&candle) {
+                                        Err(e) => {
+                                            error!("Failed to calculate long quantity: {}", e);
+                                            return Ok(());
+                                        }
+                                        Ok(long_qty) => long_qty,
+                                    };
                                     let trade = plpl_long(
                                         account.ticker.clone(),
                                         &candle,
@@ -327,6 +371,13 @@ async fn main() -> Result<()> {
                                         info!("All active orders canceled");
                                     }
                                 }
+                                let short_qty = match calc_short_qty(&candle) {
+                                    Err(e) => {
+                                        error!("Failed to calculate short quantity: {}", e);
+                                        return Ok(());
+                                    }
+                                    Ok(short_qty) => short_qty,
+                                };
                                 let trade = plpl_short(
                                     account.ticker.clone(),
                                     &candle,
@@ -364,6 +415,13 @@ async fn main() -> Result<()> {
                                             info!("All active orders canceled");
                                         }
                                     }
+                                    let short_qty = match calc_short_qty(&candle) {
+                                        Err(e) => {
+                                            error!("Failed to calculate short quantity: {}", e);
+                                            return Ok(());
+                                        }
+                                        Ok(short_qty) => short_qty,
+                                    };
                                     let trade = plpl_short(
                                         account.ticker.clone(),
                                         &candle,
@@ -419,6 +477,13 @@ async fn main() -> Result<()> {
                                         info!("All active orders canceled");
                                     }
                                 }
+                                let long_qty = match calc_long_qty(&candle) {
+                                    Err(e) => {
+                                        error!("Failed to calculate long quantity: {}", e);
+                                        return Ok(());
+                                    }
+                                    Ok(long_qty) => long_qty,
+                                };
                                 let trade = plpl_long(
                                     account.ticker.clone(),
                                     &candle,
@@ -459,6 +524,13 @@ async fn main() -> Result<()> {
                                             info!("All active orders canceled");
                                         }
                                     }
+                                    let long_qty = match calc_long_qty(&candle) {
+                                        Err(e) => {
+                                            error!("Failed to calculate long quantity: {}", e);
+                                            return Ok(());
+                                        }
+                                        Ok(long_qty) => long_qty,
+                                    };
                                     let trade = plpl_long(
                                         account.ticker.clone(),
                                         &candle,
@@ -502,6 +574,13 @@ async fn main() -> Result<()> {
                                         info!("All active orders canceled");
                                     }
                                 }
+                                let short_qty = match calc_short_qty(&candle) {
+                                    Err(e) => {
+                                        error!("Failed to calculate short quantity: {}", e);
+                                        return Ok(());
+                                    }
+                                    Ok(short_qty) => short_qty,
+                                };
                                 let trade = plpl_short(
                                     account.ticker.clone(),
                                     &candle,
@@ -539,6 +618,13 @@ async fn main() -> Result<()> {
                                             info!("All active orders canceled");
                                         }
                                     }
+                                    let short_qty = match calc_short_qty(&candle) {
+                                        Err(e) => {
+                                            error!("Failed to calculate short quantity: {}", e);
+                                            return Ok(());
+                                        }
+                                        Ok(short_qty) => short_qty,
+                                    };
                                     let trade = plpl_short(
                                         account.ticker.clone(),
                                         &candle,
