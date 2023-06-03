@@ -1,22 +1,13 @@
-17:47:02.298237 [INFO] Starting Binance PLPL!
-17:47:03.812664 [INFO] Horizons API Status: 200 OK
-17:47:05.205131 [INFO] Binance websocket connected
-17:47:06.147222 [INFO] Atomic counter: 0
-17:47:06.147301 [INFO] Current price: 27151.91
-17:47:06.381977 [INFO] BUSD balance free: 7149.63147197
-17:47:06.382058 [INFO] BUSD balance locked: 999.9562297
-17:47:06.382092 [INFO] BTC balance free: 1.155037
-17:47:06.382124 [INFO] BTC balance locked: 0
-17:47:06.382157 [INFO] Total account value: 1.4551848607460767
-17:47:10.222775 [INFO] Atomic counter exit: 1
-17:47:14.831354 [INFO] Atomic counter exit: 2
-17:47:17.149055 [INFO] Atomic counter: 3
-17:47:17.149369 [INFO] Current price: 27153.3
-17:47:17.702366 [INFO] BUSD balance free: 7149.63147197
-17:47:17.70266 [INFO] BUSD balance locked: 999.9562297
-17:47:17.702779 [INFO] BTC balance free: 1.155037
-17:47:17.703016 [INFO] BTC balance locked: 0
-17:47:17.703109 [INFO] Total account value: 1.455169495927567
-17:47:17.703216 [INFO] No active order, enter Long
-17:47:18.210406 [INFO] All active orders canceled
-17:47:18.210647 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=BUY&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03683&price=27153.3&trailingDelta=95&stopPrice=27126.15&timestamp=1685814438210&signature=79a2d9248e1eaffbc1e8a7a9067d17f8bf83869e59f6861061b3cef6c709bcc0
+21:47:48.797329 [INFO] Starting Binance PLPL!
+21:47:50.38359 [INFO] Horizons API Status: 200 OK
+21:47:51.932015 [INFO] Binance websocket connected
+21:48:32.505613 [INFO] Current price: 26984.42
+21:49:03.409351 [INFO] Current price: 26986.03
+21:49:03.409648 [INFO] No active order, enter Long
+21:49:03.968007 [INFO] All active orders canceled
+21:49:04.142787 [INFO] BUSD: locked: 0, free: 8149.58770167	BTC: locked: 0, free: 1.155037
+21:49:04.143599 [INFO] Total account balance: 1.4570298348730808
+21:49:04.143768 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=BUY&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03706&price=26986.03&trailingDelta=95&stopPrice=26959.04&timestamp=1685828944143&signature=32514b17f184d6b5dbabf68f8827605e9d1d5729a8709562850772d01ba0283c
+21:49:05.413289 [INFO] Long BTCBUSD @ 2023-06-03.21.49, Prev: 26984.42, Curr: 26986.03, PLPL: 27024.762
+21:53:32.558069 [INFO] Current price: 26986.1
+21:53:32.558449 [INFO] Already Long, ignoring

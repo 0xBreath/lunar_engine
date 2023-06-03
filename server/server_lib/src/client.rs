@@ -2,7 +2,7 @@ use crate::api::API;
 use crate::errors::{BinanceContentError, ErrorKind, Result};
 use hex::encode as hex_encode;
 use hmac::{Hmac, Mac};
-use log::{error, info};
+use log::info;
 use reqwest::blocking::Response;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use serde::de::DeserializeOwned;
@@ -24,6 +24,7 @@ impl Client {
             host,
             inner_client: reqwest::blocking::Client::builder()
                 .pool_idle_timeout(None)
+                .connect_timeout(std::time::Duration::from_secs(5))
                 .build()
                 .unwrap(),
         }
@@ -149,14 +150,6 @@ impl Client {
         if response.status().is_success() {
             Ok(response.json::<T>()?)
         } else {
-            let status = response.status();
-            let headers = response.headers();
-            error!(
-                "Status: {}, Headers: {:?}, Url: {}",
-                status,
-                headers,
-                response.url()
-            );
             let error: BinanceContentError = response.json()?;
             Err(ErrorKind::BinanceError(error).into())
         }
