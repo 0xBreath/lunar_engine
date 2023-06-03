@@ -244,10 +244,10 @@ async fn main() -> Result<()> {
             // if count % 3 != 0 {
             //     return Ok(());
             // }
-            info!("Atomic counter: {}", count);
             if !kline_event.kline.is_final_bar {
                 return Ok(());
             }
+            info!("Atomic counter: {}", count);
 
             let date = Time::from_unix_msec(kline_event.event_time as i64);
             // cache previous and current candle to assess PLPL trade conditions
