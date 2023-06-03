@@ -172,12 +172,13 @@ async fn main() -> Result<()> {
 
     // Kline Websocket
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
-        let old_count = update_counter.fetch_add(1, Ordering::SeqCst);
-        if old_count % 3 != 0 {
-            return Ok(());
-        }
-        info!("counter: {}", update_counter.load(Ordering::SeqCst));
         if let WebSocketEvent::Kline(kline_event) = event {
+            let old_count = update_counter.fetch_add(1, Ordering::SeqCst);
+            if old_count % 3 != 0 {
+                return Ok(());
+            }
+            info!("counter: {}", update_counter.load(Ordering::SeqCst));
+
             let date = Time::from_unix_msec(kline_event.event_time as i64);
             // cache previous and current candle to assess PLPL trade conditions
             let mut prev = prev_candle.lock().expect("Failed to lock previous candle");
