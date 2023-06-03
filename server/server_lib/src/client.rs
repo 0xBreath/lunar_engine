@@ -152,7 +152,6 @@ impl Client {
             let status = response.status();
             error!("Status: {}, Url: {}", status, response.url());
             let error: BinanceContentError = response.json()?;
-            error!("Status: {}, Error: {:?}", status, error);
             Err(ErrorKind::BinanceError(error).into())
         }
     }
