@@ -12,6 +12,7 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::time::SystemTime;
 use time_series::{Candle, Day, Month, Time};
 use tokio::io::Result;
 
@@ -237,6 +238,8 @@ async fn main() -> Result<()> {
     // Kline Websocket
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         if let WebSocketEvent::Kline(kline_event) = event {
+            let start = SystemTime::now();
+
             let count = update_counter.fetch_add(1, Ordering::SeqCst);
             // if count % 3 != 0 {
             //     return Ok(());
@@ -888,6 +891,10 @@ async fn main() -> Result<()> {
                     *curr = Some(candle);
                 }
             }
+            let end = SystemTime::now();
+            // time to process
+            let elapsed = end.duration_since(start).expect("Time went backwards");
+            info!("Time to process Kline event: {:?}ms", elapsed.as_millis());
         }
         Ok(())
     });
