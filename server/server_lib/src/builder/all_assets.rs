@@ -21,6 +21,7 @@ impl AllAssets {
         let mut btree = BTreeMap::<String, String>::new();
         let timestamp = Self::get_timestamp().expect("Failed to get timestamp");
         btree.insert("timestamp".to_string(), timestamp.to_string());
+        btree.insert("recvWindow".to_string(), "10000".to_string());
         btree
     }
 

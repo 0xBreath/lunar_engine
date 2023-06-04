@@ -52,7 +52,7 @@ lazy_static! {
             Some(BINANCE_TEST_API_SECRET.to_string()),
             BINANCE_TEST_API.to_string()
         ),
-        recv_window: 5000,
+        recv_window: 10000,
     });
 }
 

@@ -75,6 +75,7 @@ impl BinanceTrade {
         }
         let timestamp = self.get_timestamp().expect("Failed to get timestamp");
         btree.push(("timestamp".to_string(), timestamp.to_string()));
+        btree.push(("recvWindow".to_string(), "10000".to_string()));
         btree
     }
 
