@@ -24,7 +24,7 @@ impl Client {
             host,
             inner_client: reqwest::blocking::Client::builder()
                 .pool_idle_timeout(None)
-                .connect_timeout(std::time::Duration::from_secs(5))
+                .connect_timeout(std::time::Duration::from_secs(10))
                 .build()
                 .unwrap(),
         }
