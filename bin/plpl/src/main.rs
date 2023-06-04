@@ -127,70 +127,6 @@ fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
         .unwrap()
 }
 
-// fn calc_long_qty(candle: &Candle) -> errors::Result<f64> {
-//     let account = ACCOUNT.lock().expect("Failed to lock account");
-//     // get account balances for BTC and BUSD
-//     let account_info = match account.account_info() {
-//         Err(e) => {
-//             error!("Failed to get account info: {}", e);
-//             return Err(e);
-//         }
-//         Ok(account_info) => account_info,
-//     };
-//     let busd_balance = free_asset(&account_info, &account.quote_asset);
-//     let busd_balance_locked = locked_asset(&account_info, &account.quote_asset);
-//     let btc_balance = free_asset(&account_info, &account.base_asset);
-//     let btc_balance_locked = locked_asset(&account_info, &account.base_asset);
-//     let total_balances =
-//         ((busd_balance + busd_balance_locked) / candle.close) + btc_balance + btc_balance_locked;
-//     info!(
-//         "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-//         busd_balance_locked, busd_balance, btc_balance_locked, btc_balance
-//     );
-//     info!("Total account balance: {}", total_balances);
-//
-//     // calculate quantity of base asset to trade
-//     // Trade with $1000 or as close as the account can get
-//     let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-//         btc_balance
-//     } else {
-//         BinanceTrade::round_quantity(1000.0 / candle.close)
-//     };
-//     Ok(long_qty)
-// }
-//
-// fn calc_short_qty(candle: &Candle) -> errors::Result<f64> {
-//     // get account balances for BTC and BUSD
-//     let account = ACCOUNT.lock().expect("Failed to lock account");
-//     let account_info = match account.account_info() {
-//         Err(e) => {
-//             error!("Failed to get account info: {}", e);
-//             return Err(e);
-//         }
-//         Ok(account_info) => account_info,
-//     };
-//     let busd_balance = free_asset(&account_info, &account.quote_asset);
-//     let busd_balance_locked = locked_asset(&account_info, &account.quote_asset);
-//     let btc_balance = free_asset(&account_info, &account.base_asset);
-//     let btc_balance_locked = locked_asset(&account_info, &account.base_asset);
-//     let total_balances =
-//         ((busd_balance + busd_balance_locked) / candle.close) + btc_balance + btc_balance_locked;
-//     info!(
-//         "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-//         busd_balance_locked, busd_balance, btc_balance_locked, btc_balance
-//     );
-//     info!("Total account balance: {}", total_balances);
-//
-//     // calculate quantity of base asset to trade
-//     // Trade with $1000 or as close as the account can get
-//     let short_qty: f64 = if busd_balance < 1000.0 {
-//         busd_balance
-//     } else {
-//         BinanceTrade::round_quantity(1000.0 / candle.close)
-//     };
-//     Ok(short_qty)
-// }
-
 #[tokio::main]
 async fn main() -> Result<()> {
     let log_file = std::env::var("LOG_FILE").unwrap_or("plpl.log".to_string());
@@ -241,13 +177,10 @@ async fn main() -> Result<()> {
             let start = SystemTime::now();
 
             let count = update_counter.fetch_add(1, Ordering::SeqCst);
-            // if count % 3 != 0 {
-            //     return Ok(());
-            // }
+            debug!("Atomic counter: {}", count);
             if !kline_event.kline.is_final_bar {
                 return Ok(());
             }
-            info!("Atomic counter: {}", count);
 
             let date = Time::from_unix_msec(kline_event.event_time as i64);
             // cache previous and current candle to assess PLPL trade conditions
@@ -284,7 +217,7 @@ async fn main() -> Result<()> {
                                 let account_info = match account.account_info() {
                                     Err(e) => {
                                         error!("Failed to get account info: {}", e);
-                                        return Err(e);
+                                        return Ok(());
                                     }
                                     Ok(account_info) => account_info,
                                 };
@@ -358,7 +291,7 @@ async fn main() -> Result<()> {
                                     let account_info = match account.account_info() {
                                         Err(e) => {
                                             error!("Failed to get account info: {}", e);
-                                            return Err(e);
+                                            return Ok(());
                                         }
                                         Ok(account_info) => account_info,
                                     };
@@ -437,7 +370,7 @@ async fn main() -> Result<()> {
                                 let account_info = match account.account_info() {
                                     Err(e) => {
                                         error!("Failed to get account info: {}", e);
-                                        return Err(e);
+                                        return Ok(());
                                     }
                                     Ok(account_info) => account_info,
                                 };
@@ -508,7 +441,7 @@ async fn main() -> Result<()> {
                                     let account_info = match account.account_info() {
                                         Err(e) => {
                                             error!("Failed to get account info: {}", e);
-                                            return Err(e);
+                                            return Ok(());
                                         }
                                         Ok(account_info) => account_info,
                                     };
@@ -599,7 +532,7 @@ async fn main() -> Result<()> {
                                 let account_info = match account.account_info() {
                                     Err(e) => {
                                         error!("Failed to get account info: {}", e);
-                                        return Err(e);
+                                        return Ok(());
                                     }
                                     Ok(account_info) => account_info,
                                 };
@@ -673,7 +606,7 @@ async fn main() -> Result<()> {
                                     let account_info = match account.account_info() {
                                         Err(e) => {
                                             error!("Failed to get account info: {}", e);
-                                            return Err(e);
+                                            return Ok(());
                                         }
                                         Ok(account_info) => account_info,
                                     };
@@ -752,7 +685,7 @@ async fn main() -> Result<()> {
                                 let account_info = match account.account_info() {
                                     Err(e) => {
                                         error!("Failed to get account info: {}", e);
-                                        return Err(e);
+                                        return Ok(());
                                     }
                                     Ok(account_info) => account_info,
                                 };
@@ -823,7 +756,7 @@ async fn main() -> Result<()> {
                                     let account_info = match account.account_info() {
                                         Err(e) => {
                                             error!("Failed to get account info: {}", e);
-                                            return Err(e);
+                                            return Ok(());
                                         }
                                         Ok(account_info) => account_info,
                                     };
