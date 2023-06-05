@@ -7,6 +7,7 @@ use crate::response::{AccountInfoResponse, HistoricalOrder, OrderCanceled, Price
 use crate::CoinInfo;
 use log::{debug, info};
 use serde::de::DeserializeOwned;
+use std::time::SystemTime;
 
 #[derive(Clone)]
 pub struct Account {
@@ -64,11 +65,14 @@ impl Account {
     /// Get account info which includes token balances
     pub fn account_info(&self) -> Result<AccountInfoResponse> {
         let req = AccountInfo::request();
-        info!("Before request time: {:?}", AccountInfo::get_timestamp());
+        let pre = SystemTime::now();
         let res = self
             .client
             .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req));
-        info!("After request time: {:?}", AccountInfo::get_timestamp());
+        // create Duration from u64
+        let post = SystemTime::now();
+        let dur = post.duration_since(pre).unwrap().as_millis();
+        info!("Request time: {:?}", dur);
         res
     }
 
