@@ -127,12 +127,17 @@ fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
         .unwrap()
 }
 
-fn total_balance(account_info: &AccountInfoResponse, quote_asset: &str, base_asset: &str) -> f64 {
+fn total_balance(
+    account_info: &AccountInfoResponse,
+    quote_asset: &str,
+    base_asset: &str,
+    candle: &Candle,
+) -> f64 {
     let free_quote = free_asset(account_info, quote_asset);
     let locked_quote = locked_asset(account_info, quote_asset);
     let free_base = free_asset(account_info, base_asset);
     let locked_base = locked_asset(account_info, base_asset);
-    (free_quote + locked_quote) + free_base + locked_base
+    ((free_quote + locked_quote) / candle.close) + free_base + locked_base
 }
 
 #[tokio::main]
@@ -246,6 +251,7 @@ async fn main() -> Result<()> {
                                     &account_info,
                                     &account.quote_asset,
                                     &account.base_asset,
+                                    &candle,
                                 );
                                 info!("Total account balance: {}", total_balances);
                                 // calculate quantity of base asset to trade
@@ -323,6 +329,7 @@ async fn main() -> Result<()> {
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
+                                        &candle,
                                     );
                                     info!("Total account balance: {}", total_balances);
                                     // calculate quantity of base asset to trade
@@ -401,6 +408,7 @@ async fn main() -> Result<()> {
                                     &account_info,
                                     &account.quote_asset,
                                     &account.base_asset,
+                                    &candle,
                                 );
                                 info!("Total account balance: {}", total_balances);
                                 // calculate quantity of base asset to trade
@@ -475,6 +483,7 @@ async fn main() -> Result<()> {
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
+                                        &candle,
                                     );
                                     info!("Total account balance: {}", total_balances);
                                     // calculate quantity of base asset to trade
@@ -565,6 +574,7 @@ async fn main() -> Result<()> {
                                     &account_info,
                                     &account.quote_asset,
                                     &account.base_asset,
+                                    &candle,
                                 );
                                 info!("Total account balance: {}", total_balances);
                                 // calculate quantity of base asset to trade
@@ -642,6 +652,7 @@ async fn main() -> Result<()> {
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
+                                        &candle,
                                     );
                                     info!("Total account balance: {}", total_balances);
                                     // calculate quantity of base asset to trade
@@ -720,6 +731,7 @@ async fn main() -> Result<()> {
                                     &account_info,
                                     &account.quote_asset,
                                     &account.base_asset,
+                                    &candle,
                                 );
                                 info!("Total account balance: {}", total_balances);
                                 // calculate quantity of base asset to trade
@@ -794,6 +806,7 @@ async fn main() -> Result<()> {
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
+                                        &candle,
                                     );
                                     info!("Total account balance: {}", total_balances);
                                     // calculate quantity of base asset to trade
