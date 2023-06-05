@@ -5,7 +5,7 @@ use crate::errors::Result;
 use crate::model::ExchangeInformation;
 use crate::response::{AccountInfoResponse, HistoricalOrder, OrderCanceled, PriceResponse};
 use crate::CoinInfo;
-use log::debug;
+use log::{debug, info};
 use serde::de::DeserializeOwned;
 
 #[derive(Clone)]
@@ -64,8 +64,12 @@ impl Account {
     /// Get account info which includes token balances
     pub fn account_info(&self) -> Result<AccountInfoResponse> {
         let req = AccountInfo::request();
-        self.client
-            .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req))
+        info!("Before request time: {:?}", AccountInfo::get_timestamp());
+        let res = self
+            .client
+            .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req));
+        info!("After request time: {:?}", AccountInfo::get_timestamp());
+        res
     }
 
     /// Get all assets
