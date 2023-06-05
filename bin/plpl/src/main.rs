@@ -140,8 +140,7 @@ fn total_balance(
     ((free_quote + locked_quote) / candle.close) + free_base + locked_base
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let log_file = std::env::var("LOG_FILE").unwrap_or("plpl.log".to_string());
     init_logger(&PathBuf::from(log_file));
 

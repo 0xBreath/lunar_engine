@@ -1,13 +1,3 @@
-21:47:48.797329 [INFO] Starting Binance PLPL!
-21:47:50.38359 [INFO] Horizons API Status: 200 OK
-21:47:51.932015 [INFO] Binance websocket connected
-21:48:32.505613 [INFO] Current price: 26984.42
-21:49:03.409351 [INFO] Current price: 26986.03
-21:49:03.409648 [INFO] No active order, enter Long
-21:49:03.968007 [INFO] All active orders canceled
-21:49:04.142787 [INFO] BUSD: locked: 0, free: 8149.58770167	BTC: locked: 0, free: 1.155037
-21:49:04.143599 [INFO] Total account balance: 1.4570298348730808
-21:49:04.143768 [INFO] url: https://testnet.binance.vision/api/v3/order?symbol=BTCBUSD&side=BUY&type=TAKE_PROFIT_LIMIT&timeInForce=GTC&quantity=0.03706&price=26986.03&trailingDelta=95&stopPrice=26959.04&timestamp=1685828944143&signature=32514b17f184d6b5dbabf68f8827605e9d1d5729a8709562850772d01ba0283c
-21:49:05.413289 [INFO] Long BTCBUSD @ 2023-06-03.21.49, Prev: 26984.42, Curr: 26986.03, PLPL: 27024.762
-21:53:32.558069 [INFO] Current price: 26986.1
-21:53:32.558449 [INFO] Already Long, ignoring
+21:38:02.010829 [INFO] Starting Binance PLPL!
+21:38:03.542763 [INFO] Horizons API Status: 200 OK
+21:38:04.769637 [INFO] Binance websocket connected

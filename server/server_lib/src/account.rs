@@ -72,7 +72,7 @@ impl Account {
         // create Duration from u64
         let post = SystemTime::now();
         let dur = post.duration_since(pre).unwrap().as_millis();
-        info!("Request time: {}ms", dur);
+        info!("Request time: {:?}ms", dur);
         res
     }
 
