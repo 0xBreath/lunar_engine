@@ -132,7 +132,7 @@ fn total_balance(account_info: &AccountInfoResponse, quote_asset: &str, base_ass
     let locked_quote = locked_asset(account_info, quote_asset);
     let free_base = free_asset(account_info, base_asset);
     let locked_base = locked_asset(account_info, base_asset);
-    let total_balance = ((free_quote + locked_quote) / 20.000) + free_base + locked_base;
+    let total_balance = ((free_quote + locked_quote) / 20_000.0) + free_base + locked_base;
     total_balance
 }
 
