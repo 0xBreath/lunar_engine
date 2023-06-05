@@ -127,6 +127,15 @@ fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
         .unwrap()
 }
 
+fn total_balance(account_info: &AccountInfoResponse, quote_asset: &str, base_asset: &str) -> f64 {
+    let free_quote = free_asset(account_info, quote_asset);
+    let locked_quote = locked_asset(account_info, quote_asset);
+    let free_base = free_asset(account_info, base_asset);
+    let locked_base = locked_asset(account_info, base_asset);
+    let total_balance = ((free_quote + locked_quote) / 20.000) + free_base + locked_base;
+    total_balance
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let log_file = std::env::var("LOG_FILE").unwrap_or("plpl.log".to_string());
@@ -227,16 +236,17 @@ async fn main() -> Result<()> {
                                 let btc_balance = free_asset(&account_info, &account.base_asset);
                                 let btc_balance_locked =
                                     locked_asset(&account_info, &account.base_asset);
-                                let total_balances = ((busd_balance + busd_balance_locked)
-                                    / candle.close)
-                                    + btc_balance
-                                    + btc_balance_locked;
                                 info!(
                                     "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
                                     busd_balance_locked,
                                     busd_balance,
                                     btc_balance_locked,
                                     btc_balance
+                                );
+                                let total_balances = total_balance(
+                                    &account_info,
+                                    &account.quote_asset,
+                                    &account.base_asset,
                                 );
                                 info!("Total account balance: {}", total_balances);
                                 // calculate quantity of base asset to trade
@@ -303,16 +313,17 @@ async fn main() -> Result<()> {
                                         free_asset(&account_info, &account.base_asset);
                                     let btc_balance_locked =
                                         locked_asset(&account_info, &account.base_asset);
-                                    let total_balances = ((busd_balance + busd_balance_locked)
-                                        / candle.close)
-                                        + btc_balance
-                                        + btc_balance_locked;
                                     info!(
                                         "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
                                         busd_balance_locked,
                                         busd_balance,
                                         btc_balance_locked,
                                         btc_balance
+                                    );
+                                    let total_balances = total_balance(
+                                        &account_info,
+                                        &account.quote_asset,
+                                        &account.base_asset,
                                     );
                                     info!("Total account balance: {}", total_balances);
                                     // calculate quantity of base asset to trade
@@ -380,16 +391,17 @@ async fn main() -> Result<()> {
                                 let btc_balance = free_asset(&account_info, &account.base_asset);
                                 let btc_balance_locked =
                                     locked_asset(&account_info, &account.base_asset);
-                                let total_balances = ((busd_balance + busd_balance_locked)
-                                    / candle.close)
-                                    + btc_balance
-                                    + btc_balance_locked;
                                 info!(
                                     "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
                                     busd_balance_locked,
                                     busd_balance,
                                     btc_balance_locked,
                                     btc_balance
+                                );
+                                let total_balances = total_balance(
+                                    &account_info,
+                                    &account.quote_asset,
+                                    &account.base_asset,
                                 );
                                 info!("Total account balance: {}", total_balances);
                                 // calculate quantity of base asset to trade
@@ -453,16 +465,17 @@ async fn main() -> Result<()> {
                                         free_asset(&account_info, &account.base_asset);
                                     let btc_balance_locked =
                                         locked_asset(&account_info, &account.base_asset);
-                                    let total_balances = ((busd_balance + busd_balance_locked)
-                                        / candle.close)
-                                        + btc_balance
-                                        + btc_balance_locked;
                                     info!(
                                         "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
                                         busd_balance_locked,
                                         busd_balance,
                                         btc_balance_locked,
                                         btc_balance
+                                    );
+                                    let total_balances = total_balance(
+                                        &account_info,
+                                        &account.quote_asset,
+                                        &account.base_asset,
                                     );
                                     info!("Total account balance: {}", total_balances);
                                     // calculate quantity of base asset to trade
@@ -542,16 +555,17 @@ async fn main() -> Result<()> {
                                 let btc_balance = free_asset(&account_info, &account.base_asset);
                                 let btc_balance_locked =
                                     locked_asset(&account_info, &account.base_asset);
-                                let total_balances = ((busd_balance + busd_balance_locked)
-                                    / candle.close)
-                                    + btc_balance
-                                    + btc_balance_locked;
                                 info!(
                                     "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
                                     busd_balance_locked,
                                     busd_balance,
                                     btc_balance_locked,
                                     btc_balance
+                                );
+                                let total_balances = total_balance(
+                                    &account_info,
+                                    &account.quote_asset,
+                                    &account.base_asset,
                                 );
                                 info!("Total account balance: {}", total_balances);
                                 // calculate quantity of base asset to trade
@@ -618,16 +632,17 @@ async fn main() -> Result<()> {
                                         free_asset(&account_info, &account.base_asset);
                                     let btc_balance_locked =
                                         locked_asset(&account_info, &account.base_asset);
-                                    let total_balances = ((busd_balance + busd_balance_locked)
-                                        / candle.close)
-                                        + btc_balance
-                                        + btc_balance_locked;
                                     info!(
                                         "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
                                         busd_balance_locked,
                                         busd_balance,
                                         btc_balance_locked,
                                         btc_balance
+                                    );
+                                    let total_balances = total_balance(
+                                        &account_info,
+                                        &account.quote_asset,
+                                        &account.base_asset,
                                     );
                                     info!("Total account balance: {}", total_balances);
                                     // calculate quantity of base asset to trade
@@ -695,16 +710,17 @@ async fn main() -> Result<()> {
                                 let btc_balance = free_asset(&account_info, &account.base_asset);
                                 let btc_balance_locked =
                                     locked_asset(&account_info, &account.base_asset);
-                                let total_balances = ((busd_balance + busd_balance_locked)
-                                    / candle.close)
-                                    + btc_balance
-                                    + btc_balance_locked;
                                 info!(
                                     "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
                                     busd_balance_locked,
                                     busd_balance,
                                     btc_balance_locked,
                                     btc_balance
+                                );
+                                let total_balances = total_balance(
+                                    &account_info,
+                                    &account.quote_asset,
+                                    &account.base_asset,
                                 );
                                 info!("Total account balance: {}", total_balances);
                                 // calculate quantity of base asset to trade
@@ -768,16 +784,17 @@ async fn main() -> Result<()> {
                                         free_asset(&account_info, &account.base_asset);
                                     let btc_balance_locked =
                                         locked_asset(&account_info, &account.base_asset);
-                                    let total_balances = ((busd_balance + busd_balance_locked)
-                                        / candle.close)
-                                        + btc_balance
-                                        + btc_balance_locked;
                                     info!(
                                         "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
                                         busd_balance_locked,
                                         busd_balance,
                                         btc_balance_locked,
                                         btc_balance
+                                    );
+                                    let total_balances = total_balance(
+                                        &account_info,
+                                        &account.quote_asset,
+                                        &account.base_asset,
                                     );
                                     info!("Total account balance: {}", total_balances);
                                     // calculate quantity of base asset to trade
