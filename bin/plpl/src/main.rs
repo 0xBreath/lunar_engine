@@ -795,6 +795,7 @@ fn plpl_long(
         Some(limit),
         Some(stop_loss),
         Some(trailing_stop),
+        Some(5000),
     )
 }
 
@@ -816,5 +817,6 @@ fn plpl_short(
         Some(limit),
         Some(stop_loss),
         Some(trailing_stop),
+        Some(5000),
     )
 }

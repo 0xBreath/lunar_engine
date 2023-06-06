@@ -18,7 +18,10 @@ pub struct BinanceTrade {
     pub stop_loss: Option<f64>,
     /// Trailing stop
     pub trailing_stop: Option<f64>,
+    /// The number of milliseconds the request is valid for
+    pub recv_window: Option<u32>
 }
+
 
 impl BinanceTrade {
     pub fn new(
@@ -29,6 +32,7 @@ impl BinanceTrade {
         price: Option<f64>,
         stop_loss: Option<f64>,
         trailing_stop: Option<f64>,
+        recv_window: Option<u32>,
     ) -> Self {
         Self {
             symbol,
@@ -38,6 +42,7 @@ impl BinanceTrade {
             price,
             stop_loss,
             trailing_stop,
+            recv_window
         }
     }
 
@@ -75,7 +80,9 @@ impl BinanceTrade {
         }
         let timestamp = self.get_timestamp().expect("Failed to get timestamp");
         btree.push(("timestamp".to_string(), timestamp.to_string()));
-        btree.push(("recvWindow".to_string(), "2000".to_string()));
+        if let Some(recv_window) = self.recv_window {
+            btree.push(("recvWindow".to_string(), recv_window.to_string()));
+        }
         btree
     }
 

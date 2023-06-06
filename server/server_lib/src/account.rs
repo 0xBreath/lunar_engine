@@ -64,7 +64,7 @@ impl Account {
 
     /// Get account info which includes token balances
     pub fn account_info(&self) -> Result<AccountInfoResponse> {
-        let req = AccountInfo::request();
+        let req = AccountInfo::request(Some(5000));
         let pre = SystemTime::now();
         let res = self
             .client
@@ -79,14 +79,14 @@ impl Account {
     /// Get all assets
     /// Not available on testnet
     pub fn all_assets(&self) -> Result<Vec<CoinInfo>> {
-        let req = AllAssets::request();
+        let req = AllAssets::request(Some(5000));
         self.client
             .get_signed::<Vec<CoinInfo>>(API::Savings(Sapi::AllCoins), Some(req))
     }
 
     /// Get price of a single symbol
     pub fn get_price(&self, symbol: String) -> Result<f64> {
-        let req = Price::request(symbol);
+        let req = Price::request(symbol, Some(5000));
         let res = self
             .client
             .get::<PriceResponse>(API::Spot(Spot::Price), Some(req))?;
@@ -96,7 +96,7 @@ impl Account {
 
     /// Get historical orders for a single symbol
     pub fn all_orders(&self, symbol: String) -> Result<Vec<HistoricalOrder>> {
-        let req = AllOrders::request(symbol);
+        let req = AllOrders::request(symbol, Some(5000));
         self.client
             .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))
     }
@@ -104,7 +104,7 @@ impl Account {
     /// Get last open trade for a single symbol
     /// Returns Some if there is an open trade, None otherwise
     pub fn last_order(&self, symbol: String) -> Result<Option<HistoricalOrder>> {
-        let req = AllOrders::request(symbol);
+        let req = AllOrders::request(symbol, Some(5000));
         let orders = self
             .client
             .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))?;
@@ -120,7 +120,7 @@ impl Account {
 
     /// Cancel all open orders for a single symbol
     pub fn cancel_all_active_orders(&self) -> Result<Vec<OrderCanceled>> {
-        let req = CancelOrders::request(self.ticker.clone());
+        let req = CancelOrders::request(self.ticker.clone(), Some(5000));
         self.client
             .delete_signed(API::Spot(Spot::OpenOrders), Some(req))
     }

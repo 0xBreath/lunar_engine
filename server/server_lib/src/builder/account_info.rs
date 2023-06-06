@@ -5,8 +5,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct AccountInfo {}
 
 impl AccountInfo {
-    pub fn request() -> String {
-        Self::create_request()
+    pub fn request(recv_window: Option<u32>) -> String {
+        Self::create_request(recv_window)
     }
 
     pub fn get_timestamp() -> Result<u64> {
@@ -17,16 +17,18 @@ impl AccountInfo {
         Ok(since_epoch.as_secs() * 1000 + u64::from(since_epoch.subsec_nanos()) / 1_000_000)
     }
 
-    fn build() -> BTreeMap<String, String> {
+    fn build(recv_window: Option<u32>) -> BTreeMap<String, String> {
         let mut btree = BTreeMap::<String, String>::new();
         let timestamp = Self::get_timestamp().expect("Failed to get timestamp");
         btree.insert("timestamp".to_string(), timestamp.to_string());
-        btree.insert("recvWindow".to_string(), "2000".to_string());
+        if let Some(recv_window) = recv_window {
+            btree.insert("recvWindow".to_string(), recv_window.to_string());
+        }
         btree
     }
 
-    fn create_request() -> String {
-        let btree = Self::build();
+    fn create_request(recv_window: Option<u32>) -> String {
+        let btree = Self::build(recv_window);
         let mut request = String::new();
         for (key, value) in btree.iter() {
             request.push_str(&format!("{}={}&", key, value));

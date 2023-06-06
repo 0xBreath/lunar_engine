@@ -7,8 +7,8 @@ pub struct AllOrders {}
 
 impl AllOrders {
     #[allow(dead_code)]
-    pub fn request(symbol: String) -> String {
-        Self::create_request(symbol)
+    pub fn request(symbol: String, recv_window: Option<u32>) -> String {
+        Self::create_request(symbol, recv_window)
     }
 
     pub fn get_timestamp() -> Result<u64> {
@@ -20,18 +20,20 @@ impl AllOrders {
     }
 
     #[allow(dead_code)]
-    fn build(symbol: String) -> BTreeMap<String, String> {
+    fn build(symbol: String, recv_window: Option<u32>) -> BTreeMap<String, String> {
         let mut btree = BTreeMap::<String, String>::new();
         btree.insert("symbol".to_string(), symbol);
         let timestamp = Self::get_timestamp().expect("Failed to get timestamp");
         btree.insert("timestamp".to_string(), timestamp.to_string());
-        btree.insert("recvWindow".to_string(), "2000".to_string());
+        if let Some(recv_window) = recv_window {
+            btree.insert("recvWindow".to_string(), recv_window.to_string());
+        }
         btree
     }
 
     #[allow(dead_code)]
-    fn create_request(symbol: String) -> String {
-        let btree = Self::build(symbol);
+    fn create_request(symbol: String, recv_window: Option<u32>) -> String {
+        let btree = Self::build(symbol, recv_window);
         let mut request = String::new();
         for (key, value) in btree.iter() {
             request.push_str(&format!("{}={}&", key, value));

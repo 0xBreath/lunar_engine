@@ -5,11 +5,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct CancelOrders {
     /// Ticker symbol (e.g. BTCUSDC)
     pub symbol: String,
+    pub recv_window: Option<u32>
 }
 
 impl CancelOrders {
-    pub fn request(symbol: String) -> String {
-        let me = Self { symbol };
+    pub fn request(symbol: String, recv_window: Option<u32>) -> String {
+        let me = Self { symbol, recv_window };
         me.create_request()
     }
 
@@ -26,7 +27,9 @@ impl CancelOrders {
         btree.insert("symbol".to_string(), self.symbol.to_string());
         let timestamp = Self::get_timestamp().expect("Failed to get timestamp");
         btree.insert("timestamp".to_string(), timestamp.to_string());
-        btree.insert("recvWindow".to_string(), "2000".to_string());
+        if let Some(recv_window) = self.recv_window {
+            btree.insert("recvWindow".to_string(), recv_window.to_string());
+        }
         btree
     }
 
