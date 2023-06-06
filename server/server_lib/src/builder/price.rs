@@ -14,7 +14,7 @@ impl Price {
     fn build(&self) -> BTreeMap<String, String> {
         let mut btree = BTreeMap::<String, String>::new();
         btree.insert("symbol".to_string(), self.symbol.to_string());
-        btree.insert("recvWindow".to_string(), "10000".to_string());
+        btree.insert("recvWindow".to_string(), "2000".to_string());
         btree
     }
 

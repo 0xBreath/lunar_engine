@@ -25,7 +25,7 @@ impl AllOrders {
         btree.insert("symbol".to_string(), symbol);
         let timestamp = Self::get_timestamp().expect("Failed to get timestamp");
         btree.insert("timestamp".to_string(), timestamp.to_string());
-        btree.insert("recvWindow".to_string(), "10000".to_string());
+        btree.insert("recvWindow".to_string(), "2000".to_string());
         btree
     }
 

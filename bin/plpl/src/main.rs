@@ -233,19 +233,7 @@ fn main() -> Result<()> {
                                     }
                                     Ok(account_info) => account_info,
                                 };
-                                let busd_balance = free_asset(&account_info, &account.quote_asset);
-                                let busd_balance_locked =
-                                    locked_asset(&account_info, &account.quote_asset);
                                 let btc_balance = free_asset(&account_info, &account.base_asset);
-                                let btc_balance_locked =
-                                    locked_asset(&account_info, &account.base_asset);
-                                info!(
-                                    "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                                    busd_balance_locked,
-                                    busd_balance,
-                                    btc_balance_locked,
-                                    btc_balance
-                                );
                                 let total_balances = total_balance(
                                     &account_info,
                                     &account.quote_asset,
@@ -309,21 +297,8 @@ fn main() -> Result<()> {
                                         }
                                         Ok(account_info) => account_info,
                                     };
-                                    let busd_balance =
-                                        free_asset(&account_info, &account.quote_asset);
-                                    let busd_balance_locked =
-                                        locked_asset(&account_info, &account.quote_asset);
                                     let btc_balance =
                                         free_asset(&account_info, &account.base_asset);
-                                    let btc_balance_locked =
-                                        locked_asset(&account_info, &account.base_asset);
-                                    info!(
-                                        "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                                        busd_balance_locked,
-                                        busd_balance,
-                                        btc_balance_locked,
-                                        btc_balance
-                                    );
                                     let total_balances = total_balance(
                                         &account_info,
                                         &account.quote_asset,
@@ -391,18 +366,6 @@ fn main() -> Result<()> {
                                     Ok(account_info) => account_info,
                                 };
                                 let busd_balance = free_asset(&account_info, &account.quote_asset);
-                                let busd_balance_locked =
-                                    locked_asset(&account_info, &account.quote_asset);
-                                let btc_balance = free_asset(&account_info, &account.base_asset);
-                                let btc_balance_locked =
-                                    locked_asset(&account_info, &account.base_asset);
-                                info!(
-                                    "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                                    busd_balance_locked,
-                                    busd_balance,
-                                    btc_balance_locked,
-                                    btc_balance
-                                );
                                 let total_balances = total_balance(
                                     &account_info,
                                     &account.quote_asset,
@@ -465,19 +428,6 @@ fn main() -> Result<()> {
                                     };
                                     let busd_balance =
                                         free_asset(&account_info, &account.quote_asset);
-                                    let busd_balance_locked =
-                                        locked_asset(&account_info, &account.quote_asset);
-                                    let btc_balance =
-                                        free_asset(&account_info, &account.base_asset);
-                                    let btc_balance_locked =
-                                        locked_asset(&account_info, &account.base_asset);
-                                    info!(
-                                        "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                                        busd_balance_locked,
-                                        busd_balance,
-                                        btc_balance_locked,
-                                        btc_balance
-                                    );
                                     let total_balances = total_balance(
                                         &account_info,
                                         &account.quote_asset,
@@ -556,19 +506,7 @@ fn main() -> Result<()> {
                                     }
                                     Ok(account_info) => account_info,
                                 };
-                                let busd_balance = free_asset(&account_info, &account.quote_asset);
-                                let busd_balance_locked =
-                                    locked_asset(&account_info, &account.quote_asset);
                                 let btc_balance = free_asset(&account_info, &account.base_asset);
-                                let btc_balance_locked =
-                                    locked_asset(&account_info, &account.base_asset);
-                                info!(
-                                    "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                                    busd_balance_locked,
-                                    busd_balance,
-                                    btc_balance_locked,
-                                    btc_balance
-                                );
                                 let total_balances = total_balance(
                                     &account_info,
                                     &account.quote_asset,
@@ -632,21 +570,8 @@ fn main() -> Result<()> {
                                         }
                                         Ok(account_info) => account_info,
                                     };
-                                    let busd_balance =
-                                        free_asset(&account_info, &account.quote_asset);
-                                    let busd_balance_locked =
-                                        locked_asset(&account_info, &account.quote_asset);
                                     let btc_balance =
                                         free_asset(&account_info, &account.base_asset);
-                                    let btc_balance_locked =
-                                        locked_asset(&account_info, &account.base_asset);
-                                    info!(
-                                        "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                                        busd_balance_locked,
-                                        busd_balance,
-                                        btc_balance_locked,
-                                        btc_balance
-                                    );
                                     let total_balances = total_balance(
                                         &account_info,
                                         &account.quote_asset,
@@ -714,18 +639,6 @@ fn main() -> Result<()> {
                                     Ok(account_info) => account_info,
                                 };
                                 let busd_balance = free_asset(&account_info, &account.quote_asset);
-                                let busd_balance_locked =
-                                    locked_asset(&account_info, &account.quote_asset);
-                                let btc_balance = free_asset(&account_info, &account.base_asset);
-                                let btc_balance_locked =
-                                    locked_asset(&account_info, &account.base_asset);
-                                info!(
-                                    "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                                    busd_balance_locked,
-                                    busd_balance,
-                                    btc_balance_locked,
-                                    btc_balance
-                                );
                                 let total_balances = total_balance(
                                     &account_info,
                                     &account.quote_asset,
@@ -788,19 +701,6 @@ fn main() -> Result<()> {
                                     };
                                     let busd_balance =
                                         free_asset(&account_info, &account.quote_asset);
-                                    let busd_balance_locked =
-                                        locked_asset(&account_info, &account.quote_asset);
-                                    let btc_balance =
-                                        free_asset(&account_info, &account.base_asset);
-                                    let btc_balance_locked =
-                                        locked_asset(&account_info, &account.base_asset);
-                                    info!(
-                                        "BUSD: locked: {}, free: {}\tBTC: locked: {}, free: {}",
-                                        busd_balance_locked,
-                                        busd_balance,
-                                        btc_balance_locked,
-                                        btc_balance
-                                    );
                                     let total_balances = total_balance(
                                         &account_info,
                                         &account.quote_asset,
@@ -852,9 +752,10 @@ fn main() -> Result<()> {
                     *curr = Some(candle);
                 }
             }
-            let end = SystemTime::now();
             // time to process
-            let elapsed = end.duration_since(start).expect("Time went backwards");
+            let elapsed = SystemTime::now()
+                .duration_since(start)
+                .expect("Time went backwards");
             info!("Time to process Kline event: {:?}ms", elapsed.as_millis());
         }
         Ok(())
