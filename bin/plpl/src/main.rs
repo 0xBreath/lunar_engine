@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 
+use crossbeam::channel::unbounded;
 use ephemeris::*;
 use log::*;
 use server_lib::*;
@@ -11,10 +12,11 @@ use simplelog::{
 use std::fs::File;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::Arc;
 use std::time::SystemTime;
 use time_series::{Candle, Day, Month, Time};
 use tokio::io::Result;
+use tokio::sync::Mutex;
 
 // Binance US API endpoint
 // Data returned in ascending order, oldest first
@@ -30,7 +32,7 @@ const BINANCE_TEST_API_SECRET: &str =
     "XGKu8AelLejzC6R5ZBWvbNzy4NC7d78ckU0sOJk3VeFRsWnJTajCfcFsArnPFEjP";
 
 lazy_static! {
-    static ref ACCOUNT: Mutex<Account> = Mutex::new(Account {
+    static ref ACCOUNT: Arc<Mutex<Account>> = Arc::new(Mutex::new(Account {
         client: Client::new(
             Some(BINANCE_TEST_API_KEY.to_string()),
             Some(BINANCE_TEST_API_SECRET.to_string()),
@@ -41,19 +43,37 @@ lazy_static! {
         quote_asset: "BUSD".to_string(),
         ticker: "BTCBUSD".to_string(),
         active_order: None,
-        quote_asset_free: None,
-        quote_asset_locked: None,
-        base_asset_free: None,
-        base_asset_locked: None,
-    });
-    static ref USER_STREAM: Mutex<UserStream> = Mutex::new(UserStream {
+    }));
+    static ref USER_STREAM: Arc<Mutex<UserStream>> = Arc::new(Mutex::new(UserStream {
         client: Client::new(
             Some(BINANCE_TEST_API_KEY.to_string()),
             Some(BINANCE_TEST_API_SECRET.to_string()),
             BINANCE_TEST_API.to_string()
         ),
         recv_window: 10000,
-    });
+    }));
+    static ref PREV_CANDLE: Arc<Mutex<Option<Candle>>> = Arc::new(Mutex::new(None));
+    static ref CURR_CANDLE: Arc<Mutex<Option<Candle>>> = Arc::new(Mutex::new(None));
+    static ref COUNTER: Arc<Mutex<AtomicUsize>> = Arc::new(Mutex::new(AtomicUsize::new(0)));
+
+    // PLPL parameters; tuned for 5 minute candles
+    static ref TRAILING_STOP: f64 = 0.95;
+    static ref STOP_LOSS_PCT: f64 = 0.001;
+    static ref PLANET: Planet = Planet::from("Jupiter");
+    const plpl_scale = 0.5;
+    const plpl_price = 20000.0;
+    const num_plpls = 2000;
+    const cross_margin_pct = 55.0;
+    static ref PLPL_SYSTEM: Arc<Mutex<PLPLSystem>> = Arc::new(Mutex::new(PLPLSystem::new(PLPLSystemConfig {
+        planet,
+        origin: Origin::Heliocentric,
+        first_date: Time::new(2023, &Month::from_num(6), &Day::from_num(1), None, None),
+        last_date: Time::new(2050, &Month::from_num(6), &Day::from_num(1), None, None),
+        plpl_scale,
+        plpl_price,
+        num_plpls,
+        cross_margin_pct,
+    })));
 }
 
 pub fn init_logger(log_file: &PathBuf) {
@@ -140,17 +160,14 @@ fn total_balance(
     ((free_quote + locked_quote) / candle.close) + free_base + locked_base
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let log_file = std::env::var("LOG_FILE").unwrap_or("plpl.log".to_string());
     init_logger(&PathBuf::from(log_file));
 
     info!("Starting Binance PLPL!");
     let config = Config::testnet();
     let keep_running = AtomicBool::new(true);
-
-    let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
-    let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
-    let mut account = ACCOUNT.lock().expect("Failed to lock account");
 
     // PLPL parameters; tuned for 5 minute candles
     let trailing_stop = 0.95;
@@ -171,7 +188,8 @@ fn main() -> Result<()> {
         plpl_price,
         num_plpls,
         cross_margin_pct,
-    });
+    })
+    .await;
     let plpl_system = match plpl_system {
         Err(e) => {
             error!("Failed to initialize PLPL system: {}", e);
@@ -180,583 +198,611 @@ fn main() -> Result<()> {
         Ok(plpl_system) => plpl_system,
     };
 
-    // atomic counter to attempt trade every 2 candles
-    let update_counter = AtomicUsize::new(0);
+    // queue to process websocket event asynchronously
+    let (queue_tx, queue_rx) = unbounded::<KlineEvent>();
+
+    std::thread::spawn(move || {
+        info!("Starting thread to process queue messages.");
+        while let Ok(event) = queue_rx.recv() {
+            let kline_event = event.clone();
+            let account = ACCOUNT.clone();
+            let prev_candle = PREV_CANDLE.clone();
+            let curr_candle = CURR_CANDLE.clone();
+            let update_counter = COUNTER.clone();
+            let plpl_system = PLPL_SYSTEM.clone();
+
+            tokio::spawn(async move {
+                let account = account.lock().await;
+                let prev = prev_candle.lock().await;
+                let curr = curr_candle.lock().await;
+                let update_counter = update_counter.lock().await;
+
+                let queue_size = queue_rx.len();
+                info!("queue size: {:?}", queue_size);
+                let start = SystemTime::now();
+                let count = update_counter.fetch_add(1, Ordering::SeqCst);
+                debug!("Atomic counter: {}", count);
+                if !kline_event.kline.is_final_bar {
+                    return;
+                }
+
+                let date = Time::from_unix_msec(kline_event.event_time as i64);
+                // cache previous and current candle to assess PLPL trade conditions
+                // cast Kline to Candle
+                let candle = kline_to_candle(&kline_event);
+                info!("Current price: {}", candle.close);
+                // compute closest PLPL to current Candle
+                let plpl = plpl_system
+                    .closest_plpl(&candle)
+                    .expect("Failed to get closest plpl");
+
+                match (&*prev, &*curr) {
+                    (None, None) => *prev = Some(candle),
+                    (Some(prev_candle), None) => {
+                        *curr = Some(candle.clone());
+                        if plpl_system.long_signal(prev_candle, &candle, plpl) {
+                            // if position is Long, ignore
+                            // if position is Short, close short and open Long
+                            // if position is None, enter Long
+                            match account.get_active_order() {
+                                None => {
+                                    info!("No active order, enter Long");
+                                    match account.cancel_all_active_orders().await {
+                                        Err(_) => {
+                                            info!("No active orders to cancel")
+                                        }
+                                        Ok(_) => {
+                                            info!("All active orders canceled");
+                                        }
+                                    }
+
+                                    let account_info = match account.account_info().await {
+                                        Err(e) => {
+                                            error!("Failed to get account info: {}", e);
+                                            return;
+                                        }
+                                        Ok(account_info) => account_info,
+                                    };
+                                    let btc_balance =
+                                        free_asset(&account_info, &account.base_asset);
+                                    let total_balances = total_balance(
+                                        &account_info,
+                                        &account.quote_asset,
+                                        &account.base_asset,
+                                        &candle,
+                                    );
+                                    info!("Total account balance: {}", total_balances);
+                                    // calculate quantity of base asset to trade
+                                    // Trade with $1000 or as close as the account can get
+                                    let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
+                                        btc_balance
+                                    } else {
+                                        BinanceTrade::round_quantity(1000.0 / candle.close)
+                                    };
+
+                                    let trade = plpl_long(
+                                        account.ticker.clone(),
+                                        &candle,
+                                        trailing_stop,
+                                        stop_loss_pct,
+                                        long_qty,
+                                    );
+                                    let res = account.trade::<LimitOrderResponse>(trade).await;
+                                    match res {
+                                        Err(e) => {
+                                            error!("Failed to enter Long: {}", e);
+                                            return;
+                                        }
+                                        Ok(res) => {
+                                            debug!("{:?}", res);
+                                            info!(
+                                                "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                kline_event.kline.symbol,
+                                                date.to_string(),
+                                                prev_candle.close,
+                                                candle.close,
+                                                plpl
+                                            );
+                                        }
+                                    };
+                                }
+                                Some(active_order) => match active_order.side() {
+                                    Side::Long => {
+                                        info!("Already Long, ignoring");
+                                    }
+                                    Side::Short => {
+                                        info!("Close Short, enter Long");
+                                        match account.cancel_all_active_orders().await {
+                                            Err(_) => {
+                                                info!("No active orders to cancel");
+                                            }
+                                            Ok(_) => {
+                                                info!("All active orders canceled");
+                                            }
+                                        }
+
+                                        let account_info = match account.account_info().await {
+                                            Err(e) => {
+                                                error!("Failed to get account info: {}", e);
+                                                return;
+                                            }
+                                            Ok(account_info) => account_info,
+                                        };
+                                        let btc_balance =
+                                            free_asset(&account_info, &account.base_asset);
+                                        let total_balances = total_balance(
+                                            &account_info,
+                                            &account.quote_asset,
+                                            &account.base_asset,
+                                            &candle,
+                                        );
+                                        info!("Total account balance: {}", total_balances);
+                                        // calculate quantity of base asset to trade
+                                        // Trade with $1000 or as close as the account can get
+                                        let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
+                                            btc_balance
+                                        } else {
+                                            BinanceTrade::round_quantity(1000.0 / candle.close)
+                                        };
+
+                                        let trade = plpl_long(
+                                            account.ticker.clone(),
+                                            &candle,
+                                            trailing_stop,
+                                            stop_loss_pct,
+                                            long_qty,
+                                        );
+                                        let res = account.trade::<LimitOrderResponse>(trade).await;
+                                        match res {
+                                            Err(e) => {
+                                                error!("Failed to enter Long: {}", e);
+                                                return;
+                                            }
+                                            Ok(res) => {
+                                                debug!("{:?}", res);
+                                                info!(
+                                                    "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                    kline_event.kline.symbol,
+                                                    date.to_string(),
+                                                    prev_candle.close,
+                                                    candle.close,
+                                                    plpl
+                                                );
+                                            }
+                                        };
+                                    }
+                                },
+                            }
+                        } else if plpl_system.short_signal(prev_candle, &candle, plpl) {
+                            // if position is Short, ignore
+                            // if position is Long, close long and open Short
+                            // if position is None, enter Short
+                            match account.get_active_order() {
+                                None => {
+                                    info!("No active order, enter Short");
+                                    match account.cancel_all_active_orders().await {
+                                        Err(_) => {
+                                            info!("No active orders to cancel");
+                                        }
+                                        Ok(_) => {
+                                            info!("All active orders canceled");
+                                        }
+                                    }
+
+                                    let account_info = match account.account_info().await {
+                                        Err(e) => {
+                                            error!("Failed to get account info: {}", e);
+                                            return;
+                                        }
+                                        Ok(account_info) => account_info,
+                                    };
+                                    let busd_balance =
+                                        free_asset(&account_info, &account.quote_asset);
+                                    let total_balances = total_balance(
+                                        &account_info,
+                                        &account.quote_asset,
+                                        &account.base_asset,
+                                        &candle,
+                                    );
+                                    info!("Total account balance: {}", total_balances);
+                                    // calculate quantity of base asset to trade
+                                    // Trade with $1000 or as close as the account can get
+                                    let short_qty: f64 = if busd_balance < 1000.0 {
+                                        busd_balance
+                                    } else {
+                                        BinanceTrade::round_quantity(1000.0 / candle.close)
+                                    };
+
+                                    let trade = plpl_short(
+                                        account.ticker.clone(),
+                                        &candle,
+                                        trailing_stop,
+                                        stop_loss_pct,
+                                        short_qty,
+                                    );
+                                    let res = account.trade::<LimitOrderResponse>(trade).await;
+                                    match res {
+                                        Err(e) => {
+                                            error!("Failed to enter Short: {}", e);
+                                            return;
+                                        }
+                                        Ok(res) => {
+                                            debug!("{:?}", res);
+                                            info!(
+                                                "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                kline_event.kline.symbol,
+                                                date.to_string(),
+                                                prev_candle.close,
+                                                candle.close,
+                                                plpl
+                                            );
+                                        }
+                                    };
+                                }
+                                Some(active_order) => match active_order.side() {
+                                    Side::Long => {
+                                        info!("Close Long, enter Short");
+                                        match account.cancel_all_active_orders().await {
+                                            Err(_) => {
+                                                info!("No active orders to cancel");
+                                            }
+                                            Ok(_) => {
+                                                info!("All active orders canceled");
+                                            }
+                                        }
+
+                                        let account_info = match account.account_info().await {
+                                            Err(e) => {
+                                                error!("Failed to get account info: {}", e);
+                                                return;
+                                            }
+                                            Ok(account_info) => account_info,
+                                        };
+                                        let busd_balance =
+                                            free_asset(&account_info, &account.quote_asset);
+                                        let total_balances = total_balance(
+                                            &account_info,
+                                            &account.quote_asset,
+                                            &account.base_asset,
+                                            &candle,
+                                        );
+                                        info!("Total account balance: {}", total_balances);
+                                        // calculate quantity of base asset to trade
+                                        // Trade with $1000 or as close as the account can get
+                                        let short_qty: f64 = if busd_balance < 1000.0 {
+                                            busd_balance
+                                        } else {
+                                            BinanceTrade::round_quantity(1000.0 / candle.close)
+                                        };
+
+                                        let trade = plpl_short(
+                                            account.ticker.clone(),
+                                            &candle,
+                                            trailing_stop,
+                                            stop_loss_pct,
+                                            short_qty,
+                                        );
+                                        let res = account.trade::<LimitOrderResponse>(trade).await;
+                                        match res {
+                                            Err(e) => {
+                                                error!("Failed to enter Short: {}", e);
+                                                return;
+                                            }
+                                            Ok(res) => {
+                                                debug!("{:?}", res);
+                                                info!(
+                                                    "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                    kline_event.kline.symbol,
+                                                    date.to_string(),
+                                                    prev_candle.close,
+                                                    candle.close,
+                                                    plpl
+                                                );
+                                            }
+                                        };
+                                    }
+                                    Side::Short => {
+                                        info!("Already Short, ignoring");
+                                    }
+                                },
+                            }
+                        }
+                    }
+                    (None, Some(_)) => {
+                        error!(
+                            "Previous candle is None and current candle is Some. Should never occur!"
+                        );
+                    }
+                    (Some(_prev_candle), Some(curr_candle)) => {
+                        if plpl_system.long_signal(curr_candle, &candle, plpl) {
+                            // if position is Long, ignore
+                            // if position is Short, close short and enter Long
+                            // if position is None, enter Long
+                            match account.get_active_order() {
+                                None => {
+                                    info!("No active order, enter Long");
+                                    match account.cancel_all_active_orders().await {
+                                        Err(_) => {
+                                            info!("No active orders to cancel");
+                                        }
+                                        Ok(_) => {
+                                            info!("All active orders canceled");
+                                        }
+                                    }
+
+                                    let account_info = match account.account_info().await {
+                                        Err(e) => {
+                                            error!("Failed to get account info: {}", e);
+                                            return;
+                                        }
+                                        Ok(account_info) => account_info,
+                                    };
+                                    let btc_balance =
+                                        free_asset(&account_info, &account.base_asset);
+                                    let total_balances = total_balance(
+                                        &account_info,
+                                        &account.quote_asset,
+                                        &account.base_asset,
+                                        &candle,
+                                    );
+                                    info!("Total account balance: {}", total_balances);
+                                    // calculate quantity of base asset to trade
+                                    // Trade with $1000 or as close as the account can get
+                                    let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
+                                        btc_balance
+                                    } else {
+                                        BinanceTrade::round_quantity(1000.0 / candle.close)
+                                    };
+
+                                    let trade = plpl_long(
+                                        account.ticker.clone(),
+                                        &candle,
+                                        trailing_stop,
+                                        stop_loss_pct,
+                                        long_qty,
+                                    );
+                                    let res = account.trade::<LimitOrderResponse>(trade).await;
+                                    match res {
+                                        Err(e) => {
+                                            error!("Failed to enter Long: {}", e);
+                                            return;
+                                        }
+                                        Ok(res) => {
+                                            debug!("{:?}", res);
+                                            info!(
+                                                "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                kline_event.kline.symbol,
+                                                date.to_string(),
+                                                curr_candle.close,
+                                                candle.close,
+                                                plpl
+                                            );
+                                        }
+                                    };
+                                }
+                                Some(active_order) => match active_order.side() {
+                                    Side::Long => {
+                                        info!("Already Long, ignoring");
+                                    }
+                                    Side::Short => {
+                                        info!("Close Short, enter Long");
+                                        match account.cancel_all_active_orders().await {
+                                            Err(_) => {
+                                                info!("No active orders to cancel");
+                                            }
+                                            Ok(_) => {
+                                                info!("All active orders canceled");
+                                            }
+                                        }
+
+                                        let account_info = match account.account_info().await {
+                                            Err(e) => {
+                                                error!("Failed to get account info: {}", e);
+                                                return;
+                                            }
+                                            Ok(account_info) => account_info,
+                                        };
+                                        let btc_balance =
+                                            free_asset(&account_info, &account.base_asset);
+                                        let total_balances = total_balance(
+                                            &account_info,
+                                            &account.quote_asset,
+                                            &account.base_asset,
+                                            &candle,
+                                        );
+                                        info!("Total account balance: {}", total_balances);
+                                        // calculate quantity of base asset to trade
+                                        // Trade with $1000 or as close as the account can get
+                                        let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
+                                            btc_balance
+                                        } else {
+                                            BinanceTrade::round_quantity(1000.0 / candle.close)
+                                        };
+
+                                        let trade = plpl_long(
+                                            account.ticker.clone(),
+                                            &candle,
+                                            trailing_stop,
+                                            stop_loss_pct,
+                                            long_qty,
+                                        );
+                                        let res = account.trade::<LimitOrderResponse>(trade).await;
+                                        match res {
+                                            Err(e) => {
+                                                error!("Failed to enter Long: {}", e);
+                                                return;
+                                            }
+                                            Ok(res) => {
+                                                debug!("{:?}", res);
+                                                info!(
+                                                    "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                    kline_event.kline.symbol,
+                                                    date.to_string(),
+                                                    curr_candle.close,
+                                                    candle.close,
+                                                    plpl
+                                                );
+                                            }
+                                        };
+                                    }
+                                },
+                            }
+                        } else if plpl_system.short_signal(curr_candle, &candle, plpl) {
+                            // if position is Short, ignore
+                            // if position is Long, close long and enter Short
+                            // if position is None, enter Short
+                            match account.get_active_order() {
+                                None => {
+                                    info!("No active order, enter Short");
+                                    match account.cancel_all_active_orders().await {
+                                        Err(_) => {
+                                            info!("No active orders to cancel");
+                                        }
+                                        Ok(_) => {
+                                            info!("All active orders canceled");
+                                        }
+                                    }
+
+                                    let account_info = match account.account_info().await {
+                                        Err(e) => {
+                                            error!("Failed to get account info: {}", e);
+                                            return;
+                                        }
+                                        Ok(account_info) => account_info,
+                                    };
+                                    let busd_balance =
+                                        free_asset(&account_info, &account.quote_asset);
+                                    let total_balances = total_balance(
+                                        &account_info,
+                                        &account.quote_asset,
+                                        &account.base_asset,
+                                        &candle,
+                                    );
+                                    info!("Total account balance: {}", total_balances);
+                                    // calculate quantity of base asset to trade
+                                    // Trade with $1000 or as close as the account can get
+                                    let short_qty: f64 = if busd_balance < 1000.0 {
+                                        busd_balance
+                                    } else {
+                                        BinanceTrade::round_quantity(1000.0 / candle.close)
+                                    };
+
+                                    let trade = plpl_short(
+                                        account.ticker.clone(),
+                                        &candle,
+                                        trailing_stop,
+                                        stop_loss_pct,
+                                        short_qty,
+                                    );
+                                    let res = account.trade::<LimitOrderResponse>(trade).await;
+                                    match res {
+                                        Err(e) => {
+                                            error!("Failed to enter Short: {}", e);
+                                            return;
+                                        }
+                                        Ok(res) => {
+                                            debug!("{:?}", res);
+                                            info!(
+                                                "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                kline_event.kline.symbol,
+                                                date.to_string(),
+                                                curr_candle.close,
+                                                candle.close,
+                                                plpl
+                                            );
+                                        }
+                                    };
+                                }
+                                Some(active_order) => match active_order.side() {
+                                    Side::Long => {
+                                        info!("Close Long, enter Short");
+                                        match account.cancel_all_active_orders().await {
+                                            Err(_) => {
+                                                info!("No active orders to cancel");
+                                            }
+                                            Ok(_) => {
+                                                info!("All active orders canceled");
+                                            }
+                                        }
+
+                                        let account_info = match account.account_info().await {
+                                            Err(e) => {
+                                                error!("Failed to get account info: {}", e);
+                                                return;
+                                            }
+                                            Ok(account_info) => account_info,
+                                        };
+                                        let busd_balance =
+                                            free_asset(&account_info, &account.quote_asset);
+                                        let total_balances = total_balance(
+                                            &account_info,
+                                            &account.quote_asset,
+                                            &account.base_asset,
+                                            &candle,
+                                        );
+                                        info!("Total account balance: {}", total_balances);
+                                        // calculate quantity of base asset to trade
+                                        // Trade with $1000 or as close as the account can get
+                                        let short_qty: f64 = if busd_balance < 1000.0 {
+                                            busd_balance
+                                        } else {
+                                            BinanceTrade::round_quantity(1000.0 / candle.close)
+                                        };
+
+                                        let trade = plpl_short(
+                                            account.ticker.clone(),
+                                            &candle,
+                                            trailing_stop,
+                                            stop_loss_pct,
+                                            short_qty,
+                                        );
+                                        let res = account.trade::<LimitOrderResponse>(trade).await;
+                                        match res {
+                                            Err(e) => {
+                                                error!("Failed to enter Short: {}", e);
+                                                return;
+                                            }
+                                            Ok(res) => {
+                                                debug!("{:?}", res);
+                                                info!(
+                                                    "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
+                                                    kline_event.kline.symbol,
+                                                    date.to_string(),
+                                                    curr_candle.close,
+                                                    candle.close,
+                                                    plpl
+                                                );
+                                            }
+                                        };
+                                    }
+                                    Side::Short => {
+                                        info!("Already Short, ignoring");
+                                    }
+                                },
+                            }
+                        }
+                        *prev = Some(curr_candle.clone());
+                        *curr = Some(candle);
+                    }
+                }
+                // time to process
+                let elapsed = SystemTime::now()
+                    .duration_since(start)
+                    .expect("Time went backwards");
+                info!("Time to process Kline event: {:?}ms", elapsed.as_millis());
+                return;
+            });
+        }
+    });
 
     // Kline Websocket
     let mut ws = WebSockets::new(|event: WebSocketEvent| {
         if let WebSocketEvent::Kline(kline_event) = event {
-            let start = SystemTime::now();
-
-            let count = update_counter.fetch_add(1, Ordering::SeqCst);
-            debug!("Atomic counter: {}", count);
-            if !kline_event.kline.is_final_bar {
+            let res = queue_tx.send(kline_event);
+            if let Err(e) = res {
+                error!("Failed to send Kline event to queue: {}", e);
                 return Ok(());
             }
-
-            let date = Time::from_unix_msec(kline_event.event_time as i64);
-            // cache previous and current candle to assess PLPL trade conditions
-            let mut prev = prev_candle.lock().expect("Failed to lock previous candle");
-            let mut curr = curr_candle.lock().expect("Failed to lock current candle");
-            // cast Kline to Candle
-            let candle = kline_to_candle(&kline_event);
-            info!("Current price: {}", candle.close);
-            // compute closest PLPL to current Candle
-            let plpl = plpl_system
-                .closest_plpl(&candle)
-                .expect("Failed to get closest plpl");
-
-            match (&*prev, &*curr) {
-                (None, None) => *prev = Some(candle),
-                (Some(prev_candle), None) => {
-                    *curr = Some(candle.clone());
-                    if plpl_system.long_signal(prev_candle, &candle, plpl) {
-                        // if position is Long, ignore
-                        // if position is Short, close short and open Long
-                        // if position is None, enter Long
-                        match account.get_active_order() {
-                            None => {
-                                info!("No active order, enter Long");
-                                match account.cancel_all_active_orders() {
-                                    Err(_) => {
-                                        info!("No active orders to cancel")
-                                    }
-                                    Ok(_) => {
-                                        info!("All active orders canceled");
-                                    }
-                                }
-
-                                let account_info = match account.account_info() {
-                                    Err(e) => {
-                                        error!("Failed to get account info: {}", e);
-                                        return Ok(());
-                                    }
-                                    Ok(account_info) => account_info,
-                                };
-                                let btc_balance = free_asset(&account_info, &account.base_asset);
-                                let total_balances = total_balance(
-                                    &account_info,
-                                    &account.quote_asset,
-                                    &account.base_asset,
-                                    &candle,
-                                );
-                                info!("Total account balance: {}", total_balances);
-                                // calculate quantity of base asset to trade
-                                // Trade with $1000 or as close as the account can get
-                                let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                                    btc_balance
-                                } else {
-                                    BinanceTrade::round_quantity(1000.0 / candle.close)
-                                };
-
-                                let trade = plpl_long(
-                                    account.ticker.clone(),
-                                    &candle,
-                                    trailing_stop,
-                                    stop_loss_pct,
-                                    long_qty,
-                                );
-                                let res = account.trade::<LimitOrderResponse>(trade);
-                                match res {
-                                    Err(e) => {
-                                        error!("Failed to enter Long: {}", e);
-                                        return Ok(());
-                                    }
-                                    Ok(res) => {
-                                        debug!("{:?}", res);
-                                        info!(
-                                            "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                            kline_event.kline.symbol,
-                                            date.to_string(),
-                                            prev_candle.close,
-                                            candle.close,
-                                            plpl
-                                        );
-                                    }
-                                };
-                            }
-                            Some(active_order) => match active_order.side() {
-                                Side::Long => {
-                                    info!("Already Long, ignoring");
-                                }
-                                Side::Short => {
-                                    info!("Close Short, enter Long");
-                                    match account.cancel_all_active_orders() {
-                                        Err(_) => {
-                                            info!("No active orders to cancel");
-                                        }
-                                        Ok(_) => {
-                                            info!("All active orders canceled");
-                                        }
-                                    }
-
-                                    let account_info = match account.account_info() {
-                                        Err(e) => {
-                                            error!("Failed to get account info: {}", e);
-                                            return Ok(());
-                                        }
-                                        Ok(account_info) => account_info,
-                                    };
-                                    let btc_balance =
-                                        free_asset(&account_info, &account.base_asset);
-                                    let total_balances = total_balance(
-                                        &account_info,
-                                        &account.quote_asset,
-                                        &account.base_asset,
-                                        &candle,
-                                    );
-                                    info!("Total account balance: {}", total_balances);
-                                    // calculate quantity of base asset to trade
-                                    // Trade with $1000 or as close as the account can get
-                                    let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                                        btc_balance
-                                    } else {
-                                        BinanceTrade::round_quantity(1000.0 / candle.close)
-                                    };
-
-                                    let trade = plpl_long(
-                                        account.ticker.clone(),
-                                        &candle,
-                                        trailing_stop,
-                                        stop_loss_pct,
-                                        long_qty,
-                                    );
-                                    let res = account.trade::<LimitOrderResponse>(trade);
-                                    match res {
-                                        Err(e) => {
-                                            error!("Failed to enter Long: {}", e);
-                                            return Ok(());
-                                        }
-                                        Ok(res) => {
-                                            debug!("{:?}", res);
-                                            info!(
-                                                "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                                kline_event.kline.symbol,
-                                                date.to_string(),
-                                                prev_candle.close,
-                                                candle.close,
-                                                plpl
-                                            );
-                                        }
-                                    };
-                                }
-                            },
-                        }
-                    } else if plpl_system.short_signal(prev_candle, &candle, plpl) {
-                        // if position is Short, ignore
-                        // if position is Long, close long and open Short
-                        // if position is None, enter Short
-                        match account.get_active_order() {
-                            None => {
-                                info!("No active order, enter Short");
-                                match account.cancel_all_active_orders() {
-                                    Err(_) => {
-                                        info!("No active orders to cancel");
-                                    }
-                                    Ok(_) => {
-                                        info!("All active orders canceled");
-                                    }
-                                }
-
-                                let account_info = match account.account_info() {
-                                    Err(e) => {
-                                        error!("Failed to get account info: {}", e);
-                                        return Ok(());
-                                    }
-                                    Ok(account_info) => account_info,
-                                };
-                                let busd_balance = free_asset(&account_info, &account.quote_asset);
-                                let total_balances = total_balance(
-                                    &account_info,
-                                    &account.quote_asset,
-                                    &account.base_asset,
-                                    &candle,
-                                );
-                                info!("Total account balance: {}", total_balances);
-                                // calculate quantity of base asset to trade
-                                // Trade with $1000 or as close as the account can get
-                                let short_qty: f64 = if busd_balance < 1000.0 {
-                                    busd_balance
-                                } else {
-                                    BinanceTrade::round_quantity(1000.0 / candle.close)
-                                };
-
-                                let trade = plpl_short(
-                                    account.ticker.clone(),
-                                    &candle,
-                                    trailing_stop,
-                                    stop_loss_pct,
-                                    short_qty,
-                                );
-                                let res = account.trade::<LimitOrderResponse>(trade);
-                                match res {
-                                    Err(e) => {
-                                        error!("Failed to enter Short: {}", e);
-                                        return Ok(());
-                                    }
-                                    Ok(res) => {
-                                        debug!("{:?}", res);
-                                        info!(
-                                            "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                            kline_event.kline.symbol,
-                                            date.to_string(),
-                                            prev_candle.close,
-                                            candle.close,
-                                            plpl
-                                        );
-                                    }
-                                };
-                            }
-                            Some(active_order) => match active_order.side() {
-                                Side::Long => {
-                                    info!("Close Long, enter Short");
-                                    match account.cancel_all_active_orders() {
-                                        Err(_) => {
-                                            info!("No active orders to cancel");
-                                        }
-                                        Ok(_) => {
-                                            info!("All active orders canceled");
-                                        }
-                                    }
-
-                                    let account_info = match account.account_info() {
-                                        Err(e) => {
-                                            error!("Failed to get account info: {}", e);
-                                            return Ok(());
-                                        }
-                                        Ok(account_info) => account_info,
-                                    };
-                                    let busd_balance =
-                                        free_asset(&account_info, &account.quote_asset);
-                                    let total_balances = total_balance(
-                                        &account_info,
-                                        &account.quote_asset,
-                                        &account.base_asset,
-                                        &candle,
-                                    );
-                                    info!("Total account balance: {}", total_balances);
-                                    // calculate quantity of base asset to trade
-                                    // Trade with $1000 or as close as the account can get
-                                    let short_qty: f64 = if busd_balance < 1000.0 {
-                                        busd_balance
-                                    } else {
-                                        BinanceTrade::round_quantity(1000.0 / candle.close)
-                                    };
-
-                                    let trade = plpl_short(
-                                        account.ticker.clone(),
-                                        &candle,
-                                        trailing_stop,
-                                        stop_loss_pct,
-                                        short_qty,
-                                    );
-                                    let res = account.trade::<LimitOrderResponse>(trade);
-                                    match res {
-                                        Err(e) => {
-                                            error!("Failed to enter Short: {}", e);
-                                            return Ok(());
-                                        }
-                                        Ok(res) => {
-                                            debug!("{:?}", res);
-                                            info!(
-                                                "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                                kline_event.kline.symbol,
-                                                date.to_string(),
-                                                prev_candle.close,
-                                                candle.close,
-                                                plpl
-                                            );
-                                        }
-                                    };
-                                }
-                                Side::Short => {
-                                    info!("Already Short, ignoring");
-                                }
-                            },
-                        }
-                    }
-                }
-                (None, Some(_)) => {
-                    error!(
-                        "Previous candle is None and current candle is Some. Should never occur!"
-                    );
-                    unreachable!()
-                }
-                (Some(_prev_candle), Some(curr_candle)) => {
-                    if plpl_system.long_signal(curr_candle, &candle, plpl) {
-                        // if position is Long, ignore
-                        // if position is Short, close short and enter Long
-                        // if position is None, enter Long
-                        match account.get_active_order() {
-                            None => {
-                                info!("No active order, enter Long");
-                                match account.cancel_all_active_orders() {
-                                    Err(_) => {
-                                        info!("No active orders to cancel");
-                                    }
-                                    Ok(_) => {
-                                        info!("All active orders canceled");
-                                    }
-                                }
-
-                                let account_info = match account.account_info() {
-                                    Err(e) => {
-                                        error!("Failed to get account info: {}", e);
-                                        return Ok(());
-                                    }
-                                    Ok(account_info) => account_info,
-                                };
-                                let btc_balance = free_asset(&account_info, &account.base_asset);
-                                let total_balances = total_balance(
-                                    &account_info,
-                                    &account.quote_asset,
-                                    &account.base_asset,
-                                    &candle,
-                                );
-                                info!("Total account balance: {}", total_balances);
-                                // calculate quantity of base asset to trade
-                                // Trade with $1000 or as close as the account can get
-                                let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                                    btc_balance
-                                } else {
-                                    BinanceTrade::round_quantity(1000.0 / candle.close)
-                                };
-
-                                let trade = plpl_long(
-                                    account.ticker.clone(),
-                                    &candle,
-                                    trailing_stop,
-                                    stop_loss_pct,
-                                    long_qty,
-                                );
-                                let res = account.trade::<LimitOrderResponse>(trade);
-                                match res {
-                                    Err(e) => {
-                                        error!("Failed to enter Long: {}", e);
-                                        return Ok(());
-                                    }
-                                    Ok(res) => {
-                                        debug!("{:?}", res);
-                                        info!(
-                                            "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                            kline_event.kline.symbol,
-                                            date.to_string(),
-                                            curr_candle.close,
-                                            candle.close,
-                                            plpl
-                                        );
-                                    }
-                                };
-                            }
-                            Some(active_order) => match active_order.side() {
-                                Side::Long => {
-                                    info!("Already Long, ignoring");
-                                }
-                                Side::Short => {
-                                    info!("Close Short, enter Long");
-                                    match account.cancel_all_active_orders() {
-                                        Err(_) => {
-                                            info!("No active orders to cancel");
-                                        }
-                                        Ok(_) => {
-                                            info!("All active orders canceled");
-                                        }
-                                    }
-
-                                    let account_info = match account.account_info() {
-                                        Err(e) => {
-                                            error!("Failed to get account info: {}", e);
-                                            return Ok(());
-                                        }
-                                        Ok(account_info) => account_info,
-                                    };
-                                    let btc_balance =
-                                        free_asset(&account_info, &account.base_asset);
-                                    let total_balances = total_balance(
-                                        &account_info,
-                                        &account.quote_asset,
-                                        &account.base_asset,
-                                        &candle,
-                                    );
-                                    info!("Total account balance: {}", total_balances);
-                                    // calculate quantity of base asset to trade
-                                    // Trade with $1000 or as close as the account can get
-                                    let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                                        btc_balance
-                                    } else {
-                                        BinanceTrade::round_quantity(1000.0 / candle.close)
-                                    };
-
-                                    let trade = plpl_long(
-                                        account.ticker.clone(),
-                                        &candle,
-                                        trailing_stop,
-                                        stop_loss_pct,
-                                        long_qty,
-                                    );
-                                    let res = account.trade::<LimitOrderResponse>(trade);
-                                    match res {
-                                        Err(e) => {
-                                            error!("Failed to enter Long: {}", e);
-                                            return Ok(());
-                                        }
-                                        Ok(res) => {
-                                            debug!("{:?}", res);
-                                            info!(
-                                                "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                                kline_event.kline.symbol,
-                                                date.to_string(),
-                                                curr_candle.close,
-                                                candle.close,
-                                                plpl
-                                            );
-                                        }
-                                    };
-                                }
-                            },
-                        }
-                    } else if plpl_system.short_signal(curr_candle, &candle, plpl) {
-                        // if position is Short, ignore
-                        // if position is Long, close long and enter Short
-                        // if position is None, enter Short
-                        match account.get_active_order() {
-                            None => {
-                                info!("No active order, enter Short");
-                                match account.cancel_all_active_orders() {
-                                    Err(_) => {
-                                        info!("No active orders to cancel");
-                                    }
-                                    Ok(_) => {
-                                        info!("All active orders canceled");
-                                    }
-                                }
-
-                                let account_info = match account.account_info() {
-                                    Err(e) => {
-                                        error!("Failed to get account info: {}", e);
-                                        return Ok(());
-                                    }
-                                    Ok(account_info) => account_info,
-                                };
-                                let busd_balance = free_asset(&account_info, &account.quote_asset);
-                                let total_balances = total_balance(
-                                    &account_info,
-                                    &account.quote_asset,
-                                    &account.base_asset,
-                                    &candle,
-                                );
-                                info!("Total account balance: {}", total_balances);
-                                // calculate quantity of base asset to trade
-                                // Trade with $1000 or as close as the account can get
-                                let short_qty: f64 = if busd_balance < 1000.0 {
-                                    busd_balance
-                                } else {
-                                    BinanceTrade::round_quantity(1000.0 / candle.close)
-                                };
-
-                                let trade = plpl_short(
-                                    account.ticker.clone(),
-                                    &candle,
-                                    trailing_stop,
-                                    stop_loss_pct,
-                                    short_qty,
-                                );
-                                let res = account.trade::<LimitOrderResponse>(trade);
-                                match res {
-                                    Err(e) => {
-                                        error!("Failed to enter Short: {}", e);
-                                        return Ok(());
-                                    }
-                                    Ok(res) => {
-                                        debug!("{:?}", res);
-                                        info!(
-                                            "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                            kline_event.kline.symbol,
-                                            date.to_string(),
-                                            curr_candle.close,
-                                            candle.close,
-                                            plpl
-                                        );
-                                    }
-                                };
-                            }
-                            Some(active_order) => match active_order.side() {
-                                Side::Long => {
-                                    info!("Close Long, enter Short");
-                                    match account.cancel_all_active_orders() {
-                                        Err(_) => {
-                                            info!("No active orders to cancel");
-                                        }
-                                        Ok(_) => {
-                                            info!("All active orders canceled");
-                                        }
-                                    }
-
-                                    let account_info = match account.account_info() {
-                                        Err(e) => {
-                                            error!("Failed to get account info: {}", e);
-                                            return Ok(());
-                                        }
-                                        Ok(account_info) => account_info,
-                                    };
-                                    let busd_balance =
-                                        free_asset(&account_info, &account.quote_asset);
-                                    let total_balances = total_balance(
-                                        &account_info,
-                                        &account.quote_asset,
-                                        &account.base_asset,
-                                        &candle,
-                                    );
-                                    info!("Total account balance: {}", total_balances);
-                                    // calculate quantity of base asset to trade
-                                    // Trade with $1000 or as close as the account can get
-                                    let short_qty: f64 = if busd_balance < 1000.0 {
-                                        busd_balance
-                                    } else {
-                                        BinanceTrade::round_quantity(1000.0 / candle.close)
-                                    };
-
-                                    let trade = plpl_short(
-                                        account.ticker.clone(),
-                                        &candle,
-                                        trailing_stop,
-                                        stop_loss_pct,
-                                        short_qty,
-                                    );
-                                    let res = account.trade::<LimitOrderResponse>(trade);
-                                    match res {
-                                        Err(e) => {
-                                            error!("Failed to enter Short: {}", e);
-                                            return Ok(());
-                                        }
-                                        Ok(res) => {
-                                            debug!("{:?}", res);
-                                            info!(
-                                                "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
-                                                kline_event.kline.symbol,
-                                                date.to_string(),
-                                                curr_candle.close,
-                                                candle.close,
-                                                plpl
-                                            );
-                                        }
-                                    };
-                                }
-                                Side::Short => {
-                                    info!("Already Short, ignoring");
-                                }
-                            },
-                        }
-                    }
-                    *prev = Some(curr_candle.clone());
-                    *curr = Some(candle);
-                }
-            }
-            // time to process
-            let elapsed = SystemTime::now()
-                .duration_since(start)
-                .expect("Time went backwards");
-            info!("Time to process Kline event: {:?}ms", elapsed.as_millis());
         }
         Ok(())
     });

@@ -5,7 +5,7 @@ use actix_web::{get, web, App, Error, HttpResponse, HttpServer, Responder, Resul
 use log::*;
 use server_lib::*;
 use simplelog::{ColorChoice, Config as SimpleLogConfig, TermLogger, TerminalMode};
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 
 // Binance US API endpoint
 // Data returned in ascending order, oldest first
@@ -32,10 +32,6 @@ lazy_static! {
         quote_asset: "BUSD".to_string(),
         ticker: "BTCBUSD".to_string(),
         active_order: None,
-        quote_asset_free: None,
-        quote_asset_locked: None,
-        base_asset_free: None,
-        base_asset_locked: None,
     });
 }
 
@@ -79,15 +75,18 @@ async fn test() -> impl Responder {
 
 #[get("/account")]
 async fn account_info() -> Result<HttpResponse, Error> {
-    let account = ACCOUNT.lock().unwrap();
-    let res = account.account_info().expect("failed to get account info");
+    let account = ACCOUNT.lock().await;
+    let res = account
+        .account_info()
+        .await
+        .expect("failed to get account info");
     Ok(HttpResponse::Ok().json(res))
 }
 
 #[get("/assets")]
 async fn get_assets() -> Result<HttpResponse, Error> {
-    let account = ACCOUNT.lock().unwrap();
-    let res = account.all_assets().expect("failed to get assets");
+    let account = ACCOUNT.lock().await;
+    let res = account.all_assets().await.expect("failed to get assets");
     debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }
@@ -95,9 +94,10 @@ async fn get_assets() -> Result<HttpResponse, Error> {
 #[get("/cancel")]
 async fn cancel_orders() -> Result<HttpResponse, Error> {
     info!("Cancel all active orders");
-    let account = ACCOUNT.lock().unwrap();
+    let account = ACCOUNT.lock().await;
     let res = account
         .cancel_all_active_orders()
+        .await
         .expect("failed to cancel orders");
     debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
@@ -105,9 +105,10 @@ async fn cancel_orders() -> Result<HttpResponse, Error> {
 
 #[get("/price")]
 async fn get_price() -> Result<HttpResponse, Error> {
-    let account = ACCOUNT.lock().unwrap();
+    let account = ACCOUNT.lock().await;
     let res = account
         .get_price(account.ticker.clone())
+        .await
         .expect("failed to get price");
     debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
@@ -116,9 +117,10 @@ async fn get_price() -> Result<HttpResponse, Error> {
 #[get("/allOrders")]
 async fn all_orders() -> Result<HttpResponse, Error> {
     info!("Fetching all historical orders...");
-    let account = ACCOUNT.lock().unwrap();
+    let account = ACCOUNT.lock().await;
     let res = account
         .all_orders(account.ticker.clone())
+        .await
         .expect("failed to get historical orders");
     debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
@@ -127,9 +129,10 @@ async fn all_orders() -> Result<HttpResponse, Error> {
 #[get("/lastOrder")]
 async fn last_order() -> Result<HttpResponse, Error> {
     info!("Fetching last open order...");
-    let account = ACCOUNT.lock().unwrap();
+    let account = ACCOUNT.lock().await;
     let res = account
         .last_order(account.ticker.clone())
+        .await
         .expect("failed to get last order");
     info!("Last open order: {:?}", res);
     Ok(HttpResponse::Ok().json(res))
@@ -137,7 +140,10 @@ async fn last_order() -> Result<HttpResponse, Error> {
 
 #[get("/info")]
 async fn exchange_info() -> Result<HttpResponse, Error> {
-    let account = ACCOUNT.lock().unwrap();
-    let info = account.exchange_info(account.ticker.clone()).unwrap();
+    let account = ACCOUNT.lock().await;
+    let info = account
+        .exchange_info(account.ticker.clone())
+        .await
+        .expect("Failed to get exchange info");
     Ok(HttpResponse::Ok().json(info))
 }

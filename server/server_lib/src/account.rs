@@ -17,10 +17,6 @@ pub struct Account {
     pub quote_asset: String,
     pub ticker: String,
     pub active_order: Option<HistoricalOrder>,
-    pub quote_asset_free: Option<f64>,
-    pub quote_asset_locked: Option<f64>,
-    pub base_asset_free: Option<f64>,
-    pub base_asset_locked: Option<f64>,
 }
 
 impl Account {
@@ -39,36 +35,37 @@ impl Account {
             quote_asset,
             ticker,
             active_order: None,
-            quote_asset_free: None,
-            quote_asset_locked: None,
-            base_asset_free: None,
-            base_asset_locked: None,
         }
     }
 
     #[allow(dead_code)]
-    pub fn exchange_info(&self, symbol: String) -> Result<ExchangeInformation> {
+    pub async fn exchange_info(&self, symbol: String) -> Result<ExchangeInformation> {
         let req = ExchangeInfo::request(symbol);
         self.client
             .get::<ExchangeInformation>(API::Spot(Spot::ExchangeInfo), Some(req))
+            .await
     }
 
     /// Place a trade
-    pub fn trade<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
+    pub async fn trade<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
         let req = trade.request();
         debug!("Trade Request: {:?}", req);
-        let res = self.client.post_signed::<T>(API::Spot(Spot::Order), req)?;
-        self.set_active_order()?;
+        let res = self
+            .client
+            .post_signed::<T>(API::Spot(Spot::Order), req)
+            .await?;
+        self.set_active_order().await?;
         Ok(res)
     }
 
     /// Get account info which includes token balances
-    pub fn account_info(&self) -> Result<AccountInfoResponse> {
+    pub async fn account_info(&self) -> Result<AccountInfoResponse> {
         let req = AccountInfo::request(Some(5000));
         let pre = SystemTime::now();
         let res = self
             .client
-            .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req));
+            .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req))
+            .await;
         // create Duration from u64
         let post = SystemTime::now();
         let dur = post.duration_since(pre).unwrap().as_millis();
@@ -78,36 +75,40 @@ impl Account {
 
     /// Get all assets
     /// Not available on testnet
-    pub fn all_assets(&self) -> Result<Vec<CoinInfo>> {
+    pub async fn all_assets(&self) -> Result<Vec<CoinInfo>> {
         let req = AllAssets::request(Some(5000));
         self.client
             .get_signed::<Vec<CoinInfo>>(API::Savings(Sapi::AllCoins), Some(req))
+            .await
     }
 
     /// Get price of a single symbol
-    pub fn get_price(&self, symbol: String) -> Result<f64> {
+    pub async fn get_price(&self, symbol: String) -> Result<f64> {
         let req = Price::request(symbol, Some(5000));
         let res = self
             .client
-            .get::<PriceResponse>(API::Spot(Spot::Price), Some(req))?;
+            .get::<PriceResponse>(API::Spot(Spot::Price), Some(req))
+            .await?;
         let price = res.price.parse::<f64>().expect("failed to parse price");
         Ok(price)
     }
 
     /// Get historical orders for a single symbol
-    pub fn all_orders(&self, symbol: String) -> Result<Vec<HistoricalOrder>> {
+    pub async fn all_orders(&self, symbol: String) -> Result<Vec<HistoricalOrder>> {
         let req = AllOrders::request(symbol, Some(5000));
         self.client
             .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))
+            .await
     }
 
     /// Get last open trade for a single symbol
     /// Returns Some if there is an open trade, None otherwise
-    pub fn last_order(&self, symbol: String) -> Result<Option<HistoricalOrder>> {
+    pub async fn last_order(&self, symbol: String) -> Result<Option<HistoricalOrder>> {
         let req = AllOrders::request(symbol, Some(5000));
         let orders = self
             .client
-            .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))?;
+            .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))
+            .await?;
         // filter out orders that are not open
         let open_orders = orders
             .into_iter()
@@ -119,15 +120,16 @@ impl Account {
     }
 
     /// Cancel all open orders for a single symbol
-    pub fn cancel_all_active_orders(&self) -> Result<Vec<OrderCanceled>> {
+    pub async fn cancel_all_active_orders(&self) -> Result<Vec<OrderCanceled>> {
         let req = CancelOrders::request(self.ticker.clone(), Some(5000));
         self.client
             .delete_signed(API::Spot(Spot::OpenOrders), Some(req))
+            .await
     }
 
     /// Set current active trade to track quantity to exit trade
-    pub fn set_active_order(&mut self) -> Result<()> {
-        let last_order = self.last_order(self.ticker.clone())?;
+    pub async fn set_active_order(&mut self) -> Result<()> {
+        let last_order = self.last_order(self.ticker.clone()).await?;
         self.active_order = last_order;
         Ok(())
     }

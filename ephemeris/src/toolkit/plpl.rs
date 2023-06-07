@@ -59,7 +59,7 @@ pub struct PLPL {
 }
 
 impl PLPLSystem {
-    pub fn new(config: PLPLSystemConfig) -> PLPLResult<Self> {
+    pub async fn new(config: PLPLSystemConfig) -> PLPLResult<Self> {
         if config.num_plpls % 2 != 0 {
             return Err(PLPLError::NumPLPLsNotEven);
         }
@@ -75,22 +75,23 @@ impl PLPLSystem {
             cross_margin_pct: config.cross_margin_pct,
             num_plpls: config.num_plpls,
         };
-        me.planet_angles = me.helio()?;
+        me.planet_angles = me.helio().await?;
         me.plpls = me.plpls()?;
         Ok(me)
     }
 
-    fn helio(&self) -> PLPLResult<Vec<(Time, f32)>> {
+    async fn helio(&self) -> PLPLResult<Vec<(Time, f32)>> {
         debug!("Querying ephemeris from Horizons API");
         let start_date = self.first_date.delta_date(-1);
         let end_date = self.last_date.delta_date(1);
-        let query = Query::sync_query(
+        let query = Query::query(
             self.origin,
             &self.planet,
             DataType::RightAscension,
             start_date,
             end_date,
-        );
+        )
+        .await;
         match query {
             Ok(query) => Ok(query),
             Err(e) => Err(PLPLError::QueryError(e)),
@@ -116,7 +117,10 @@ impl PLPLSystem {
             let scale_360 = 360.0 * self.scale;
             let plpl = price_factor * scale_360 + angle;
             let res = self.plpls_inner(plpl)?;
-            plpls.push(PLPL { date: planet_angle.0, plpls: res });
+            plpls.push(PLPL {
+                date: planet_angle.0,
+                plpls: res,
+            });
         }
         Ok(plpls)
     }
@@ -165,10 +169,10 @@ impl PLPLSystem {
             None => {
                 error!("No closest PLPL found for date {}", candle.date.to_string());
                 Err(PLPLError::NoPLPLClosest)
-            },
+            }
         }
     }
-    
+
     fn plpls_for_date(&self, date: Time) -> PLPLResult<Vec<f32>> {
         let mut plpls = None;
         for plpl in self.plpls.iter() {
