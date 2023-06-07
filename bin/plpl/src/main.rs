@@ -55,25 +55,6 @@ lazy_static! {
     static ref PREV_CANDLE: Arc<Mutex<Option<Candle>>> = Arc::new(Mutex::new(None));
     static ref CURR_CANDLE: Arc<Mutex<Option<Candle>>> = Arc::new(Mutex::new(None));
     static ref COUNTER: Arc<Mutex<AtomicUsize>> = Arc::new(Mutex::new(AtomicUsize::new(0)));
-
-    // PLPL parameters; tuned for 5 minute candles
-    static ref TRAILING_STOP: f64 = 0.95;
-    static ref STOP_LOSS_PCT: f64 = 0.001;
-    static ref PLANET: Planet = Planet::from("Jupiter");
-    const plpl_scale = 0.5;
-    const plpl_price = 20000.0;
-    const num_plpls = 2000;
-    const cross_margin_pct = 55.0;
-    static ref PLPL_SYSTEM: Arc<Mutex<PLPLSystem>> = Arc::new(Mutex::new(PLPLSystem::new(PLPLSystemConfig {
-        planet,
-        origin: Origin::Heliocentric,
-        first_date: Time::new(2023, &Month::from_num(6), &Day::from_num(1), None, None),
-        last_date: Time::new(2050, &Month::from_num(6), &Day::from_num(1), None, None),
-        plpl_scale,
-        plpl_price,
-        num_plpls,
-        cross_margin_pct,
-    })));
 }
 
 pub fn init_logger(log_file: &PathBuf) {
@@ -197,6 +178,7 @@ async fn main() -> Result<()> {
         }
         Ok(plpl_system) => plpl_system,
     };
+    let plpl_system = Arc::new(Mutex::new(plpl_system));
 
     // queue to process websocket event asynchronously
     let (queue_tx, queue_rx) = unbounded::<KlineEvent>();
@@ -204,18 +186,19 @@ async fn main() -> Result<()> {
     std::thread::spawn(move || {
         info!("Starting thread to process queue messages.");
         while let Ok(event) = queue_rx.recv() {
-            let kline_event = event.clone();
+            let kline_event = Arc::new(event).clone();
             let account = ACCOUNT.clone();
             let prev_candle = PREV_CANDLE.clone();
             let curr_candle = CURR_CANDLE.clone();
             let update_counter = COUNTER.clone();
-            let plpl_system = PLPL_SYSTEM.clone();
+            let plpl_system = plpl_system.clone();
 
             tokio::spawn(async move {
-                let account = account.lock().await;
-                let prev = prev_candle.lock().await;
-                let curr = curr_candle.lock().await;
+                let mut account = account.lock().await;
+                let mut prev = prev_candle.lock().await;
+                let mut curr = curr_candle.lock().await;
                 let update_counter = update_counter.lock().await;
+                let plpl_system = plpl_system.lock().await;
 
                 let queue_size = queue_rx.len();
                 info!("queue size: {:?}", queue_size);
