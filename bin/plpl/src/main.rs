@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use time_series::{Candle, Day, Month, Time};
 use tokio::io::Result;
+use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
 // Binance US API endpoint
@@ -184,6 +185,7 @@ async fn main() -> Result<()> {
     let (queue_tx, queue_rx) = unbounded::<KlineEvent>();
 
     std::thread::spawn(move || {
+        let runtime = Runtime::new().unwrap();
         info!("Starting thread to process queue messages.");
         while let Ok(event) = queue_rx.recv() {
             let kline_event = Arc::new(event).clone();
@@ -194,8 +196,7 @@ async fn main() -> Result<()> {
             let plpl_system = plpl_system.clone();
 
             let queue_size = queue_rx.len();
-            info!("queue size: {:?}", queue_size);
-            tokio::spawn(async move {
+            runtime.spawn(async move {
                 let mut account = account.lock().await;
                 let mut prev = prev_candle.lock().await;
                 let mut curr = curr_candle.lock().await;
@@ -208,6 +209,7 @@ async fn main() -> Result<()> {
                 if !kline_event.kline.is_final_bar {
                     return;
                 }
+                info!("queue size: {:?}", queue_size);
 
                 let date = Time::from_unix_msec(kline_event.event_time as i64);
                 // cache previous and current candle to assess PLPL trade conditions

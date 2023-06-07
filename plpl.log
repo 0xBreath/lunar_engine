@@ -1,5 +1,8 @@
-11:20:38.097982 [INFO] Starting Binance PLPL!
-11:20:39.603908 [INFO] Horizons API Status: 200 OK
-11:20:41.046222 [INFO] Binance websocket connected
-11:25:00.096333 [INFO] Current price: 25712.41
-11:25:00.09662 [INFO] Time to process Kline event: 0ms
+00:20:01.138729 [INFO] Starting Binance PLPL!
+00:20:03.601317 [INFO] Starting thread to process queue messages.
+00:20:04.488566 [INFO] Binance websocket connected
+00:20:05.941332 [INFO] queue size: 0
+00:20:07.988382 [INFO] queue size: 0
+00:20:10.105026 [INFO] queue size: 0
+00:20:12.940639 [INFO] queue size: 0
+00:20:14.97031 [INFO] queue size: 0
