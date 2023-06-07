@@ -249,7 +249,7 @@ async fn main() -> Result<()> {
                                     };
                                     let btc_balance =
                                         free_asset(&account_info, &account.base_asset);
-                                    let total_balances = total_balance(
+                                    let _ = total_balance(
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
@@ -313,7 +313,7 @@ async fn main() -> Result<()> {
                                         };
                                         let btc_balance =
                                             free_asset(&account_info, &account.base_asset);
-                                        let total_balances = total_balance(
+                                        let _ = total_balance(
                                             &account_info,
                                             &account.quote_asset,
                                             &account.base_asset,
@@ -380,7 +380,7 @@ async fn main() -> Result<()> {
                                     };
                                     let busd_balance =
                                         free_asset(&account_info, &account.quote_asset);
-                                    let total_balances = total_balance(
+                                    let _ = total_balance(
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
@@ -441,7 +441,7 @@ async fn main() -> Result<()> {
                                         };
                                         let busd_balance =
                                             free_asset(&account_info, &account.quote_asset);
-                                        let total_balances = total_balance(
+                                        let _ = total_balance(
                                             &account_info,
                                             &account.quote_asset,
                                             &account.base_asset,
@@ -519,7 +519,7 @@ async fn main() -> Result<()> {
                                     };
                                     let btc_balance =
                                         free_asset(&account_info, &account.base_asset);
-                                    let total_balances = total_balance(
+                                    let _ = total_balance(
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
@@ -583,7 +583,7 @@ async fn main() -> Result<()> {
                                         };
                                         let btc_balance =
                                             free_asset(&account_info, &account.base_asset);
-                                        let total_balances = total_balance(
+                                        let _ = total_balance(
                                             &account_info,
                                             &account.quote_asset,
                                             &account.base_asset,
@@ -650,7 +650,7 @@ async fn main() -> Result<()> {
                                     };
                                     let busd_balance =
                                         free_asset(&account_info, &account.quote_asset);
-                                    let total_balances = total_balance(
+                                    let _ = total_balance(
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
@@ -711,7 +711,7 @@ async fn main() -> Result<()> {
                                         };
                                         let busd_balance =
                                             free_asset(&account_info, &account.quote_asset);
-                                        let total_balances = total_balance(
+                                        let _ = total_balance(
                                             &account_info,
                                             &account.quote_asset,
                                             &account.base_asset,
