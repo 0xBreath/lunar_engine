@@ -66,9 +66,7 @@ impl Account {
             .client
             .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req))
             .await;
-        // create Duration from u64
-        let post = SystemTime::now();
-        let dur = post.duration_since(pre).unwrap().as_millis();
+        let dur = SystemTime::now().duration_since(pre).unwrap().as_millis();
         info!("Request time: {:?}ms", dur);
         res
     }
