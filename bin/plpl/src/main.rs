@@ -193,6 +193,8 @@ async fn main() -> Result<()> {
             let update_counter = COUNTER.clone();
             let plpl_system = plpl_system.clone();
 
+            let queue_size = queue_rx.len();
+            info!("queue size: {:?}", queue_size);
             tokio::spawn(async move {
                 let mut account = account.lock().await;
                 let mut prev = prev_candle.lock().await;
@@ -200,8 +202,6 @@ async fn main() -> Result<()> {
                 let update_counter = update_counter.lock().await;
                 let plpl_system = plpl_system.lock().await;
 
-                let queue_size = queue_rx.len();
-                info!("queue size: {:?}", queue_size);
                 let start = SystemTime::now();
                 let count = update_counter.fetch_add(1, Ordering::SeqCst);
                 debug!("Atomic counter: {}", count);
