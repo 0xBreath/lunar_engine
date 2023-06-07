@@ -141,7 +141,7 @@ fn total_balance(
     let locked_base = locked_asset(account_info, base_asset);
     let total = free_quote + locked_quote + ((free_base + locked_base) * candle.close);
     info!(
-        "BTC: {}, BUSD: {}, Total BUSD Value: {}",
+        "BUSD: {}, BTC: {}, Total BUSD Value: {}",
         free_quote, free_base, total
     );
     total
