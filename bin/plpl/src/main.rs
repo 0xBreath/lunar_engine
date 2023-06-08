@@ -61,13 +61,13 @@ lazy_static! {
 pub fn init_logger(log_file: &PathBuf) {
     CombinedLogger::init(vec![
         TermLogger::new(
-            LevelFilter::Info,
+            LevelFilter::Debug,
             SimpleLogConfig::default(),
             TerminalMode::Mixed,
             ColorChoice::Auto,
         ),
         WriteLogger::new(
-            LevelFilter::Info,
+            LevelFilter::Debug,
             ConfigBuilder::new()
                 .set_time_format_custom(simplelog::format_description!(
                     "[hour]:[minute]:[second].[subsecond]"
@@ -764,7 +764,7 @@ async fn main() -> Result<()> {
     info!("Binance websocket connected");
 
     if let Err(e) = ws.event_loop(&keep_running) {
-        info!("Binance websocket error: {}", e);
+        error!("Binance websocket error: {}", e);
     }
 
     ws.disconnect()

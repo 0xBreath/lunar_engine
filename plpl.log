@@ -1,6 +1,0 @@
-00:20:50.860047 [INFO] Starting Binance PLPL!
-00:20:52.939663 [INFO] Starting thread to process queue messages.
-00:20:53.840364 [INFO] Binance websocket connected
-00:25:00.010505 [INFO] queue size: 0
-00:25:00.010732 [INFO] Current price: 27232
-00:25:00.010943 [INFO] Time to process Kline event: 0ms
