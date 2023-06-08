@@ -211,6 +211,7 @@ async fn main() -> Result<()> {
                 info!("queue size: {:?}", queue_size);
 
                 let date = Time::from_unix_msec(kline_event.event_time as i64);
+                debug!("Candle Date: {}", date.to_string());
                 // cache previous and current candle to assess PLPL trade conditions
                 // cast Kline to Candle
                 let candle = kline_to_candle(&kline_event);
