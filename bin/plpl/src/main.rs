@@ -251,7 +251,7 @@ async fn main() -> Result<()> {
                                         free_asset(&account_info, &account.base_asset);
                                     let busd_balance = free_asset(&account_info, &account.quote_asset);
                                     let total = (btc_balance * candle.close) + busd_balance;
-                                    info!("Total balance: {}", total);
+                                    info!("BUSD: {}, BTC: {}, Total balance: {}", busd_balance, btc_balance, total);
                                     // calculate quantity of base asset to trade
                                     // Trade with $1000 or as close as the account can get
                                     let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
@@ -312,7 +312,7 @@ async fn main() -> Result<()> {
                                             free_asset(&account_info, &account.base_asset);
                                         let busd_balance = free_asset(&account_info, &account.quote_asset);
                                         let total = (btc_balance * candle.close) + busd_balance;
-                                        info!("Total balance: {}", total);
+                                        info!("BUSD: {}, BTC: {}, Total balance: {}", busd_balance, btc_balance, total);
                                         // calculate quantity of base asset to trade
                                         // Trade with $1000 or as close as the account can get
                                         let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
@@ -376,7 +376,7 @@ async fn main() -> Result<()> {
                                       free_asset(&account_info, &account.base_asset);
                                     let busd_balance = free_asset(&account_info, &account.quote_asset);
                                     let total = (btc_balance * candle.close) + busd_balance;
-                                    info!("Total balance: {}", total);
+                                    info!("BUSD: {}, BTC: {}, Total balance: {}", busd_balance, btc_balance, total);
                                     // calculate quantity of base asset to trade
                                     // Trade with $1000 or as close as the account can get
                                     let short_qty: f64 = if busd_balance < 1000.0 {
@@ -434,7 +434,7 @@ async fn main() -> Result<()> {
                                           free_asset(&account_info, &account.base_asset);
                                         let busd_balance = free_asset(&account_info, &account.quote_asset);
                                         let total = (btc_balance * candle.close) + busd_balance;
-                                        info!("Total balance: {}", total);
+                                        info!("BUSD: {}, BTC: {}, Total balance: {}", busd_balance, btc_balance, total);
                                         // calculate quantity of base asset to trade
                                         // Trade with $1000 or as close as the account can get
                                         let short_qty: f64 = if busd_balance < 1000.0 {
@@ -509,7 +509,7 @@ async fn main() -> Result<()> {
                                       free_asset(&account_info, &account.base_asset);
                                     let busd_balance = free_asset(&account_info, &account.quote_asset);
                                     let total = (btc_balance * candle.close) + busd_balance;
-                                    info!("Total balance: {}", total);
+                                    info!("BUSD: {}, BTC: {}, Total balance: {}", busd_balance, btc_balance, total);
                                     // calculate quantity of base asset to trade
                                     // Trade with $1000 or as close as the account can get
                                     let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
@@ -570,7 +570,7 @@ async fn main() -> Result<()> {
                                           free_asset(&account_info, &account.base_asset);
                                         let busd_balance = free_asset(&account_info, &account.quote_asset);
                                         let total = (btc_balance * candle.close) + busd_balance;
-                                        info!("Total balance: {}", total);
+                                        info!("BUSD: {}, BTC: {}, Total balance: {}", busd_balance, btc_balance, total);
                                         // calculate quantity of base asset to trade
                                         // Trade with $1000 or as close as the account can get
                                         let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
@@ -634,7 +634,7 @@ async fn main() -> Result<()> {
                                       free_asset(&account_info, &account.base_asset);
                                     let busd_balance = free_asset(&account_info, &account.quote_asset);
                                     let total = (btc_balance * candle.close) + busd_balance;
-                                    info!("Total balance: {}", total);
+                                    info!("BUSD: {}, BTC: {}, Total balance: {}", busd_balance, btc_balance, total);
                                     // calculate quantity of base asset to trade
                                     // Trade with $1000 or as close as the account can get
                                     let short_qty: f64 = if busd_balance < 1000.0 {
@@ -692,7 +692,7 @@ async fn main() -> Result<()> {
                                           free_asset(&account_info, &account.base_asset);
                                         let busd_balance = free_asset(&account_info, &account.quote_asset);
                                         let total = (btc_balance * candle.close) + busd_balance;
-                                        info!("Total balance: {}", total);
+                                        info!("BUSD: {}, BTC: {}, Total balance: {}", busd_balance, btc_balance, total);
                                         // calculate quantity of base asset to trade
                                         // Trade with $1000 or as close as the account can get
                                         let short_qty: f64 = if busd_balance < 1000.0 {
