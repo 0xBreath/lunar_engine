@@ -204,14 +204,13 @@ async fn main() -> Result<()> {
 
                 let start = SystemTime::now();
                 let count = update_counter.fetch_add(1, Ordering::SeqCst);
-                debug!("Atomic counter: {}", count);
+                debug!("websocket stream atomic counter: {}", count);
                 if !kline_event.kline.is_final_bar {
                     return;
                 }
-                info!("queue size: {:?}", queue_size);
+                debug!("websocket processing queue size: {:?}", queue_size);
 
                 let date = Time::from_unix_msec(kline_event.event_time as i64);
-                debug!("Candle Date: {}", date.to_string());
                 // cache previous and current candle to assess PLPL trade conditions
                 // cast Kline to Candle
                 let candle = kline_to_candle(&kline_event);

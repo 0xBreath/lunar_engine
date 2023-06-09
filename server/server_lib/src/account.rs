@@ -49,7 +49,6 @@ impl Account {
     /// Place a trade
     pub async fn trade<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
         let req = trade.request();
-        debug!("Trade Request: {:?}", req);
         let res = self
             .client
             .post_signed::<T>(API::Spot(Spot::Order), req)
@@ -127,7 +126,10 @@ impl Account {
 
     /// Set current active trade to track quantity to exit trade
     pub async fn set_active_order(&mut self) -> Result<()> {
+        debug!("Setting active order");
         let last_order = self.last_order(self.ticker.clone()).await?;
+        debug!("Current active order: {:?}", self.active_order);
+        debug!("Last order: {:?}", last_order);
         self.active_order = last_order;
         Ok(())
     }
