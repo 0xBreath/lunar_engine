@@ -28,9 +28,9 @@ const BINANCE_API: &str = "https://api.binance.us";
 // Binance Spot Test Network API credentials
 const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
 const BINANCE_TEST_API_KEY: &str =
-    "hrCcYjjRCW6jCCOVGiOOXve1UVLK8jbYd08WyKQjuUI63VNmcuR0EDBtDsrW9KBJ";
+    "AekFIdmCDmPkaeQjCjaPtEE9IvYtpoceePvvelkthAh7tEtvMAm7oHzcxkhbmxl0";
 const BINANCE_TEST_API_SECRET: &str =
-    "XGKu8AelLejzC6R5ZBWvbNzy4NC7d78ckU0sOJk3VeFRsWnJTajCfcFsArnPFEjP";
+    "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
 
 lazy_static! {
     static ref ACCOUNT: Arc<Mutex<Account>> = Arc::new(Mutex::new(Account {

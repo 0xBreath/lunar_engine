@@ -93,9 +93,13 @@ impl Account {
     /// Get historical orders for a single symbol
     pub async fn all_orders(&self, symbol: String) -> Result<Vec<HistoricalOrder>> {
         let req = AllOrders::request(symbol, Some(5000));
-        self.client
+        let mut orders = self
+            .client
             .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))
-            .await
+            .await?;
+        // order by time
+        orders.sort_by(|a, b| a.working_time.partial_cmp(&b.working_time).unwrap());
+        Ok(orders)
     }
 
     /// Get last open trade for a single symbol
@@ -112,7 +116,9 @@ impl Account {
             .filter(|order| order.is_working)
             .collect::<Vec<HistoricalOrder>>();
         // filter latest open order by time
-        let last_order = open_orders.into_iter().max_by(|a, b| a.time.cmp(&b.time));
+        let last_order = open_orders
+            .into_iter()
+            .max_by(|a, b| a.working_time.cmp(&b.working_time));
         Ok(last_order)
     }
 
