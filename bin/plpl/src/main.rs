@@ -161,7 +161,7 @@ fn account_assets(
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> errors::Result<()> {
     let log_file = std::env::var("LOG_FILE").unwrap_or("plpl.log".to_string());
     init_logger(&PathBuf::from(log_file));
 
@@ -837,17 +837,31 @@ async fn main() -> Result<()> {
     });
 
     let sub = String::from("btcbusd@kline_5m");
-    ws.connect_with_config(&sub, &config)
-        .expect("Failed to connect to Binance websocket");
-    info!("Binance websocket connected");
+    match ws.connect_with_config(&sub, &config) {
+        Err(e) => {
+            error!("Failed to connect to Binance websocket: {}", e);
+            return Err(e);
+        }
+        Ok(_) => info!("Binance websocket connected"),
+    }
 
     if let Err(e) = ws.event_loop(&keep_running) {
         error!("Binance websocket error: {}", e);
     }
 
-    ws.disconnect()
-        .expect("Failed to disconnect from Binance websocket");
-    info!("Binance websocket disconnected");
+    match ws.disconnect() {
+        Err(e) => {
+            error!("Failed to disconnect from Binance websocket: {}", e);
+            match ws.connect_with_config(&sub, &config) {
+                Err(e) => {
+                    error!("Failed to reconnect to Binance websocket: {}", e);
+                    return Err(e);
+                }
+                Ok(_) => info!("Binance websocket reconnected"),
+            }
+        }
+        Ok(_) => info!("Binance websocket disconnected"),
+    }
 
     Ok(())
 }
