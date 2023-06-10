@@ -61,13 +61,13 @@ lazy_static! {
 pub fn init_logger(log_file: &PathBuf) {
     CombinedLogger::init(vec![
         TermLogger::new(
-            LevelFilter::Debug,
+            LevelFilter::Info,
             SimpleLogConfig::default(),
             TerminalMode::Mixed,
             ColorChoice::Auto,
         ),
         WriteLogger::new(
-            LevelFilter::Debug,
+            LevelFilter::Info,
             ConfigBuilder::new()
                 .set_time_format_custom(simplelog::format_description!(
                     "[hour]:[minute]:[second].[subsecond]"
