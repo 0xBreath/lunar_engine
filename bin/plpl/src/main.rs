@@ -15,7 +15,6 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
 use time_series::{Candle, Day, Month, Time};
-use tokio::io::Result;
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
