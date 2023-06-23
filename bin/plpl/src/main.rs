@@ -30,6 +30,7 @@ const BINANCE_TEST_API_KEY: &str =
     "AekFIdmCDmPkaeQjCjaPtEE9IvYtpoceePvvelkthAh7tEtvMAm7oHzcxkhbmxl0";
 const BINANCE_TEST_API_SECRET: &str =
     "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
+const KLINE_STREAM: &str = "btcbusd@kline_5m";
 
 lazy_static! {
     static ref ACCOUNT: Arc<Mutex<Account>> = Arc::new(Mutex::new(Account {
@@ -169,12 +170,12 @@ async fn main() -> errors::Result<()> {
     let keep_running = AtomicBool::new(true);
 
     // PLPL parameters; tuned for 5 minute candles
-    let trailing_stop = 0.95;
-    let stop_loss_pct = 0.001;
+    let trailing_stop = 0.5;
+    let stop_loss_pct = 0.05;
     let planet = Planet::from("Jupiter");
     let plpl_scale = 0.5;
     let plpl_price = 20000.0;
-    let num_plpls = 2000;
+    let num_plpls = 8000;
     let cross_margin_pct = 55.0;
 
     // initialize PLPL
@@ -835,7 +836,7 @@ async fn main() -> errors::Result<()> {
         Ok(())
     });
 
-    let sub = String::from("btcbusd@kline_5m");
+    let sub = String::from(KLINE_STREAM);
     match ws.connect_with_config(&sub, &config) {
         Err(e) => {
             error!("Failed to connect to Binance websocket: {}", e);
