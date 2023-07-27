@@ -104,19 +104,19 @@ impl Account {
 
     /// Get last open trade for a single symbol
     /// Returns Some if there is an open trade, None otherwise
-    pub async fn last_order(&self, symbol: String) -> Result<Option<HistoricalOrder>> {
+    pub async fn open_order(&self, symbol: String) -> Result<Option<HistoricalOrder>> {
         let req = AllOrders::request(symbol, Some(5000));
         let orders = self
             .client
             .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))
             .await?;
         // filter out orders that are not open
-        let open_orders = orders
-            .into_iter()
-            .filter(|order| order.is_working)
-            .collect::<Vec<HistoricalOrder>>();
+        // let open_orders = orders
+        //     .into_iter()
+        //     .filter(|order| order.is_working)
+        //     .collect::<Vec<HistoricalOrder>>();
         // filter latest open order by time
-        let last_order = open_orders
+        let last_order = orders
             .into_iter()
             .max_by(|a, b| a.working_time.cmp(&b.working_time));
         Ok(last_order)
@@ -133,9 +133,14 @@ impl Account {
     /// Set current active trade to track quantity to exit trade
     pub async fn set_active_order(&mut self) -> Result<()> {
         debug!("Setting active order");
-        let last_order = self.last_order(self.ticker.clone()).await?;
+        let last_order = self.open_order(self.ticker.clone()).await?;
         debug!("Current active order: {:?}", self.active_order);
-        debug!("Last order: {:?}", last_order);
+        if let Some(last) = &last_order {
+            info!(
+                "Last order -- ID: {}, Status: {}",
+                last.client_order_id, last.status
+            );
+        }
         self.active_order = last_order;
         Ok(())
     }
