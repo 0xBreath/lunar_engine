@@ -134,29 +134,45 @@ struct Assets {
     locked_quote: f64,
     free_base: f64,
     locked_base: f64,
-    free_total: f64,
-    locked_total: f64,
 }
 
-fn account_assets(
-    candle: &Candle,
-    account: &AccountInfoResponse,
-    quote_asset: &str,
-    base_asset: &str,
-) -> Assets {
+fn account_assets(account: &AccountInfoResponse, quote_asset: &str, base_asset: &str) -> Assets {
     let free_quote = free_asset(account, quote_asset);
     let locked_quote = locked_asset(account, quote_asset);
     let free_base = free_asset(account, base_asset);
     let locked_base = locked_asset(account, base_asset);
-    let free_total = (free_base * candle.close) + free_quote;
-    let locked_total = (locked_base * candle.close) + locked_quote;
     Assets {
         free_quote,
         locked_quote,
         free_base,
         locked_base,
-        free_total,
-        locked_total,
+    }
+}
+
+fn trade_qty(
+    account_info: &AccountInfoResponse,
+    quote_asset: &str,
+    base_asset: &str,
+    side: Side,
+    candle: &Candle,
+) -> f64 {
+    let assets = account_assets(&account_info, quote_asset, base_asset);
+    info!(
+        "{}: {}, {}: {}",
+        quote_asset,
+        assets.free_quote + assets.locked_quote,
+        base_asset,
+        assets.free_base + assets.locked_base,
+    );
+    match side {
+        Side::Long => {
+            let qty = assets.free_quote / candle.close * 0.99;
+            BinanceTrade::round_quantity(qty, 5)
+        }
+        Side::Short => {
+            let qty = assets.free_base * 0.99;
+            BinanceTrade::round_quantity(qty, 5)
+        }
     }
 }
 
@@ -259,27 +275,13 @@ async fn main() -> Result<()> {
                                         }
                                         Ok(account_info) => account_info,
                                     };
-                                    let assets = account_assets(
-                                        &candle,
+                                    let long_qty = trade_qty(
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
+                                        Side::Long,
+                                        &candle,
                                     );
-                                    info!(
-                                        "Price: {}, BUSD: {}, BTC: {}, Total: {}",
-                                        candle.close,
-                                        assets.free_quote + assets.locked_quote,
-                                        assets.free_base + assets.locked_base,
-                                        assets.free_total + assets.locked_total
-                                    );
-                                    let btc_balance = assets.free_base;
-                                    // calculate quantity of base asset to trade
-                                    // Trade with $1000 or as close as the account can get
-                                    let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                                        btc_balance
-                                    } else {
-                                        BinanceTrade::round_quantity(1000.0 / candle.close)
-                                    };
 
                                     let trade = plpl_long(
                                         account.ticker.clone(),
@@ -329,26 +331,13 @@ async fn main() -> Result<()> {
                                             }
                                             Ok(account_info) => account_info,
                                         };
-                                        let assets = account_assets(
-                                            &candle,
+                                        let long_qty = trade_qty(
                                             &account_info,
                                             &account.quote_asset,
                                             &account.base_asset,
+                                            Side::Long,
+                                            &candle,
                                         );
-                                        info!(
-                                            "Price: {}, BUSD: {}, BTC: {}, Total: {}",
-                                            candle.close,
-                                            assets.free_quote + assets.locked_quote,
-                                            assets.free_base + assets.locked_base,
-                                            assets.free_total + assets.locked_total
-                                        );
-                                        let btc_balance = assets.free_base;
-                                        // Trade with $1000 or as close as the account can get
-                                        let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                                            btc_balance
-                                        } else {
-                                            BinanceTrade::round_quantity(1000.0 / candle.close)
-                                        };
 
                                         let trade = plpl_long(
                                             account.ticker.clone(),
@@ -401,26 +390,13 @@ async fn main() -> Result<()> {
                                         }
                                         Ok(account_info) => account_info,
                                     };
-                                    let assets = account_assets(
-                                        &candle,
+                                    let short_qty = trade_qty(
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
+                                        Side::Short,
+                                        &candle,
                                     );
-                                    info!(
-                                        "Price: {}, BUSD: {}, BTC: {}, Total: {}",
-                                        candle.close,
-                                        assets.free_quote + assets.locked_quote,
-                                        assets.free_base + assets.locked_base,
-                                        assets.free_total + assets.locked_total
-                                    );
-                                    let busd_balance = assets.free_quote;
-                                    // Trade with $1000 or as close as the account can get
-                                    let short_qty: f64 = if busd_balance < 1000.0 {
-                                        busd_balance
-                                    } else {
-                                        BinanceTrade::round_quantity(1000.0 / candle.close)
-                                    };
 
                                     let trade = plpl_short(
                                         account.ticker.clone(),
@@ -467,26 +443,13 @@ async fn main() -> Result<()> {
                                             }
                                             Ok(account_info) => account_info,
                                         };
-                                        let assets = account_assets(
-                                            &candle,
+                                        let short_qty = trade_qty(
                                             &account_info,
                                             &account.quote_asset,
                                             &account.base_asset,
+                                            Side::Short,
+                                            &candle,
                                         );
-                                        info!(
-                                            "Price: {}, BUSD: {}, BTC: {}, Total: {}",
-                                            candle.close,
-                                            assets.free_quote + assets.locked_quote,
-                                            assets.free_base + assets.locked_base,
-                                            assets.free_total + assets.locked_total
-                                        );
-                                        let busd_balance = assets.free_quote;
-                                        // Trade with $1000 or as close as the account can get
-                                        let short_qty: f64 = if busd_balance < 1000.0 {
-                                            busd_balance
-                                        } else {
-                                            BinanceTrade::round_quantity(1000.0 / candle.close)
-                                        };
 
                                         let trade = plpl_short(
                                             account.ticker.clone(),
@@ -550,26 +513,13 @@ async fn main() -> Result<()> {
                                         }
                                         Ok(account_info) => account_info,
                                     };
-                                    let assets = account_assets(
-                                        &candle,
+                                    let long_qty = trade_qty(
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
+                                        Side::Long,
+                                        &candle,
                                     );
-                                    info!(
-                                        "Price: {}, BUSD: {}, BTC: {}, Total: {}",
-                                        candle.close,
-                                        assets.free_quote + assets.locked_quote,
-                                        assets.free_base + assets.locked_base,
-                                        assets.free_total + assets.locked_total
-                                    );
-                                    let btc_balance = assets.free_base;
-                                    // Trade with $1000 or as close as the account can get
-                                    let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                                        btc_balance
-                                    } else {
-                                        BinanceTrade::round_quantity(1000.0 / candle.close)
-                                    };
 
                                     let trade = plpl_long(
                                         account.ticker.clone(),
@@ -619,26 +569,13 @@ async fn main() -> Result<()> {
                                             }
                                             Ok(account_info) => account_info,
                                         };
-                                        let assets = account_assets(
-                                            &candle,
+                                        let long_qty = trade_qty(
                                             &account_info,
                                             &account.quote_asset,
                                             &account.base_asset,
+                                            Side::Long,
+                                            &candle,
                                         );
-                                        info!(
-                                            "Price: {}, BUSD: {}, BTC: {}, Total: {}",
-                                            candle.close,
-                                            assets.free_quote + assets.locked_quote,
-                                            assets.free_base + assets.locked_base,
-                                            assets.free_total + assets.locked_total
-                                        );
-                                        let btc_balance = assets.free_base;
-                                        // Trade with $1000 or as close as the account can get
-                                        let long_qty: f64 = if btc_balance * candle.close < 1000.0 {
-                                            btc_balance
-                                        } else {
-                                            BinanceTrade::round_quantity(1000.0 / candle.close)
-                                        };
 
                                         let trade = plpl_long(
                                             account.ticker.clone(),
@@ -691,26 +628,13 @@ async fn main() -> Result<()> {
                                         }
                                         Ok(account_info) => account_info,
                                     };
-                                    let assets = account_assets(
-                                        &candle,
+                                    let short_qty = trade_qty(
                                         &account_info,
                                         &account.quote_asset,
                                         &account.base_asset,
+                                        Side::Short,
+                                        &candle,
                                     );
-                                    info!(
-                                        "Price: {}, BUSD: {}, BTC: {}, Total: {}",
-                                        candle.close,
-                                        assets.free_quote + assets.locked_quote,
-                                        assets.free_base + assets.locked_base,
-                                        assets.free_total + assets.locked_total
-                                    );
-                                    let busd_balance = assets.free_quote;
-                                    // Trade with $1000 or as close as the account can get
-                                    let short_qty: f64 = if busd_balance < 1000.0 {
-                                        busd_balance
-                                    } else {
-                                        BinanceTrade::round_quantity(1000.0 / candle.close)
-                                    };
 
                                     let trade = plpl_short(
                                         account.ticker.clone(),
@@ -757,26 +681,13 @@ async fn main() -> Result<()> {
                                             }
                                             Ok(account_info) => account_info,
                                         };
-                                        let assets = account_assets(
-                                            &candle,
+                                        let short_qty = trade_qty(
                                             &account_info,
                                             &account.quote_asset,
                                             &account.base_asset,
+                                            Side::Short,
+                                            &candle,
                                         );
-                                        info!(
-                                            "Price: {}, BUSD: {}, BTC: {}, Total: {}",
-                                            candle.close,
-                                            assets.free_quote + assets.locked_quote,
-                                            assets.free_base + assets.locked_base,
-                                            assets.free_total + assets.locked_total
-                                        );
-                                        let busd_balance = assets.free_quote;
-                                        // Trade with $1000 or as close as the account can get
-                                        let short_qty: f64 = if busd_balance < 1000.0 {
-                                            busd_balance
-                                        } else {
-                                            BinanceTrade::round_quantity(1000.0 / candle.close)
-                                        };
 
                                         let trade = plpl_short(
                                             account.ticker.clone(),

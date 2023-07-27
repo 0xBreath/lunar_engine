@@ -19,9 +19,8 @@ pub struct BinanceTrade {
     /// Trailing stop
     pub trailing_stop: Option<f64>,
     /// The number of milliseconds the request is valid for
-    pub recv_window: Option<u32>
+    pub recv_window: Option<u32>,
 }
-
 
 impl BinanceTrade {
     pub fn new(
@@ -42,7 +41,7 @@ impl BinanceTrade {
             price,
             stop_loss,
             trailing_stop,
-            recv_window
+            recv_window,
         }
     }
 
@@ -101,8 +100,9 @@ impl BinanceTrade {
         trailing_stop_pct * 100.0
     }
 
-    pub fn round_quantity(quantity: f64) -> f64 {
-        (quantity * 100_000.0).round() / 100_000.0
+    pub fn round_quantity(quantity: f64, decimals: u32) -> f64 {
+        let pow = 10_u64.pow(decimals);
+        (quantity * pow as f64).round() / pow as f64
     }
 
     pub fn round_price(quantity: f64) -> f64 {
