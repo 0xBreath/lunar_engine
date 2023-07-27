@@ -16,18 +16,13 @@ use url::Url;
 #[allow(clippy::all)]
 enum WebSocketAPI {
     Default,
-    MultiStream,
     Custom(String),
 }
 
 impl WebSocketAPI {
     fn params(self, subscription: &str) -> String {
         match self {
-            WebSocketAPI::Default => format!("wss://stream.binance.com:9443/ws/{}", subscription),
-            WebSocketAPI::MultiStream => format!(
-                "wss://stream.binance.com:9443/stream?streams={}",
-                subscription
-            ),
+            WebSocketAPI::Default => format!("wss://stream.binance.us:9443/ws/{}", subscription),
             WebSocketAPI::Custom(url) => format!("{}/{}", url, subscription),
         }
     }
@@ -87,11 +82,6 @@ impl<'a> WebSockets<'a> {
 
     pub fn connect_with_config(&mut self, subscription: &str, config: &Config) -> Result<()> {
         self.connect_wss(&WebSocketAPI::Custom(config.ws_endpoint.clone()).params(subscription))
-    }
-
-    #[allow(dead_code)]
-    pub fn connect_multiple_streams(&mut self, endpoints: &[String]) -> Result<()> {
-        self.connect_wss(&WebSocketAPI::MultiStream.params(&endpoints.join("/")))
     }
 
     fn connect_wss(&mut self, wss: &str) -> Result<()> {

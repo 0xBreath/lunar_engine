@@ -162,11 +162,10 @@ fn account_assets(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let log_file = std::env::var("LOG_FILE").unwrap_or("plpl_binance.log".to_string());
-    init_logger(&PathBuf::from(log_file));
+    init_logger(&PathBuf::from("plpl_binance.log".to_string()));
 
     info!("Starting Binance PLPL!");
-    let config = Config::testnet();
+    let config = Config::default();
     let keep_running = AtomicBool::new(true);
 
     // PLPL parameters; tuned for 5 minute candles
