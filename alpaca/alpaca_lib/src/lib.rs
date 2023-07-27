@@ -1,0 +1,2 @@
+pub const ALPACA_API_KEY: &str = "PK4AAQ3LS3JNL2MZVZN9";
+pub const ALPACA_API_SECRET: &str = "LaGuKhwyuh9fVVPBoSaypERtTZDb5j54qSVZDR9J";

@@ -5,6 +5,7 @@ use crate::{Alignment, DataType, Declination, Origin, Planet, RightAscension};
 use log::info;
 use std::fmt::Display;
 use time_series::time::Time;
+use time_series::TimeError;
 
 pub const BASE_QUERY: &str = "https://ssd.jpl.nasa.gov/api/horizons.api?format=text";
 
@@ -12,13 +13,17 @@ pub const BASE_QUERY: &str = "https://ssd.jpl.nasa.gov/api/horizons.api?format=t
 pub enum QueryError {
     StopTimeBeforeEndTime,
     ReqwestError(reqwest::Error),
+    TimeError(TimeError),
 }
+
+pub type QueryResult<T> = Result<T, QueryError>;
 
 impl Display for QueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             QueryError::StopTimeBeforeEndTime => write!(f, "Stop time must be after start time"),
             QueryError::ReqwestError(e) => write!(f, "Reqwest error: {}", e),
+            QueryError::TimeError(e) => write!(f, "Time error: {}", e),
         }
     }
 }
@@ -42,9 +47,12 @@ impl Query {
         data_type: DataType,
         start_time: Time,
         stop_time: Time,
-    ) -> Result<Vec<(Time, f32)>, QueryError> {
+    ) -> QueryResult<Vec<(Time, f32)>> {
         // swap start and stop time if period is historical rather than for the future
-        if start_time.diff_days(&stop_time) < 0 {
+        let diff_days = start_time
+            .diff_days(&stop_time)
+            .map_err(QueryError::TimeError)?;
+        if diff_days < 0 {
             //std::mem::swap(&mut start_time, &mut stop_time);
             return Err(QueryError::StopTimeBeforeEndTime);
         }
@@ -70,9 +78,12 @@ impl Query {
         data_type: DataType,
         start_time: Time,
         stop_time: Time,
-    ) -> Result<Vec<(Time, f32)>, QueryError> {
+    ) -> QueryResult<Vec<(Time, f32)>> {
         // swap start and stop time if period is historical rather than for the future
-        if start_time.diff_days(&stop_time) < 0 {
+        let diff_days = start_time
+            .diff_days(&stop_time)
+            .map_err(QueryError::TimeError)?;
+        if diff_days < 0 {
             //std::mem::swap(&mut start_time, &mut stop_time);
             return Err(QueryError::StopTimeBeforeEndTime);
         }

@@ -1,5 +1,6 @@
 use crate::{
-    Backtest, Candle, Direction, Order, ReversalType, TickerData, Time, Trade, TrailingStopType,
+    Backtest, Candle, CycleError, Direction, Order, ReversalType, TickerData, TickerDataError,
+    Time, TimeError, Trade, TrailingStopType,
 };
 use std::error::Error;
 use std::fs::File;
@@ -9,6 +10,29 @@ use log::{debug, info};
 use plotters::prelude::*;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
+
+#[derive(Debug)]
+pub enum PFSError {
+    CycleError(CycleError),
+    TimeError(TimeError),
+    TickerDataError(TickerDataError),
+    BacktestEmpty,
+    CustomError(std::io::Error),
+}
+
+impl std::fmt::Display for PFSError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PFSError::CycleError(e) => write!(f, "Cycle error: {}", e),
+            PFSError::TimeError(e) => write!(f, "Time error: {}", e),
+            PFSError::TickerDataError(e) => write!(f, "Ticker data error: {}", e),
+            PFSError::BacktestEmpty => write!(f, "Backtest is empty"),
+            PFSError::CustomError(e) => write!(f, "Custom error: {}", e),
+        }
+    }
+}
+
+pub type PFSResult<T> = Result<T, PFSError>;
 
 #[derive(Debug, Clone)]
 /// Backtest correlation
@@ -143,13 +167,15 @@ impl PlotPFS {
         end_date: Time,
         ticker_data: &TickerData,
         cycle_days: u32,
-    ) -> Vec<PFS> {
+    ) -> PFSResult<Vec<PFS>> {
         let mut daily_pfs = Vec::<PFS>::new();
 
         // compute number of cycles possible in candle history
         let earliest_candle = ticker_data.earliest_date();
         let latest_candle = ticker_data.latest_date();
-        let days = earliest_candle.diff_days(latest_candle);
+        let days = earliest_candle
+            .diff_days(latest_candle)
+            .map_err(PFSError::TimeError)?;
         let num_cycles = days / cycle_days as i64;
 
         let time_period = start_date.time_period(&end_date);
@@ -196,7 +222,7 @@ impl PlotPFS {
             });
         }
         daily_pfs.dedup_by(|a, b| a.date == b.date);
-        daily_pfs
+        Ok(daily_pfs)
     }
 
     /// Compute PFS based on yearly cycles,
@@ -721,7 +747,7 @@ impl PlotPFS {
         ticker_data: &TickerData,
         cycles: &[u32],
         timeframe: PFSTimeframe,
-    ) -> Vec<Vec<PFS>> {
+    ) -> PFSResult<Vec<Vec<PFS>>> {
         let pfs_cycles = match timeframe {
             PFSTimeframe::Minute => {
                 vec![]
@@ -743,7 +769,7 @@ impl PlotPFS {
                     threads.push(thread);
                 }
                 for thread in threads {
-                    let res: Vec<PFS> = thread.join().expect("Failed to join PFS cycle thread");
+                    let res: Vec<PFS> = thread.join().expect("Failed to join PFS cycle thread")?;
                     pfs_cycles.push(res);
                 }
                 pfs_cycles
@@ -787,7 +813,7 @@ impl PlotPFS {
                 pfs_cycles
             }
         };
-        pfs_cycles
+        Ok(pfs_cycles)
     }
 
     pub fn confluent_pfs_direction(
@@ -796,8 +822,8 @@ impl PlotPFS {
         cycles: &[u32],
         timeframe: PFSTimeframe,
         out_file: &str,
-    ) -> Vec<ConfluentPFSCorrelation> {
-        let pfs_cycles = self.pfs_cycles_for_timeframe(ticker_data, cycles, timeframe);
+    ) -> PFSResult<Vec<ConfluentPFSCorrelation>> {
+        let pfs_cycles = self.pfs_cycles_for_timeframe(ticker_data, cycles, timeframe)?;
 
         let mut correlations = Vec::<ConfluentPFSCorrelation>::new();
         for k in 1..=cycles.len() {
@@ -839,7 +865,7 @@ impl PlotPFS {
         correlations.sort_by(|a, b| b.pct_correlation.partial_cmp(&a.pct_correlation).unwrap());
         self.write_pfs_confluence_csv(correlations.to_vec(), out_file)
             .expect("Failed to write PFS confluence CSV");
-        correlations
+        Ok(correlations)
     }
 
     pub fn confluent_pfs_reversal(
@@ -848,8 +874,8 @@ impl PlotPFS {
         cycles: &[u32],
         timeframe: PFSTimeframe,
         out_file: &str,
-    ) -> Vec<ConfluentPFSCorrelation> {
-        let pfs_cycles = self.pfs_cycles_for_timeframe(ticker_data, cycles, timeframe);
+    ) -> PFSResult<Vec<ConfluentPFSCorrelation>> {
+        let pfs_cycles = self.pfs_cycles_for_timeframe(ticker_data, cycles, timeframe)?;
 
         let mut correlations = Vec::<ConfluentPFSCorrelation>::new();
         for k in 1..=cycles.len() {
@@ -887,7 +913,7 @@ impl PlotPFS {
         //let correlations = correlations.into_iter().filter(|c| c.cycles.len() > 1).collect::<Vec<ConfluentPFSCorrelation>>();
         self.write_pfs_confluence_csv(correlations.to_vec(), out_file)
             .expect("Failed to write PFS confluence CSV");
-        correlations
+        Ok(correlations)
     }
 
     fn trade_quantity(&self, capital: f64, price: f64) -> f64 {
@@ -938,14 +964,14 @@ impl PlotPFS {
         trailing_stop_type: TrailingStopType,
         trailing_stop: f64,
         stop_loss_pct: f64,
-    ) -> Vec<Backtest> {
-        let rev_corr = self.confluent_pfs_reversal(ticker_data, cycles, timeframe, out_file);
+    ) -> PFSResult<Vec<Backtest>> {
+        let rev_corr = self.confluent_pfs_reversal(ticker_data, cycles, timeframe, out_file)?;
 
         let mut all_backtests = Vec::<Backtest>::new();
         for corr in rev_corr.iter() {
             // get PFS for each cycle in corr
             let cycles = corr.cycles.clone();
-            let pfs_cycles = self.pfs_cycles_for_timeframe(ticker_data, &cycles, timeframe);
+            let pfs_cycles = self.pfs_cycles_for_timeframe(ticker_data, &cycles, timeframe)?;
 
             let open_trade_mutex: Arc<Mutex<Option<Trade>>> = Arc::new(Mutex::new(None));
             let mut backtest = Backtest::new(capital);
@@ -1126,7 +1152,7 @@ impl PlotPFS {
         all_backtests.sort_by(|a, b| b.pnl.partial_cmp(&a.pnl).unwrap());
         Self::write_pfs_confluence_backtest_csv(all_backtests.to_vec(), out_file)
             .expect("Failed to write PFS confluence backtest to CSV");
-        all_backtests
+        Ok(all_backtests)
     }
 
     fn write_pfs_confluence_backtest_csv(

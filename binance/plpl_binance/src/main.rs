@@ -1,10 +1,10 @@
 #[macro_use]
 extern crate lazy_static;
 
+use binance_lib::*;
 use crossbeam::channel::unbounded;
 use ephemeris::*;
 use log::*;
-use server_lib::*;
 use simplelog::{
     ColorChoice, CombinedLogger, Config as SimpleLogConfig, ConfigBuilder, TermLogger,
     TerminalMode, WriteLogger,
@@ -18,26 +18,26 @@ use time_series::{Candle, Day, Month, Time};
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
-// Binance US API endpoint
-// Data returned in ascending order, oldest first
-// Timestamps are in milliseconds
-#[allow(dead_code)]
-const BINANCE_API: &str = "https://api.binance.us";
-
 // Binance Spot Test Network API credentials
 const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
 const BINANCE_TEST_API_KEY: &str =
     "AekFIdmCDmPkaeQjCjaPtEE9IvYtpoceePvvelkthAh7tEtvMAm7oHzcxkhbmxl0";
 const BINANCE_TEST_API_SECRET: &str =
     "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
+// Binance Spot Live Network API credentials
+const BINANCE_LIVE_API: &str = "https://api.binance.us";
+const BINANCE_LIVE_API_KEY: &str =
+    "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
+const BINANCE_LIVE_API_SECRET: &str =
+    "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
 const KLINE_STREAM: &str = "btcbusd@kline_5m";
 
 lazy_static! {
     static ref ACCOUNT: Arc<Mutex<Account>> = Arc::new(Mutex::new(Account {
         client: Client::new(
-            Some(BINANCE_TEST_API_KEY.to_string()),
-            Some(BINANCE_TEST_API_SECRET.to_string()),
-            BINANCE_TEST_API.to_string()
+            Some(BINANCE_LIVE_API_KEY.to_string()),
+            Some(BINANCE_LIVE_API_SECRET.to_string()),
+            BINANCE_LIVE_API.to_string()
         ),
         recv_window: 5000,
         base_asset: "BTC".to_string(),
@@ -47,9 +47,9 @@ lazy_static! {
     }));
     static ref USER_STREAM: Arc<Mutex<UserStream>> = Arc::new(Mutex::new(UserStream {
         client: Client::new(
-            Some(BINANCE_TEST_API_KEY.to_string()),
-            Some(BINANCE_TEST_API_SECRET.to_string()),
-            BINANCE_TEST_API.to_string()
+            Some(BINANCE_LIVE_API_KEY.to_string()),
+            Some(BINANCE_LIVE_API_SECRET.to_string()),
+            BINANCE_LIVE_API.to_string()
         ),
         recv_window: 10000,
     }));
@@ -73,7 +73,7 @@ pub fn init_logger(log_file: &PathBuf) {
                     "[hour]:[minute]:[second].[subsecond]"
                 ))
                 .build(),
-            File::create(log_file).expect("Failed to create star_stream log file"),
+            File::create(log_file).expect("Failed to create PLPL Binance log file"),
         ),
     ])
     .expect("Failed to initialize logger");
@@ -161,8 +161,8 @@ fn account_assets(
 }
 
 #[tokio::main]
-async fn main() -> errors::Result<()> {
-    let log_file = std::env::var("LOG_FILE").unwrap_or("plpl.log".to_string());
+async fn main() -> Result<()> {
+    let log_file = std::env::var("LOG_FILE").unwrap_or("plpl_binance.log".to_string());
     init_logger(&PathBuf::from(log_file));
 
     info!("Starting Binance PLPL!");

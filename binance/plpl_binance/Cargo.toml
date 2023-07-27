@@ -1,5 +1,5 @@
 [package]
-name = "plpl"
+name = "plpl_binance"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,7 +9,7 @@ edition = "2021"
 # internal deps
 ephemeris = { path = "../../ephemeris" }
 time_series = { path = "../../time_series" }
-server_lib = { path = "../../server/server_lib" }
+binance_lib = { path = "../binance_lib" }
 # external deps
 tokio = { version = "1.24.1", features = ["full"] }
 log = "0.4"

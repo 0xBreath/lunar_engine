@@ -1,0 +1,25 @@
+[package]
+name = "plpl_alpaca"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# internal deps
+ephemeris = { path = "../../ephemeris" }
+time_series = { path = "../../time_series" }
+apca = "0.27.1"
+# external deps
+tokio = { version = "1.24.1", features = ["full"] }
+log = "0.4"
+simplelog = "0.12.0"
+chrono = "0.4.22"
+lazy_static = "1.4.0"
+time = "0.3.14"
+crossbeam = "0.8.2"
+futures = "0.3"
+reqwest = { version = "0.11.6", features = ["blocking", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+thiserror = "1.0.39"

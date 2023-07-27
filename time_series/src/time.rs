@@ -175,7 +175,9 @@ impl Time {
         let year = date.naive_utc().year();
         let month = Month::from_num(date.naive_utc().month());
         let day = Day::from_num(date.naive_utc().day());
-        Time::new(year, &month, &day, None, None)
+        let hour = date.naive_utc().hour();
+        let minute = date.naive_utc().minute();
+        Time::new(year, &month, &day, Some(hour), Some(minute))
     }
     /// Increment Time by a number of days
     pub fn delta_date(&self, days: i64) -> Self {
@@ -203,10 +205,16 @@ impl Time {
     }
 
     /// Difference in days between two dates
-    pub fn diff_days(&self, other: &Self) -> i64 {
-        let date1 = self.to_naive_date();
-        let date2 = other.to_naive_date();
-        date2.signed_duration_since(date1).num_days()
+    pub fn diff_days(&self, other: &Self) -> TimeResult<i64> {
+        let date1 = self.to_datetime()?;
+        let date2 = other.to_datetime()?;
+        Ok(date2.signed_duration_since(date1).num_days())
+    }
+
+    pub fn diff_minutes(&self, other: &Self) -> TimeResult<i64> {
+        let date1 = self.to_datetime()?;
+        let date2 = other.to_datetime()?;
+        Ok(date2.signed_duration_since(date1).num_minutes())
     }
 
     /// Create Time from UNIX timestamp

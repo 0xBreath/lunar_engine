@@ -2,8 +2,8 @@
 extern crate lazy_static;
 
 use actix_web::{get, web, App, Error, HttpResponse, HttpServer, Responder, Result};
+use binance_lib::*;
 use log::*;
-use server_lib::*;
 use simplelog::{ColorChoice, Config as SimpleLogConfig, TermLogger, TerminalMode};
 use tokio::sync::Mutex;
 

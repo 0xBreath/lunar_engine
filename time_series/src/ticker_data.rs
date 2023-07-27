@@ -12,10 +12,11 @@ use std::io::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum TickerDataError {
     NoCandleForDate(Time),
     NoCandleForIndex(usize),
+    CustomError(std::io::Error),
 }
 
 impl Display for TickerDataError {
@@ -25,6 +26,7 @@ impl Display for TickerDataError {
                 write!(f, "No candle for date: {}", date.to_string())
             }
             TickerDataError::NoCandleForIndex(index) => write!(f, "No candle for index: {}", index),
+            TickerDataError::CustomError(msg) => write!(f, "{}", msg),
         }
     }
 }
@@ -70,8 +72,8 @@ impl TickerData {
     /// Handles duplicate candles and sorts candles by date.
     /// Expects date of candle to be in UNIX timestamp format.
     /// CSV format: date,open,high,low,close,volume
-    pub fn add_csv_series(&mut self, csv_path: &PathBuf) -> Result<(), Error> {
-        let file_buffer = File::open(csv_path)?;
+    pub fn add_csv_series(&mut self, csv_path: &PathBuf) -> TickerDataResult<()> {
+        let file_buffer = File::open(csv_path).map_err(TickerDataError::CustomError)?;
         let mut csv = csv::Reader::from_reader(file_buffer);
 
         let mut headers = Vec::new();
@@ -114,7 +116,7 @@ impl TickerData {
 
     /// Append vector of candles received from an API to existing candles.
     /// Handles duplicate candles and sorts candles by date.
-    pub fn add_series(&mut self, new_candles: Vec<Candle>) -> Result<(), Error> {
+    pub fn add_series(&mut self, new_candles: Vec<Candle>) -> TickerDataResult<()> {
         for candle in new_candles.into_iter() {
             self.append_candle(&candle);
         }
@@ -127,7 +129,7 @@ impl TickerData {
         ticker_symbol: &str,
         timeframe: Interval,
         existing_csv_data: &PathBuf,
-    ) -> Result<(), Error> {
+    ) -> TickerDataResult<()> {
         self.add_csv_series(existing_csv_data)?;
         // stream real-time data from RapidAPI to TickerData
         let rapid_api = RapidApi::new(ticker_symbol.to_string());
@@ -176,11 +178,8 @@ impl TickerData {
         if let Entry::Vacant(e) = self.hashmap.entry(key) {
             e.insert(candle.clone());
             self.candles.push(candle.clone());
-            self.candles.sort_by(|a, b| {
-                a.date
-                    .partial_cmp(&b.date)
-                    .expect("Failed to partial compare candle dates")
-            });
+            self.candles
+                .sort_by(|a, b| a.date.partial_cmp(&b.date).unwrap());
         }
     }
 
