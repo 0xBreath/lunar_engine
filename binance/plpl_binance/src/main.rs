@@ -30,7 +30,7 @@ const BINANCE_LIVE_API_KEY: &str =
     "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
 const BINANCE_LIVE_API_SECRET: &str =
     "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
-const KLINE_STREAM: &str = "btcbusd@kline_5m";
+const KLINE_STREAM: &str = "btcusdc@kline_5m";
 
 lazy_static! {
     static ref ACCOUNT: Arc<Mutex<Account>> = Arc::new(Mutex::new(Account {
@@ -41,8 +41,8 @@ lazy_static! {
         ),
         recv_window: 5000,
         base_asset: "BTC".to_string(),
-        quote_asset: "BUSD".to_string(),
-        ticker: "BTCBUSD".to_string(),
+        quote_asset: "USDC".to_string(),
+        ticker: "BTCUSDC".to_string(),
         active_order: None,
     }));
     static ref USER_STREAM: Arc<Mutex<UserStream>> = Arc::new(Mutex::new(UserStream {
@@ -182,8 +182,8 @@ async fn main() -> Result<()> {
     let plpl_system = PLPLSystem::new(PLPLSystemConfig {
         planet,
         origin: Origin::Heliocentric,
-        first_date: Time::new(2023, &Month::from_num(6), &Day::from_num(1), None, None),
-        last_date: Time::new(2050, &Month::from_num(6), &Day::from_num(1), None, None),
+        first_date: Time::new(2023, &Month::from_num(7), &Day::from_num(1), None, None),
+        last_date: Time::new(2050, &Month::from_num(7), &Day::from_num(1), None, None),
         plpl_scale,
         plpl_price,
         num_plpls,
