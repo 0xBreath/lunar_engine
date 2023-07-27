@@ -30,7 +30,7 @@ const BINANCE_LIVE_API_KEY: &str =
     "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
 const BINANCE_LIVE_API_SECRET: &str =
     "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
-const KLINE_STREAM: &str = "btcusdc@kline_5m";
+const KLINE_STREAM: &str = "btcusdt@kline_5m";
 
 lazy_static! {
     static ref ACCOUNT: Arc<Mutex<Account>> = Arc::new(Mutex::new(Account {
@@ -41,8 +41,8 @@ lazy_static! {
         ),
         recv_window: 5000,
         base_asset: "BTC".to_string(),
-        quote_asset: "USDC".to_string(),
-        ticker: "BTCUSDC".to_string(),
+        quote_asset: "USDT".to_string(),
+        ticker: "BTCUSDT".to_string(),
         active_order: None,
     }));
     static ref USER_STREAM: Arc<Mutex<UserStream>> = Arc::new(Mutex::new(UserStream {
