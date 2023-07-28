@@ -65,8 +65,7 @@ impl BinanceTrade {
             || self.order_type == OrderType::Limit
             || self.order_type == OrderType::TakeProfitLimit
         {
-            // btree.push(("timeInForce".to_string(), "GTC".to_string()));
-            btree.push(("timeInForce".to_string(), "FOK".to_string()));
+            btree.push(("timeInForce".to_string(), "GTC".to_string()));
         }
         btree.push(("quantity".to_string(), self.quantity.to_string()));
         if let Some(price) = self.price {

@@ -13,13 +13,6 @@ impl Default for Config {
             recv_window: 5000,
         }
     }
-    // fn default() -> Self {
-    //     Self {
-    //         rest_api_endpoint: "https://api.binance.com".into(),
-    //         ws_endpoint: "wss://stream.binance.com:9443/ws".into(),
-    //         recv_window: 5000,
-    //     }
-    // }
 }
 
 impl Config {

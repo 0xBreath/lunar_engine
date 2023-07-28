@@ -8,9 +8,12 @@ use simplelog::{ColorChoice, Config as SimpleLogConfig, TermLogger, TerminalMode
 use tokio::sync::Mutex;
 
 // Binance Spot Test Network API credentials
+#[allow(dead_code)]
 const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
+#[allow(dead_code)]
 const BINANCE_TEST_API_KEY: &str =
     "AekFIdmCDmPkaeQjCjaPtEE9IvYtpoceePvvelkthAh7tEtvMAm7oHzcxkhbmxl0";
+#[allow(dead_code)]
 const BINANCE_TEST_API_SECRET: &str =
     "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
 // Binance Spot Live Network API credentials
@@ -124,7 +127,7 @@ async fn all_orders() -> Result<HttpResponse, Error> {
         .expect("failed to get historical orders");
     let last = res.last().unwrap();
     info!(
-        "Last order -- ID: {:?}, Status: {}",
+        "Last order ID: {:?}, Status: {}",
         last.client_order_id, last.status
     );
     Ok(HttpResponse::Ok().json(res))

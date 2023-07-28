@@ -19,9 +19,12 @@ use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
 // Binance Spot Test Network API credentials
+#[allow(dead_code)]
 const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
+#[allow(dead_code)]
 const BINANCE_TEST_API_KEY: &str =
     "AekFIdmCDmPkaeQjCjaPtEE9IvYtpoceePvvelkthAh7tEtvMAm7oHzcxkhbmxl0";
+#[allow(dead_code)]
 const BINANCE_TEST_API_SECRET: &str =
     "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
 // Binance Spot Live Network API credentials
@@ -156,7 +159,7 @@ fn trade_qty(
     side: Side,
     candle: &Candle,
 ) -> f64 {
-    let assets = account_assets(&account_info, quote_asset, base_asset);
+    let assets = account_assets(account_info, quote_asset, base_asset);
     info!(
         "{}: {}, {}: {}",
         quote_asset,
@@ -297,7 +300,7 @@ async fn main() -> Result<()> {
                                             return;
                                         }
                                         Ok(res) => {
-                                            info!("{:?}", res);
+                                            debug!("{:?}", res);
                                             info!(
                                                 "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                                 kline_event.kline.symbol,
@@ -353,7 +356,7 @@ async fn main() -> Result<()> {
                                                 return;
                                             }
                                             Ok(res) => {
-                                                info!("{:?}", res);
+                                                debug!("{:?}", res);
                                                 info!(
                                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                                     kline_event.kline.symbol,
@@ -412,7 +415,7 @@ async fn main() -> Result<()> {
                                             return;
                                         }
                                         Ok(res) => {
-                                            info!("{:?}", res);
+                                            debug!("{:?}", res);
                                             info!(
                                                 "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                                 kline_event.kline.symbol,
@@ -465,7 +468,7 @@ async fn main() -> Result<()> {
                                                 return;
                                             }
                                             Ok(res) => {
-                                                info!("{:?}", res);
+                                                debug!("{:?}", res);
                                                 info!(
                                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                                     kline_event.kline.symbol,
@@ -535,7 +538,7 @@ async fn main() -> Result<()> {
                                             return;
                                         }
                                         Ok(res) => {
-                                            info!("{:?}", res);
+                                            debug!("{:?}", res);
                                             info!(
                                                 "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                                 kline_event.kline.symbol,
@@ -591,7 +594,7 @@ async fn main() -> Result<()> {
                                                 return;
                                             }
                                             Ok(res) => {
-                                                info!("{:?}", res);
+                                                debug!("{:?}", res);
                                                 info!(
                                                     "Long {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                                     kline_event.kline.symbol,
@@ -650,7 +653,7 @@ async fn main() -> Result<()> {
                                             return;
                                         }
                                         Ok(res) => {
-                                            info!("{:?}", res);
+                                            debug!("{:?}", res);
                                             info!(
                                                 "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                                 kline_event.kline.symbol,
@@ -703,7 +706,7 @@ async fn main() -> Result<()> {
                                                 return;
                                             }
                                             Ok(res) => {
-                                                info!("{:?}", res);
+                                                debug!("{:?}", res);
                                                 info!(
                                                     "Short {} @ {}, Prev: {}, Curr: {}, PLPL: {}",
                                                     kline_event.kline.symbol,
