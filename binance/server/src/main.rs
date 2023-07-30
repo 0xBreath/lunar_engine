@@ -138,7 +138,7 @@ async fn open_order() -> Result<HttpResponse, Error> {
     info!("Fetching last open order...");
     let account = ACCOUNT.lock().await;
     let res = account
-        .open_order(account.ticker.clone())
+        .open_orders(account.ticker.clone())
         .await
         .expect("failed to get last order");
     info!("Last open order: {:?}", res);

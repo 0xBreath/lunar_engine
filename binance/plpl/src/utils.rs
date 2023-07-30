@@ -278,7 +278,7 @@ pub async fn handle_streams(
                 Ok(())
             });
 
-            let subs = vec![kline_sub, listen_key];
+            let subs = vec![kline_sub, listen_key.clone()];
             match ws.connect_multiple_streams(&subs) {
                 Err(e) => {
                     error!("Failed to connect to Binance websocket: {}", e);

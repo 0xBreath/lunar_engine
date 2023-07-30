@@ -3,7 +3,7 @@ use crate::errors::Result;
 use crate::model::{
     AccountUpdateEvent, BalanceUpdateEvent, KlineEvent, OrderBook, OrderTradeEvent, TradeEvent,
 };
-use error_chain::bail;
+use crate::BinanceError;
 use serde::{Deserialize, Serialize};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,7 +12,6 @@ use tungstenite::protocol::WebSocket;
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{connect, Message};
 use url::Url;
-use crate::BinanceError;
 
 #[allow(clippy::all)]
 enum WebSocketAPI {
@@ -143,22 +142,18 @@ impl<'a> WebSockets<'a> {
             if let Some(ref mut socket) = self.socket {
                 let message = socket.0.read_message().map_err(BinanceError::Tungstenite)?;
                 match message {
-                    Message::Text(msg) => {
-                        match self.handle_msg(&msg) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                if let BinanceError::WebSocketDisconnected = e {
-                                    return Err(e);
-                                }
+                    Message::Text(msg) => match self.handle_msg(&msg) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            if let BinanceError::WebSocketDisconnected = e {
+                                return Err(e);
                             }
                         }
-                    }
-                    Message::Ping(_) => {
-                        match socket.0.write_message(Message::Pong(vec![])) {
-                            Ok(_) => {}
-                            Err(e) => return Err(BinanceError::Tungstenite(e))
-                        }
-                    }
+                    },
+                    Message::Ping(_) => match socket.0.write_message(Message::Pong(vec![])) {
+                        Ok(_) => {}
+                        Err(e) => return Err(BinanceError::Tungstenite(e)),
+                    },
                     Message::Pong(_) | Message::Binary(_) | Message::Frame(_) => return Ok(()),
                     Message::Close(e) => return Err(BinanceError::WebSocketDisconnected),
                 }
