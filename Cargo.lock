@@ -299,59 +299,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 
 [[package]]
-name = "binance_app"
-version = "0.1.0"
-dependencies = [
- "actix-web",
- "binance_lib",
- "chrono",
- "error-chain",
- "futures",
- "hex",
- "hmac",
- "lazy_static",
- "log",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "simplelog",
- "time 0.3.17",
- "time_series",
- "tokio",
- "tungstenite",
- "url",
-]
-
-[[package]]
-name = "binance_lib"
-version = "0.1.0"
-dependencies = [
- "actix",
- "actix-web",
- "chrono",
- "ephemeris",
- "error-chain",
- "futures",
- "hex",
- "hmac",
- "lazy_static",
- "log",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "simplelog",
- "time 0.3.17",
- "time_series",
- "tokio",
- "tungstenite",
- "url",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1376,6 +1323,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "library"
+version = "0.1.0"
+dependencies = [
+ "actix",
+ "actix-web",
+ "chrono",
+ "ephemeris",
+ "error-chain",
+ "futures",
+ "hex",
+ "hmac",
+ "lazy_static",
+ "log",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "simplelog",
+ "time 0.3.17",
+ "time_series",
+ "tokio",
+ "tungstenite",
+ "url",
+]
+
+[[package]]
 name = "link-cplusplus"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1756,14 +1730,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "plpl_binance"
+name = "plpl"
 version = "0.1.0"
 dependencies = [
- "binance_lib",
  "chrono",
  "crossbeam",
  "ephemeris",
  "lazy_static",
+ "library",
  "log",
  "simplelog",
  "time 0.3.17",
@@ -2100,6 +2074,32 @@ dependencies = [
  "itoa 1.0.4",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "chrono",
+ "error-chain",
+ "futures",
+ "hex",
+ "hmac",
+ "lazy_static",
+ "library",
+ "log",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "simplelog",
+ "time 0.3.17",
+ "time_series",
+ "tokio",
+ "tungstenite",
+ "url",
 ]
 
 [[package]]

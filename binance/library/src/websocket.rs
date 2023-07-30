@@ -12,10 +12,12 @@ use tungstenite::protocol::WebSocket;
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{connect, Message};
 use url::Url;
+use crate::BinanceError;
 
 #[allow(clippy::all)]
 enum WebSocketAPI {
     Default,
+    MultiStream,
     Custom(String),
 }
 
@@ -23,6 +25,10 @@ impl WebSocketAPI {
     fn params(self, subscription: &str) -> String {
         match self {
             WebSocketAPI::Default => format!("wss://stream.binance.us:9443/ws/{}", subscription),
+            WebSocketAPI::MultiStream => format!(
+                "wss://stream.binance.us:9443/stream?streams={}",
+                subscription
+            ),
             WebSocketAPI::Custom(url) => format!("{}/{}", url, subscription),
         }
     }
@@ -84,23 +90,27 @@ impl<'a> WebSockets<'a> {
         self.connect_wss(&WebSocketAPI::Custom(config.ws_endpoint.clone()).params(subscription))
     }
 
+    pub fn connect_multiple_streams(&mut self, endpoints: &[String]) -> Result<()> {
+        self.connect_wss(&WebSocketAPI::MultiStream.params(&endpoints.join("/")))
+    }
+
     fn connect_wss(&mut self, wss: &str) -> Result<()> {
-        let url = Url::parse(wss)?;
+        let url = Url::parse(wss).map_err(BinanceError::UrlParser)?;
         match connect(url) {
             Ok(answer) => {
                 self.socket = Some(answer);
                 Ok(())
             }
-            Err(e) => bail!(format!("Error during handshake {}", e)),
+            Err(e) => Err(BinanceError::Tungstenite(e).into()),
         }
     }
 
     pub fn disconnect(&mut self) -> Result<()> {
         if let Some(ref mut socket) = self.socket {
-            socket.0.close(None)?;
+            socket.0.close(None).map_err(BinanceError::Tungstenite)?;
             return Ok(());
         }
-        bail!("Not able to close the connection");
+        Err(BinanceError::WebSocketDisconnected)
     }
 
     #[allow(dead_code)]
@@ -109,7 +119,7 @@ impl<'a> WebSockets<'a> {
     }
 
     fn handle_msg(&mut self, msg: &str) -> Result<()> {
-        let value: serde_json::Value = serde_json::from_str(msg)?;
+        let value: serde_json::Value = serde_json::from_str(msg).map_err(BinanceError::Json)?;
         if let Some(data) = value.get("data") {
             self.handle_msg(&data.to_string())?;
             return Ok(());
@@ -131,18 +141,26 @@ impl<'a> WebSockets<'a> {
     pub fn event_loop(&mut self, running: &AtomicBool) -> Result<()> {
         while running.load(Ordering::Relaxed) {
             if let Some(ref mut socket) = self.socket {
-                let message = socket.0.read_message()?;
+                let message = socket.0.read_message().map_err(BinanceError::Tungstenite)?;
                 match message {
                     Message::Text(msg) => {
-                        if let Err(e) = self.handle_msg(&msg) {
-                            bail!(format!("Error on handling stream message: {}", e));
+                        match self.handle_msg(&msg) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                if let BinanceError::WebSocketDisconnected = e {
+                                    return Err(e);
+                                }
+                            }
                         }
                     }
                     Message::Ping(_) => {
-                        socket.0.write_message(Message::Pong(vec![])).unwrap();
+                        match socket.0.write_message(Message::Pong(vec![])) {
+                            Ok(_) => {}
+                            Err(e) => return Err(BinanceError::Tungstenite(e))
+                        }
                     }
-                    Message::Pong(_) | Message::Binary(_) | Message::Frame(_) => (),
-                    Message::Close(e) => bail!(format!("Disconnected {:?}", e)),
+                    Message::Pong(_) | Message::Binary(_) | Message::Frame(_) => return Ok(()),
+                    Message::Close(e) => return Err(BinanceError::WebSocketDisconnected),
                 }
             }
         }

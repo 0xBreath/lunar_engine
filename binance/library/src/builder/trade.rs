@@ -12,10 +12,12 @@ pub struct BinanceTrade {
     pub order_type: OrderType,
     /// Quantity in quote asset of the symbol to trade (e.g. BTCUSDC with quantity 10000 would trade 10000 USDC)
     pub quantity: f64,
+    /// Client order ID to track bundle of orders (entry, take profit, stop loss)
+    pub client_order_id: String,
     /// Price of the order (if market then None, if limit then Some)
     pub price: Option<f64>,
-    /// Stop loss price
-    pub stop_loss: Option<f64>,
+    /// Stop loss trigger price
+    pub stop_price: Option<f64>,
     /// Trailing stop
     pub trailing_stop: Option<f64>,
     /// The number of milliseconds the request is valid for
@@ -23,13 +25,15 @@ pub struct BinanceTrade {
 }
 
 impl BinanceTrade {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         symbol: String,
         side: Side,
         order_type: OrderType,
         quantity: f64,
+        client_order_id: String,
         price: Option<f64>,
-        stop_loss: Option<f64>,
+        stop_price: Option<f64>,
         trailing_stop: Option<f64>,
         recv_window: Option<u32>,
     ) -> Self {
@@ -38,8 +42,9 @@ impl BinanceTrade {
             side,
             order_type,
             quantity,
+            client_order_id,
             price,
-            stop_loss,
+            stop_price,
             trailing_stop,
             recv_window,
         }
@@ -51,6 +56,10 @@ impl BinanceTrade {
             .duration_since(UNIX_EPOCH)
             .expect("System time is before UNIX EPOCH");
         Ok(since_epoch.as_secs() * 1000 + u64::from(since_epoch.subsec_nanos()) / 1_000_000)
+    }
+
+    fn build_client_order_id(&self) -> String {
+        format!("{}-{}", self.client_order_id, self.order_type.fmt_binance())
     }
 
     fn build(&self) -> Vec<(String, String)> {
@@ -74,7 +83,7 @@ impl BinanceTrade {
         if let Some(trailing_stop) = self.trailing_stop {
             btree.push(("trailingDelta".to_string(), trailing_stop.to_string()));
         }
-        if let Some(stop_loss) = self.stop_loss {
+        if let Some(stop_loss) = self.stop_price {
             btree.push(("stopPrice".to_string(), stop_loss.to_string()));
         }
         let timestamp = self.get_timestamp().expect("Failed to get timestamp");
@@ -82,6 +91,7 @@ impl BinanceTrade {
         if let Some(recv_window) = self.recv_window {
             btree.push(("recvWindow".to_string(), recv_window.to_string()));
         }
+        btree.push(("newClientOrderId".to_string(), self.build_client_order_id()));
         btree
     }
 

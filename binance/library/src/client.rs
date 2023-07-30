@@ -1,8 +1,9 @@
 use crate::api::API;
-use crate::errors::{BinanceContentError, ErrorKind, Result};
+use crate::errors::{BinanceError, Result};
+use crate::BinanceContentError;
 use hex::encode as hex_encode;
 use hmac::{Hmac, Mac};
-use log::{error, info};
+use log::*;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use reqwest::Response;
 use serde::de::DeserializeOwned;
@@ -42,7 +43,7 @@ impl Client {
             .get(url.as_str())
             .headers(self.build_headers(true)?)
             .send()
-            .await?;
+            .await.map_err(BinanceError::Reqwest)?;
         self.handler(response).await
     }
 
@@ -55,7 +56,7 @@ impl Client {
         info!("url: {}", url);
         let client = &self.inner_client;
         let request = client.post(url.as_str()).headers(self.build_headers(true)?);
-        let response = request.send().await?;
+        let response = request.send().await.map_err(BinanceError::Reqwest)?;
         self.handler(response).await
     }
 
@@ -70,7 +71,7 @@ impl Client {
             .delete(url.as_str())
             .headers(self.build_headers(true)?)
             .send()
-            .await?;
+            .await.map_err(BinanceError::Reqwest)?;
         self.handler(response).await
     }
 
@@ -86,7 +87,7 @@ impl Client {
             }
         }
         let client = &self.inner_client;
-        let response = client.get(url.as_str()).send().await?;
+        let response = client.get(url.as_str()).send().await.map_err(BinanceError::Reqwest)?;
         self.handler(response).await
     }
 
@@ -98,7 +99,7 @@ impl Client {
             .post(url.as_str())
             .headers(self.build_headers(false)?)
             .send()
-            .await?;
+            .await.map_err(BinanceError::Reqwest)?;
         self.handler(response).await
     }
 
@@ -112,7 +113,7 @@ impl Client {
             .headers(self.build_headers(false)?)
             .body(data)
             .send()
-            .await?;
+            .await.map_err(BinanceError::Reqwest)?;
         self.handler(response).await
     }
 
@@ -126,7 +127,7 @@ impl Client {
             .headers(self.build_headers(false)?)
             .body(data)
             .send()
-            .await?;
+            .await.map_err(BinanceError::Reqwest)?;
         self.handler(response).await
     }
 
@@ -155,18 +156,17 @@ impl Client {
         }
         custom_headers.insert(
             "x-mbx-apikey",
-            HeaderValue::from_str(self.api_key.as_str())?,
+            HeaderValue::from_str(self.api_key.as_str()).map_err(BinanceError::InvalidHeader)?,
         );
         Ok(custom_headers)
     }
 
     async fn handler<T: DeserializeOwned>(&self, response: Response) -> Result<T> {
         if response.status().is_success() {
-            Ok(response.json::<T>().await?)
+            Ok(response.json::<T>().await.map_err(BinanceError::Reqwest)?)
         } else {
-            let error: BinanceContentError = response.json().await?;
-            error!("{:?}", error);
-            Err(ErrorKind::BinanceError(error).into())
+            let error: BinanceContentError = response.json().await.map_err(BinanceError::Reqwest)?;
+            Err(BinanceError::Binance(error).into())
         }
     }
 }
