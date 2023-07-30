@@ -40,25 +40,12 @@ impl OrderBundleTrade {
 
 #[derive(Debug, Clone)]
 pub struct OrderBundle {
-    id: Option<String>,
-    timestamp: u64,
-    side: Option<Side>,
-    entry: Option<OrderBundleTrade>,
-    take_profit: Option<OrderBundleTrade>,
-    stop_loss: Option<OrderBundleTrade>,
-}
-
-impl Default for OrderBundle {
-    fn default() -> Self {
-        Self {
-            id: None,
-            timestamp: 0,
-            side: None,
-            entry: None,
-            take_profit: None,
-            stop_loss: None,
-        }
-    }
+    pub id: String,
+    pub timestamp: u64,
+    pub side: Side,
+    pub entry: Option<OrderBundleTrade>,
+    pub take_profit: Option<OrderBundleTrade>,
+    pub stop_loss: Option<OrderBundleTrade>,
 }
 
 impl OrderBundle {
@@ -71,9 +58,9 @@ impl OrderBundle {
         stop_loss: Option<OrderBundleTrade>,
     ) -> Self {
         Self {
-            id: Some(id),
+            id,
             timestamp,
-            side: Some(side),
+            side,
             entry,
             take_profit,
             stop_loss,
@@ -242,32 +229,30 @@ impl Account {
             Some(order_bundle) => {
                 let active_id = &order_bundle.id;
                 let event_id = OrderBundle::client_order_id_prefix(&event.new_client_order_id);
-                if let Some(active_id) = &order_bundle.id {
-                    if &event_id == active_id {
-                        let mut updated_order = order_bundle.clone();
-                        let order_type = OrderType::from_str(&event.order_type)?;
-                        match order_type {
-                            OrderType::Limit => {
-                                info!("Updating active order entry");
-                                updated_order.entry =
-                                    Some(OrderBundleTrade::from_order_trade_event(&event)?);
-                            }
-                            OrderType::TakeProfitLimit => {
-                                info!("Updating active order take profit");
-                                updated_order.take_profit =
-                                    Some(OrderBundleTrade::from_order_trade_event(&event)?);
-                            }
-                            OrderType::StopLossLimit => {
-                                info!("Updating active order stop loss");
-                                updated_order.stop_loss =
-                                    Some(OrderBundleTrade::from_order_trade_event(&event)?);
-                            }
-                            _ => {
-                                info!("Invalid order event order type to update active order");
-                            }
+                if &event_id == active_id {
+                    let mut updated_order = order_bundle.clone();
+                    let order_type = OrderType::from_str(&event.order_type)?;
+                    match order_type {
+                        OrderType::Limit => {
+                            info!("Updating active order entry");
+                            updated_order.entry =
+                                Some(OrderBundleTrade::from_order_trade_event(&event)?);
                         }
-                        self.active_order = Some(updated_order);
+                        OrderType::TakeProfitLimit => {
+                            info!("Updating active order take profit");
+                            updated_order.take_profit =
+                                Some(OrderBundleTrade::from_order_trade_event(&event)?);
+                        }
+                        OrderType::StopLossLimit => {
+                            info!("Updating active order stop loss");
+                            updated_order.stop_loss =
+                                Some(OrderBundleTrade::from_order_trade_event(&event)?);
+                        }
+                        _ => {
+                            info!("Invalid order event order type to update active order");
+                        }
                     }
+                    self.active_order = Some(updated_order);
                 }
             }
             None => {
@@ -275,46 +260,46 @@ impl Account {
                 let event_id = OrderBundle::client_order_id_prefix(&event.new_client_order_id);
                 let side = Side::from_str(&event.side)?;
                 let order_type = OrderType::from_str(&event.order_type)?;
-                let mut updated_order = OrderBundle::default();
+                let mut updated_order = None;
                 match order_type {
                     OrderType::Limit => {
                         info!("Creating active order entry");
-                        updated_order = OrderBundle::new(
+                        updated_order = Some(OrderBundle::new(
                             event_id,
                             event.event_time,
                             side,
                             Some(OrderBundleTrade::from_order_trade_event(&event)?),
                             None,
                             None,
-                        );
+                        ));
                     }
                     OrderType::TakeProfitLimit => {
                         info!("Creating active order take profit");
-                        updated_order = OrderBundle::new(
+                        updated_order = Some(OrderBundle::new(
                             event_id,
                             event.event_time,
                             side,
                             None,
                             Some(OrderBundleTrade::from_order_trade_event(&event)?),
                             None,
-                        );
+                        ));
                     }
                     OrderType::StopLossLimit => {
                         info!("Creating active order stop loss");
-                        updated_order = OrderBundle::new(
+                        updated_order = Some(OrderBundle::new(
                             event_id,
                             event.event_time,
                             side,
                             None,
                             None,
                             Some(OrderBundleTrade::from_order_trade_event(&event)?),
-                        );
+                        ));
                     }
                     _ => {
                         info!("Invalid order event order type to create active order");
                     }
                 }
-                self.active_order = Some(updated_order);
+                self.active_order = updated_order;
             }
         }
         Ok(self.active_order.clone())
@@ -352,9 +337,9 @@ impl Account {
             if let (Some(entry), Some(take_profit), Some(stop_loss)) =
                 (entry, take_profit, stop_loss)
             {
-                let entry_order = OrderBundleTrade::from_historical_order(*entry)?;
-                let take_profit_order = OrderBundleTrade::from_historical_order(*take_profit)?;
-                let stop_loss_order = OrderBundleTrade::from_historical_order(*stop_loss)?;
+                let entry_order = OrderBundleTrade::from_historical_order(entry)?;
+                let take_profit_order = OrderBundleTrade::from_historical_order(take_profit)?;
+                let stop_loss_order = OrderBundleTrade::from_historical_order(stop_loss)?;
                 // timestamp is latest of all 3 orders
                 let timestamp = entry_order
                     .event_time
@@ -363,7 +348,7 @@ impl Account {
                 order_bundles.push(OrderBundle::new(
                     OrderBundle::client_order_id_prefix(&entry.client_order_id),
                     timestamp,
-                    Side::from_str(&*entry.side)?,
+                    Side::from_str(&entry.side)?,
                     Some(entry_order),
                     Some(take_profit_order),
                     Some(stop_loss_order),
@@ -372,11 +357,11 @@ impl Account {
         }
         order_bundles.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
         // get latest OrderBundle (hopefully are most recent trades)
-        match order_bundles.last().clone() {
+        match order_bundles.last() {
             // no complete bundle found, cancel all orders to start from scratch
             None => {
                 self.cancel_all_active_orders().await?;
-                return Ok(None);
+                Ok(None)
             }
             Some(latest_bundle) => {
                 let mut active_order = None;
@@ -436,9 +421,13 @@ impl Account {
                     Ok(active_order)
                 } else {
                     self.cancel_all_active_orders().await?;
-                    return Ok(None);
+                    Ok(None)
                 }
             }
         }
+    }
+
+    pub fn get_active_order(&self) -> Option<OrderBundle> {
+        self.active_order.clone()
     }
 }

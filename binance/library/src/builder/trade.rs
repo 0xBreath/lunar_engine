@@ -1,4 +1,4 @@
-use crate::alert::*;
+use crate::model::{OrderType, Side};
 use std::io::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
 
