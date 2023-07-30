@@ -6,7 +6,7 @@ use ephemeris::*;
 use library::*;
 use log::*;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Arc;
 use std::time::SystemTime;
 use time_series::{Candle, Day, Month, Time};
@@ -111,14 +111,14 @@ async fn main() -> Result<()> {
                     // if any orders within OrderBundle are None, 
                     // get event client order ID and set or compare and set if ID matches Some(orders) in bundle  
                     WebSocketEvent::OrderTrade(event) => {
-                        match account.stream_update_active_order(event).await {
+                        return match account.stream_update_active_order(event).await {
                             Ok(active_order) => {
                                 info!("Active order updated {:?}", active_order);
-                                return Ok(())
+                                Ok(())
                             }
                             Err(e) => {
                                 error!("Error updating active order: {}", e);
-                                return Err(e);
+                                Err(e)
                             }
                         }
                     }
@@ -171,7 +171,7 @@ async fn main() -> Result<()> {
                                             }
                                             info!("Long @ {} | {}", candle.close, date.to_string());
                                         }
-                                        Some(active_order) => match active_order.side() {
+                                        Some(active_order) => match active_order.side {
                                             Side::Long => {
                                                 info!("Already Long, ignoring");
                                             }
@@ -218,7 +218,7 @@ async fn main() -> Result<()> {
                                             }
                                             info!("Short @ {}", date.to_string());
                                         }
-                                        Some(active_order) => match active_order.side() {
+                                        Some(active_order) => match active_order.side {
                                             Side::Long => {
                                                 info!("Close Long, enter Short");
                                                 let account_info = account.account_info().await.map_err(|e|BinanceError::Custom(e.to_string()))?;
@@ -273,7 +273,7 @@ async fn main() -> Result<()> {
                                             }
                                             info!("Long @ {} | {}", candle.close, date.to_string());
                                         }
-                                        Some(active_order) => match active_order.side() {
+                                        Some(active_order) => match active_order.side {
                                             Side::Long => {
                                                 info!("Already Long, ignoring");
                                             }
