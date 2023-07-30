@@ -149,7 +149,16 @@ impl Account {
             .await;
         let dur = SystemTime::now().duration_since(pre).unwrap().as_millis();
         info!("Request time: {:?}ms", dur);
-        res
+        match res {
+            Ok(res) => {
+                info!("Account info: {:?}", res);
+                Ok(res)
+            }
+            Err(e) => {
+                error!("Failed to get account info: {:?}", e);
+                Err(e)
+            }
+        }
     }
 
     /// Get all assets

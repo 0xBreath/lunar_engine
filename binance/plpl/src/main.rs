@@ -58,6 +58,7 @@ lazy_static! {
         ),
         recv_window: 10000,
     }));
+    // cache previous and current Kline/Candle to assess PLPL trade signal
     static ref PREV_CANDLE: Arc<Mutex<Option<Candle>>> = Arc::new(Mutex::new(None));
     static ref CURR_CANDLE: Arc<Mutex<Option<Candle>>> = Arc::new(Mutex::new(None));
     static ref COUNTER: Arc<Mutex<AtomicUsize>> = Arc::new(Mutex::new(AtomicUsize::new(0)));
@@ -91,7 +92,7 @@ async fn main() -> Result<()> {
         cross_margin_pct,
     })
     .await
-    .expect("Failed to initialize PLPL system");
+    .map_err(BinanceError::Custom)?;
     let plpl_system = Arc::new(Mutex::new(plpl_system));
 
     // queue to process websocket events asynchronously
@@ -104,8 +105,6 @@ async fn main() -> Result<()> {
         while let Ok(event) = queue_rx.recv() {
             runtime.spawn(async move {
                 let mut account = ACCOUNT.clone().lock().await;
-                let update_counter = COUNTER.clone().lock().await;
-                update_counter.fetch_add(1, Ordering::SeqCst);
                 let start = SystemTime::now();
 
                 match event {
@@ -136,14 +135,10 @@ async fn main() -> Result<()> {
                         let kline_event_time = kline_event.event_time as i64;
                         let date = Time::from_unix_msec(kline_event_time);
                         let client_order_id = format!("{}", kline_event_time);
-                        // cache previous and current candle to assess PLPL trade conditions
-                        // cast Kline to Candle
                         let candle = kline_to_candle(&kline_event);
-                        debug!("Current price: {}", candle.close);
                         // compute closest PLPL to current Candle
                         let plpl = plpl_system
-                            .closest_plpl(&candle)
-                            .expect("Failed to get closest plpl");
+                            .closest_plpl(&candle).map_err(BinanceError::Custom)?;
 
                         // compare previous candle to current candle to check crossover of PLPL signal threshold
                         match (&*prev, &*curr) {
@@ -157,13 +152,7 @@ async fn main() -> Result<()> {
                                     match active_order {
                                         None => {
                                             info!("No active order, enter Long");
-                                            let account_info = match account.account_info().await {
-                                                Err(e) => {
-                                                    error!("Failed to get account info: {}", e);
-                                                    return;
-                                                }
-                                                Ok(account_info) => account_info,
-                                            };
+                                            let account_info = account.account_info().await.map_err(BinanceError::Custom)?;
                                             let trades = plpl_long(
                                                 &account_info,
                                                 &client_order_id,
@@ -185,14 +174,7 @@ async fn main() -> Result<()> {
                                             }
                                             Side::Short => {
                                                 info!("Close Short, enter Long");
-                                                let _ = account.cancel_all_active_orders().await;
-                                                let account_info = match account.account_info().await {
-                                                    Err(e) => {
-                                                        error!("Failed to get account info: {}", e);
-                                                        return;
-                                                    }
-                                                    Ok(account_info) => account_info,
-                                                };
+                                                let account_info = account.account_info().await.map_err(BinanceError::Custom)?;
                                                 let trades = plpl_long(
                                                     &account_info,
                                                     &client_order_id,
@@ -217,13 +199,7 @@ async fn main() -> Result<()> {
                                     match active_order {
                                         None => {
                                             info!("No active order, enter Short");
-                                            let account_info = match account.account_info().await {
-                                                Err(e) => {
-                                                    error!("Failed to get account info: {}", e);
-                                                    return;
-                                                }
-                                                Ok(account_info) => account_info,
-                                            };
+                                            let account_info = account.account_info().await.map_err(BinanceError::Custom)?;
                                             let trades = plpl_short(
                                                 &account_info,
                                                 &client_order_id,
@@ -242,13 +218,7 @@ async fn main() -> Result<()> {
                                         Some(active_order) => match active_order.side() {
                                             Side::Long => {
                                                 info!("Close Long, enter Short");
-                                                let account_info = match account.account_info().await {
-                                                    Err(e) => {
-                                                        error!("Failed to get account info: {}", e);
-                                                        return;
-                                                    }
-                                                    Ok(account_info) => account_info,
-                                                };
+                                                let account_info = account.account_info().await.map_err(BinanceError::Custom)?;
                                                 let trades = plpl_short(
                                                     &account_info,
                                                     &client_order_id,
@@ -284,13 +254,7 @@ async fn main() -> Result<()> {
                                     match active_order {
                                         None => {
                                             info!("No active order, enter Long");
-                                            let account_info = match account.account_info().await {
-                                                Err(e) => {
-                                                    error!("Failed to get account info: {}", e);
-                                                    return;
-                                                }
-                                                Ok(account_info) => account_info,
-                                            };
+                                            let account_info = account.account_info().await.map_err(BinanceError::Custom)?;
                                             let trades = plpl_long(
                                                 &account_info,
                                                 &client_order_id,
@@ -312,13 +276,7 @@ async fn main() -> Result<()> {
                                             }
                                             Side::Short => {
                                                 info!("Close Short, enter Long");
-                                                let account_info = match account.account_info().await {
-                                                    Err(e) => {
-                                                        error!("Failed to get account info: {}", e);
-                                                        return;
-                                                    }
-                                                    Ok(account_info) => account_info,
-                                                };
+                                                let account_info = account.account_info().await.map_err(BinanceError::Custom)?;
                                                 let trades = plpl_long(
                                                     &account_info,
                                                     &client_order_id,
@@ -343,13 +301,7 @@ async fn main() -> Result<()> {
                                     match active_order {
                                         None => {
                                             info!("No active order, enter Short");
-                                            let account_info = match account.account_info().await {
-                                                Err(e) => {
-                                                    error!("Failed to get account info: {}", e);
-                                                    return;
-                                                }
-                                                Ok(account_info) => account_info,
-                                            };
+                                            let account_info = account.account_info().await.map_err(BinanceError::Custom)?;
                                             let trades = plpl_short(
                                                 &account_info,
                                                 &client_order_id,
@@ -368,13 +320,7 @@ async fn main() -> Result<()> {
                                         Some(active_order) => match active_order.side() {
                                             Side::Long => {
                                                 info!("Close Long, enter Short");
-                                                let account_info = match account.account_info().await {
-                                                    Err(e) => {
-                                                        error!("Failed to get account info: {}", e);
-                                                        return;
-                                                    }
-                                                    Ok(account_info) => account_info,
-                                                };
+                                                let account_info = account.account_info().await.map_err(BinanceError::Custom)?;
                                                 let trades = plpl_short(
                                                     &account_info,
                                                     &client_order_id,
@@ -403,7 +349,7 @@ async fn main() -> Result<()> {
                         // time to process
                         let elapsed = SystemTime::now()
                             .duration_since(start)
-                            .expect("Time went backwards");
+                            .map_err(BinanceError::Time)?;
                         info!("Time to process Kline event: {:?}ms", elapsed.as_millis());
                     }
                     _ => (),

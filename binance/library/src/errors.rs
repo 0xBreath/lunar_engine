@@ -22,8 +22,9 @@ pub enum BinanceError {
     UrlParser(url::ParseError),
     Json(serde_json::Error),
     Tungstenite(tungstenite::Error),
-    Timestamp(std::time::SystemTimeError),
+    Time(std::time::SystemTimeError),
     OrderStatusParseError(String),
+    Custom(String)
 }
 
 impl std::fmt::Display for BinanceError {
@@ -42,10 +43,11 @@ impl std::fmt::Display for BinanceError {
             BinanceError::UrlParser(e) => write!(f, "URL parser error: {:?}", e),
             BinanceError::Json(e) => write!(f, "JSON error: {:?}", e),
             BinanceError::Tungstenite(e) => write!(f, "Tungstenite error: {:?}", e),
-            BinanceError::Timestamp(e) => write!(f, "Timestamp error: {:?}", e),
+            BinanceError::Time(e) => write!(f, "Time error: {:?}", e),
             BinanceError::OrderStatusParseError(e) => {
                 write!(f, "Order status parse error: {:?}", e)
             }
+            BinanceError::Custom(e) => write!(f, "Custom error: {:?}", e),
         }
     }
 }
