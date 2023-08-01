@@ -259,10 +259,6 @@ pub struct Transaction {
     price_protect: bool,
 }
 
-fn default_stop_price() -> f64 {
-    0.0
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FillInfo {
@@ -1185,48 +1181,28 @@ impl HistoricalOrder {
     }
 }
 
-/// OrderTradeStatus is from the UserStream [`OrderTradeEvent`]
-///
-/// The enum varies slightly from the normal [`HistoricalOrder`] status which defines TRADE as FILLED
-///
-/// NEW - The order has been accepted into the engine
-/// CANCELED - The order has been canceled by the user
-/// REPLACED - This is currently unused
-/// REJECTED - The order has been rejected and was not processed (this is never pushed into the User Data Stream)
-/// FILLED - Part of the order or all of the order's quantity has been filled
-/// EXPIRED - The order was canceled according to the order type's rules (e.g., LIMIT FOK orders with no fill, LIMIT IOC or MARKET orders that partially fill) or by the exchange, (e.g., orders canceled during liquidation, orders canceled during maintenance)
-/// TRADE_PREVENTION - The order has expired due to STP.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum OrderStatus {
     New,
-    Canceled,
-    Replaced,
-    Rejected,
+    PartiallyFilled,
     Filled,
+    Canceled,
+    PendingCancel,
+    Rejected,
     Expired,
-    TradePrevention,
+    ExpiredInMatch,
 }
 impl OrderStatus {
-    pub fn fmt_order_trade_event(&self) -> &str {
+    pub fn to_str(&self) -> &str {
         match self {
             OrderStatus::New => "NEW",
-            OrderStatus::Canceled => "CANCELED",
-            OrderStatus::Replaced => "REPLACED",
-            OrderStatus::Rejected => "REJECTED",
-            OrderStatus::Filled => "TRADE",
-            OrderStatus::Expired => "EXPIRED",
-            OrderStatus::TradePrevention => "TRADE_PREVENTION",
-        }
-    }
-    pub fn fmt_historical_order(&self) -> &str {
-        match self {
-            OrderStatus::New => "NEW",
-            OrderStatus::Canceled => "CANCELED",
-            OrderStatus::Replaced => "REPLACED",
-            OrderStatus::Rejected => "REJECTED",
+            OrderStatus::PartiallyFilled => "PARTIALLY_FILLED",
             OrderStatus::Filled => "FILLED",
+            OrderStatus::Canceled => "CANCELED",
+            OrderStatus::PendingCancel => "PENDING_CANCEL",
+            OrderStatus::Rejected => "REJECTED",
             OrderStatus::Expired => "EXPIRED",
-            OrderStatus::TradePrevention => "TRADE_PREVENTION",
+            OrderStatus::ExpiredInMatch => "EXPIRED_IN_MATCH",
         }
     }
 }
@@ -1235,12 +1211,13 @@ impl FromStr for OrderStatus {
     fn from_str(s: &str) -> Result<Self> {
         match s {
             "NEW" => Ok(OrderStatus::New),
-            "CANCELED" => Ok(OrderStatus::Canceled),
-            "REPLACED" => Ok(OrderStatus::Replaced),
-            "REJECTED" => Ok(OrderStatus::Rejected),
+            "PARTIALLY_FILLED" => Ok(OrderStatus::PartiallyFilled),
             "TRADE" | "FILLED" => Ok(OrderStatus::Filled),
+            "CANCELED" => Ok(OrderStatus::Canceled),
+            "PENDING_CANCEL" => Ok(OrderStatus::PendingCancel),
+            "REJECTED" => Ok(OrderStatus::Rejected),
             "EXPIRED" => Ok(OrderStatus::Expired),
-            "TRADE_PREVENTION" => Ok(OrderStatus::TradePrevention),
+            "EXPIRED_IN_MATCH" => Ok(OrderStatus::ExpiredInMatch),
             _ => Err(BinanceError::OrderStatusParseError(s.to_string())),
         }
     }

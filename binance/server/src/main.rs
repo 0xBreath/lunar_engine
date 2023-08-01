@@ -17,23 +17,29 @@ const BINANCE_TEST_API_KEY: &str =
 const BINANCE_TEST_API_SECRET: &str =
     "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
 // Binance Spot Live Network API credentials
+#[allow(dead_code)]
 const BINANCE_LIVE_API: &str = "https://api.binance.us";
+#[allow(dead_code)]
 const BINANCE_LIVE_API_KEY: &str =
     "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
+#[allow(dead_code)]
 const BINANCE_LIVE_API_SECRET: &str =
     "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
+const BASE_ASSET: &str = "BTC";
+const QUOTE_ASSET: &str = "USDT";
+const TICKER: &str = "BTCUSDT";
 
 lazy_static! {
     static ref ACCOUNT: Mutex<Account> = Mutex::new(Account {
         client: Client::new(
-            Some(BINANCE_LIVE_API_KEY.to_string()),
-            Some(BINANCE_LIVE_API_SECRET.to_string()),
-            BINANCE_LIVE_API.to_string()
+            Some(BINANCE_TEST_API_KEY.to_string()),
+            Some(BINANCE_TEST_API_SECRET.to_string()),
+            BINANCE_TEST_API.to_string()
         ),
         recv_window: 5000,
-        base_asset: "BTC".to_string(),
-        quote_asset: "USDT".to_string(),
-        ticker: "BTCUSDT".to_string(),
+        base_asset: BASE_ASSET.to_string(),
+        quote_asset: QUOTE_ASSET.to_string(),
+        ticker: TICKER.to_string(),
         active_order: None,
     });
 }
@@ -102,7 +108,11 @@ async fn cancel_orders() -> Result<HttpResponse, Error> {
         .cancel_all_active_orders()
         .await
         .expect("failed to cancel orders");
-    debug!("{:?}", res);
+    let ids = res
+        .iter()
+        .map(|order| order.orig_client_order_id.clone().unwrap())
+        .collect::<Vec<String>>();
+    info!("All active orders canceled {:?}", ids);
     Ok(HttpResponse::Ok().json(res))
 }
 

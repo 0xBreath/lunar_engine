@@ -114,19 +114,20 @@ pub fn trade_qty(
 ) -> f64 {
     let assets = account_assets(account_info, quote_asset, base_asset);
     info!(
-        "{}: {}, {}: {}",
-        quote_asset,
-        assets.free_quote + assets.locked_quote,
-        base_asset,
-        assets.free_base + assets.locked_base,
+        "{}, Free: {}, Locked: {}",
+        quote_asset, assets.free_quote, assets.locked_quote,
+    );
+    info!(
+        "{}, Free: {}, Locked: {}",
+        base_asset, assets.free_base, assets.locked_base,
     );
     match side {
         Side::Long => {
-            let qty = assets.free_quote / candle.close * 0.99;
+            let qty = assets.free_quote / candle.close * 0.99 * 0.33;
             BinanceTrade::round_quantity(qty, 5)
         }
         Side::Short => {
-            let qty = assets.free_base * 0.99;
+            let qty = assets.free_base * 0.99 * 0.33;
             BinanceTrade::round_quantity(qty, 5)
         }
     }
@@ -143,6 +144,9 @@ pub fn plpl_long(
     quote_asset: &str,
     base_asset: &str,
 ) -> Vec<BinanceTrade> {
+    // each order gets 1/3 of 99% of account balance
+    // 99% is to account for fees
+    // 1/3 is to account for 3 orders
     let long_qty = trade_qty(account_info, quote_asset, base_asset, Side::Long, candle);
     let limit = BinanceTrade::round_price(candle.close);
     let entry = BinanceTrade::new(
@@ -175,8 +179,8 @@ pub fn plpl_long(
         OrderType::StopLossLimit,
         long_qty,
         client_order_id.to_string(),
-        Some(stop_loss), // price in this context is the actual exit (stop loss)
-        Some(limit), // stopPrice is the trigger to place the stop loss order, in this case the entry price
+        Some(stop_loss),   // price in this context is the actual exit (stop loss)
+        Some(limit - 1.0), // stopPrice is the trigger to place the stop loss order, in this case the entry price
         None,
         Some(5000),
     );
@@ -226,8 +230,8 @@ pub fn plpl_short(
         OrderType::StopLossLimit,
         short_qty,
         client_order_id.to_string(),
-        Some(stop_loss), // price is this content is the actual exit (stop loss)
-        Some(limit), // stopPrice is the trigger to place the stop loss order, in this case the entry price
+        Some(stop_loss),   // price is this content is the actual exit (stop loss)
+        Some(limit + 1.0), // stopPrice is the trigger to place the stop loss order, in this case the entry price
         None,
         Some(5000),
     );
@@ -240,13 +244,14 @@ pub async fn handle_streams(
     kline_sub: String,
     keep_running: AtomicBool,
     queue_tx: Sender<WebSocketEvent>,
+    testnet: bool,
 ) -> Result<()> {
     match user_stream.start().await {
         Ok(answer) => {
             let listen_key = answer.listen_key;
-            let mut ws = WebSockets::new(|event: WebSocketEvent| {
+            let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
                 match &event {
-                    WebSocketEvent::Kline(kline_event) => {
+                    WebSocketEvent::Kline(_) => {
                         let res = queue_tx.send(event);
                         if let Err(e) = res {
                             error!("Failed to send Kline event to queue: {:?}", e);
@@ -265,8 +270,12 @@ pub async fn handle_streams(
                     }
                     WebSocketEvent::OrderTrade(trade) => {
                         info!(
-                            "Symbol: {}, Side: {}, Price: {}, Execution Type: {}",
-                            trade.symbol, trade.side, trade.price, trade.execution_type
+                            "Ticker: {}, ID: {}, Side: {}, Price: {}, Status: {}",
+                            trade.symbol,
+                            trade.new_client_order_id,
+                            trade.side,
+                            trade.price,
+                            trade.order_status
                         );
                         let res = queue_tx.send(event);
                         if let Err(e) = res {
@@ -279,7 +288,7 @@ pub async fn handle_streams(
             });
 
             let subs = vec![kline_sub, listen_key.clone()];
-            match ws.connect_multiple_streams(&subs) {
+            match ws.connect_multiple_streams(&subs, testnet) {
                 Err(e) => {
                     error!("Failed to connect to Binance websocket: {}", e);
                     return Err(e);
@@ -296,7 +305,7 @@ pub async fn handle_streams(
             return match ws.disconnect() {
                 Err(e) => {
                     error!("Failed to disconnect from Binance websocket: {}", e);
-                    match ws.connect_multiple_streams(&subs) {
+                    match ws.connect_multiple_streams(&subs, testnet) {
                         Err(e) => {
                             error!("Failed to connect to Binance websocket: {}", e);
                             Err(e)

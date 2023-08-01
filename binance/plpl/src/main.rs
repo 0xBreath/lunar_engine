@@ -26,23 +26,31 @@ const BINANCE_TEST_API_KEY: &str =
 const BINANCE_TEST_API_SECRET: &str =
     "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
 // Binance Spot Live Network API credentials
+#[allow(dead_code)]
 const BINANCE_LIVE_API: &str = "https://api.binance.us";
+#[allow(dead_code)]
 const BINANCE_LIVE_API_KEY: &str =
     "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
+#[allow(dead_code)]
 const BINANCE_LIVE_API_SECRET: &str =
     "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
 const KLINE_STREAM: &str = "btcusdt@kline_5m";
-const TRADE_STREAM: &str = "btcusdt@trade";
 const BASE_ASSET: &str = "BTC";
 const QUOTE_ASSET: &str = "USDT";
 const TICKER: &str = "BTCUSDT";
+const IS_TESTNET: bool = true;
 
 lazy_static! {
     static ref ACCOUNT: Arc<Mutex<Account>> = Arc::new(Mutex::new(Account {
+        // client: Client::new(
+        //     Some(BINANCE_LIVE_API_KEY.to_string()),
+        //     Some(BINANCE_LIVE_API_SECRET.to_string()),
+        //     BINANCE_LIVE_API.to_string()
+        // ),
         client: Client::new(
-            Some(BINANCE_LIVE_API_KEY.to_string()),
-            Some(BINANCE_LIVE_API_SECRET.to_string()),
-            BINANCE_LIVE_API.to_string()
+            Some(BINANCE_TEST_API_KEY.to_string()),
+            Some(BINANCE_TEST_API_SECRET.to_string()),
+            BINANCE_TEST_API.to_string()
         ),
         recv_window: 5000,
         base_asset: BASE_ASSET.to_string(),
@@ -51,10 +59,15 @@ lazy_static! {
         active_order: None,
     }));
     static ref USER_STREAM: Arc<Mutex<UserStream>> = Arc::new(Mutex::new(UserStream {
+        // client: Client::new(
+        //     Some(BINANCE_LIVE_API_KEY.to_string()),
+        //     Some(BINANCE_LIVE_API_SECRET.to_string()),
+        //     BINANCE_LIVE_API.to_string()
+        // ),
         client: Client::new(
-            Some(BINANCE_LIVE_API_KEY.to_string()),
-            Some(BINANCE_LIVE_API_SECRET.to_string()),
-            BINANCE_LIVE_API.to_string()
+            Some(BINANCE_TEST_API_KEY.to_string()),
+            Some(BINANCE_TEST_API_SECRET.to_string()),
+            BINANCE_TEST_API.to_string()
         ),
         recv_window: 10000,
     }));
@@ -104,6 +117,7 @@ async fn main() -> Result<()> {
         // Each queue message is a candle or user order/trade update from Binance
         while let Ok(event) = queue_rx.recv() {
             let start = SystemTime::now();
+
             let account_lock = ACCOUNT.clone();
             let prev_candle = PREV_CANDLE.clone();
             let curr_candle = CURR_CANDLE.clone();
@@ -145,9 +159,10 @@ async fn main() -> Result<()> {
 
                         // compute closest PLPL to current Candle
                         let plpl = plpl_system
-                            .closest_plpl(&candle).unwrap();
+                            .closest_plpl(&candle).expect("Closest PLPL not found");
                         // active order bundle on Binance
                         let active_order = account.get_active_order();
+                        let mut trade_placed = false;
 
                         // compare previous candle to current candle to check crossover of PLPL signal threshold
                         match (&*prev, &*curr) {
@@ -160,8 +175,8 @@ async fn main() -> Result<()> {
                                     // if position is None, enter Long
                                     match active_order {
                                         None => {
-                                            info!("No active order, enter Long");
-                                            let account_info = account.account_info().await.unwrap();
+                                            info!("No active order, enter Long @ {} | {}", candle.close, date.to_string());
+                                            let account_info = account.account_info().await.expect("Account info not found");
                                             let trades = plpl_long(
                                                 &account_info,
                                                 &client_order_id,
@@ -173,17 +188,21 @@ async fn main() -> Result<()> {
                                                 BASE_ASSET
                                             );
                                             for trade in trades {
-                                                let _ = account.trade::<LimitOrderResponse>(trade).await.unwrap();
+                                                let side = trade.side.clone();
+                                                let order_type = trade.order_type.clone();
+                                                if let Err(e) = account.trade::<LimitOrderResponse>(trade).await {
+                                                    error!("Error entering {} for {}: {:?}", side.fmt_binance(), order_type.fmt_binance(), e);
+                                                }
                                             }
-                                            info!("Long @ {} | {}", candle.close, date.to_string());
+                                            trade_placed = true;
                                         }
                                         Some(active_order) => match active_order.side {
                                             Side::Long => {
-                                                info!("Already Long, ignoring");
+                                                debug!("Already Long, ignoring");
                                             }
                                             Side::Short => {
-                                                info!("Close Short, enter Long");
-                                                let account_info = account.account_info().await.unwrap();
+                                                info!("Close Short, enter Long @ {} | {}", candle.close, date.to_string());
+                                                let account_info = account.account_info().await.expect("Account info not found");
                                                 let trades = plpl_long(
                                                     &account_info,
                                                     &client_order_id,
@@ -195,9 +214,13 @@ async fn main() -> Result<()> {
                                                     BASE_ASSET
                                                 );
                                                 for trade in trades {
-                                                    let _ = account.trade::<LimitOrderResponse>(trade).await.unwrap();
+                                                    let side = trade.side.clone();
+                                                    let order_type = trade.order_type.clone();
+                                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade).await {
+                                                        error!("Error entering {} for {}: {:?}", side.fmt_binance(), order_type.fmt_binance(), e);
+                                                    }
                                                 }
-                                                info!("Long @ {} | {}", candle.close, date.to_string());
+                                                trade_placed = true;
                                             }
                                         },
                                     }
@@ -207,8 +230,8 @@ async fn main() -> Result<()> {
                                     // if position is None, enter Short
                                     match active_order {
                                         None => {
-                                            info!("No active order, enter Short");
-                                            let account_info = account.account_info().await.unwrap();
+                                            info!("No active order, enter Short @ {} | {}", candle.close, date.to_string());
+                                            let account_info = account.account_info().await.expect("Account info not found");
                                             let trades = plpl_short(
                                                 &account_info,
                                                 &client_order_id,
@@ -220,14 +243,18 @@ async fn main() -> Result<()> {
                                                 BASE_ASSET
                                             );
                                             for trade in trades {
-                                                let _ = account.trade::<LimitOrderResponse>(trade).await.unwrap();
+                                                let side = trade.side.clone();
+                                                let order_type = trade.order_type.clone();
+                                                if let Err(e) = account.trade::<LimitOrderResponse>(trade).await {
+                                                    error!("Error entering {} for {}: {:?}", side.fmt_binance(), order_type.fmt_binance(), e);
+                                                }
                                             }
-                                            info!("Short @ {}", date.to_string());
+                                            trade_placed = true;
                                         }
                                         Some(active_order) => match active_order.side {
                                             Side::Long => {
-                                                info!("Close Long, enter Short");
-                                                let account_info = account.account_info().await.unwrap();
+                                                info!("Close Long, enter Short @ {} | {}", candle.close, date.to_string());
+                                                let account_info = account.account_info().await.expect("Account info not found");
                                                 let trades = plpl_short(
                                                     &account_info,
                                                     &client_order_id,
@@ -239,12 +266,16 @@ async fn main() -> Result<()> {
                                                     BASE_ASSET
                                                 );
                                                 for trade in trades {
-                                                    let _ = account.trade::<LimitOrderResponse>(trade).await.unwrap();
+                                                    let side = trade.side.clone();
+                                                    let order_type = trade.order_type.clone();
+                                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade).await {
+                                                        error!("Error entering {} for {}: {:?}", side.fmt_binance(), order_type.fmt_binance(), e);
+                                                    }
                                                 }
-                                                info!("Short @ {} | {}", candle.close, date.to_string());
+                                                trade_placed = true;
                                             }
                                             Side::Short => {
-                                                info!("Already Short, ignoring");
+                                                debug!("Already Short, ignoring");
                                             }
                                         },
                                     }
@@ -262,8 +293,8 @@ async fn main() -> Result<()> {
                                     // if position is None, enter Long
                                     match active_order {
                                         None => {
-                                            info!("No active order, enter Long");
-                                            let account_info = account.account_info().await.unwrap();
+                                            info!("No active order, enter Long @ {} | {}", candle.close, date.to_string());
+                                            let account_info = account.account_info().await.expect("Account info not found");
                                             let trades = plpl_long(
                                                 &account_info,
                                                 &client_order_id,
@@ -275,17 +306,21 @@ async fn main() -> Result<()> {
                                                 BASE_ASSET
                                             );
                                             for trade in trades {
-                                                let _ = account.trade::<LimitOrderResponse>(trade).await.unwrap();
+                                                let side = trade.side.clone();
+                                                let order_type = trade.order_type.clone();
+                                                if let Err(e) = account.trade::<LimitOrderResponse>(trade).await {
+                                                    error!("Error entering {} for {}: {:?}", side.fmt_binance(), order_type.fmt_binance(), e);
+                                                }
                                             }
-                                            info!("Long @ {} | {}", candle.close, date.to_string());
+                                            trade_placed = true;
                                         }
                                         Some(active_order) => match active_order.side {
                                             Side::Long => {
-                                                info!("Already Long, ignoring");
+                                                debug!("Already Long, ignoring");
                                             }
                                             Side::Short => {
-                                                info!("Close Short, enter Long");
-                                                let account_info = account.account_info().await.unwrap();
+                                                info!("Close Short, enter Long @ {} | {}", candle.close, date.to_string());
+                                                let account_info = account.account_info().await.expect("Account info not found");
                                                 let trades = plpl_long(
                                                     &account_info,
                                                     &client_order_id,
@@ -297,9 +332,13 @@ async fn main() -> Result<()> {
                                                     BASE_ASSET
                                                 );
                                                 for trade in trades {
-                                                    let _ = account.trade::<LimitOrderResponse>(trade).await.unwrap();
+                                                    let side = trade.side.clone();
+                                                    let order_type = trade.order_type.clone();
+                                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade).await {
+                                                        error!("Error entering {} for {}: {:?}", side.fmt_binance(), order_type.fmt_binance(), e);
+                                                    }
                                                 }
-                                                info!("Long @ {} | {}", candle.close, date.to_string());
+                                                trade_placed = true;
                                             }
                                         },
                                     }
@@ -309,8 +348,8 @@ async fn main() -> Result<()> {
                                     // if position is None, enter Short
                                     match active_order {
                                         None => {
-                                            info!("No active order, enter Short");
-                                            let account_info = account.account_info().await.unwrap();
+                                            info!("No active order, enter Short @ {} | {}", candle.close, date.to_string());
+                                            let account_info = account.account_info().await.expect("Account info not found");
                                             let trades = plpl_short(
                                                 &account_info,
                                                 &client_order_id,
@@ -322,14 +361,18 @@ async fn main() -> Result<()> {
                                                 BASE_ASSET
                                             );
                                             for trade in trades {
-                                                let _ = account.trade::<LimitOrderResponse>(trade).await.unwrap();
+                                                let side = trade.side.clone();
+                                                let order_type = trade.order_type.clone();
+                                                if let Err(e) = account.trade::<LimitOrderResponse>(trade).await {
+                                                    error!("Error entering {} for {}: {:?}", side.fmt_binance(), order_type.fmt_binance(), e);
+                                                }
                                             }
-                                            info!("Short @ {} | {}", candle.close, date.to_string());
+                                            trade_placed = true;
                                         }
                                         Some(active_order) => match active_order.side {
                                             Side::Long => {
-                                                info!("Close Long, enter Short");
-                                                let account_info = account.account_info().await.unwrap();
+                                                info!("Close Long, enter Short @ {} | {}", candle.close, date.to_string());
+                                                let account_info = account.account_info().await.expect("Account info not found");
                                                 let trades = plpl_short(
                                                     &account_info,
                                                     &client_order_id,
@@ -341,12 +384,16 @@ async fn main() -> Result<()> {
                                                     BASE_ASSET
                                                 );
                                                 for trade in trades {
-                                                    let _ = account.trade::<LimitOrderResponse>(trade).await.unwrap();
+                                                    let side = trade.side.clone();
+                                                    let order_type = trade.order_type.clone();
+                                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade).await {
+                                                        error!("Error entering {} for {}: {:?}", side.fmt_binance(), order_type.fmt_binance(), e);
+                                                    }
                                                 }
-                                                info!("Short @ {} | {}", candle.close, date.to_string());
+                                                trade_placed = true;
                                             }
                                             Side::Short => {
-                                                info!("Already Short, ignoring");
+                                                debug!("Already Short, ignoring");
                                             }
                                         },
                                     }
@@ -358,7 +405,9 @@ async fn main() -> Result<()> {
                         // time to process
                         let elapsed = SystemTime::now()
                             .duration_since(start).unwrap();
-                        info!("Time to process Kline event: {:?}ms", elapsed.as_millis());
+                        if trade_placed {
+                            info!("Time to process PLPL trade: {:?}ms", elapsed.as_millis());
+                        }
                     });
                 }
                 _ => (),
@@ -372,6 +421,7 @@ async fn main() -> Result<()> {
         KLINE_STREAM.to_string(),
         keep_running,
         queue_tx,
+        IS_TESTNET,
     )
     .await?;
 

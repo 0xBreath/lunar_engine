@@ -126,3 +126,15 @@ impl BinanceTrade {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_round_quantity() {
+        let qty = 10_000_f64 / 29246.72 * 0.99;
+        let rounded = BinanceTrade::round_quantity(qty, 5);
+        println!("rounded: {}", rounded);
+    }
+}

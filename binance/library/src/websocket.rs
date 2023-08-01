@@ -21,14 +21,28 @@ enum WebSocketAPI {
 }
 
 impl WebSocketAPI {
-    fn params(self, subscription: &str) -> String {
-        match self {
-            WebSocketAPI::Default => format!("wss://stream.binance.us:9443/ws/{}", subscription),
-            WebSocketAPI::MultiStream => format!(
-                "wss://stream.binance.us:9443/stream?streams={}",
-                subscription
-            ),
-            WebSocketAPI::Custom(url) => format!("{}/{}", url, subscription),
+    fn params(self, subscription: &str, testnet: bool) -> String {
+        match testnet {
+            true => match self {
+                WebSocketAPI::Default => {
+                    format!("wss://testnet.binance.vision/ws/{}", subscription)
+                }
+                WebSocketAPI::MultiStream => format!(
+                    "wss://testnet.binance.vision/stream?streams={}",
+                    subscription
+                ),
+                WebSocketAPI::Custom(url) => format!("{}/{}", url, subscription),
+            },
+            false => match self {
+                WebSocketAPI::Default => {
+                    format!("wss://stream.binance.us:9443/ws/{}", subscription)
+                }
+                WebSocketAPI::MultiStream => format!(
+                    "wss://stream.binance.us:9443/stream?streams={}",
+                    subscription
+                ),
+                WebSocketAPI::Custom(url) => format!("{}/{}", url, subscription),
+            },
         }
     }
 }
@@ -47,6 +61,7 @@ pub enum WebSocketEvent {
 pub struct WebSockets<'a> {
     pub socket: Option<(WebSocket<MaybeTlsStream<TcpStream>>, Response)>,
     handler: Box<dyn FnMut(WebSocketEvent) -> Result<()> + 'a>,
+    testnet: bool,
 }
 
 impl<'a> Drop for WebSockets<'a> {
@@ -70,27 +85,30 @@ enum Events {
 }
 
 impl<'a> WebSockets<'a> {
-    pub fn new<Callback>(handler: Callback) -> WebSockets<'a>
+    pub fn new<Callback>(testnet: bool, handler: Callback) -> WebSockets<'a>
     where
         Callback: FnMut(WebSocketEvent) -> Result<()> + 'a,
     {
         WebSockets {
             socket: None,
             handler: Box::new(handler),
+            testnet,
         }
     }
 
     #[allow(dead_code)]
     pub fn connect(&mut self, subscription: &str) -> Result<()> {
-        self.connect_wss(&WebSocketAPI::Default.params(subscription))
+        self.connect_wss(&WebSocketAPI::Default.params(subscription, self.testnet))
     }
 
     pub fn connect_with_config(&mut self, subscription: &str, config: &Config) -> Result<()> {
-        self.connect_wss(&WebSocketAPI::Custom(config.ws_endpoint.clone()).params(subscription))
+        self.connect_wss(
+            &WebSocketAPI::Custom(config.ws_endpoint.clone()).params(subscription, self.testnet),
+        )
     }
 
-    pub fn connect_multiple_streams(&mut self, endpoints: &[String]) -> Result<()> {
-        self.connect_wss(&WebSocketAPI::MultiStream.params(&endpoints.join("/")))
+    pub fn connect_multiple_streams(&mut self, endpoints: &[String], testnet: bool) -> Result<()> {
+        self.connect_wss(&WebSocketAPI::MultiStream.params(&endpoints.join("/"), testnet))
     }
 
     fn connect_wss(&mut self, wss: &str) -> Result<()> {
@@ -100,7 +118,7 @@ impl<'a> WebSockets<'a> {
                 self.socket = Some(answer);
                 Ok(())
             }
-            Err(e) => Err(BinanceError::Tungstenite(e).into()),
+            Err(e) => Err(BinanceError::Tungstenite(e)),
         }
     }
 
@@ -155,7 +173,12 @@ impl<'a> WebSockets<'a> {
                         Err(e) => return Err(BinanceError::Tungstenite(e)),
                     },
                     Message::Pong(_) | Message::Binary(_) | Message::Frame(_) => return Ok(()),
-                    Message::Close(e) => return Err(BinanceError::WebSocketDisconnected),
+                    Message::Close(e) => {
+                        return match e {
+                            Some(e) => Err(BinanceError::Custom(e.to_string())),
+                            None => Err(BinanceError::WebSocketDisconnected),
+                        }
+                    }
                 }
             }
         }

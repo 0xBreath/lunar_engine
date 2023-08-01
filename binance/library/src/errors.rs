@@ -1,7 +1,6 @@
 use serde::Deserialize;
-use std::error::Error;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct BinanceContentError {
     pub code: i16,
     pub msg: String,
@@ -24,7 +23,7 @@ pub enum BinanceError {
     Tungstenite(tungstenite::Error),
     Time(std::time::SystemTimeError),
     OrderStatusParseError(String),
-    Custom(String)
+    Custom(String),
 }
 
 impl std::fmt::Display for BinanceError {
