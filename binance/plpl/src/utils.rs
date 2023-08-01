@@ -173,14 +173,15 @@ pub fn plpl_long(
         Some(5000),
     );
     let stop_loss = BinanceTrade::calc_stop_loss(Side::Long, candle.close, stop_loss_pct);
+    let stop_price = BinanceTrade::round_price(stop_loss - (stop_loss - limit) / 2.0);
     let loss = BinanceTrade::new(
         ticker.to_string(),
         Side::Short,
         OrderType::StopLossLimit,
         long_qty,
         client_order_id.to_string(),
-        Some(stop_loss),   // price in this context is the actual exit (stop loss)
-        Some(limit - 1.0), // stopPrice is the trigger to place the stop loss order, in this case the entry price
+        Some(stop_loss),  // price in this context is the actual exit (stop loss)
+        Some(stop_price), // stopPrice is the trigger to place the stop loss order, in this case the entry price
         None,
         Some(5000),
     );
@@ -224,14 +225,15 @@ pub fn plpl_short(
         Some(5000),
     );
     let stop_loss = BinanceTrade::calc_stop_loss(Side::Short, candle.close, stop_loss_pct);
+    let stop_price = BinanceTrade::round_price(stop_loss + (limit - stop_loss) / 2.0);
     let loss = BinanceTrade::new(
         ticker.to_string(),
         Side::Long,
         OrderType::StopLossLimit,
         short_qty,
         client_order_id.to_string(),
-        Some(stop_loss),   // price is this content is the actual exit (stop loss)
-        Some(limit + 1.0), // stopPrice is the trigger to place the stop loss order, in this case the entry price
+        Some(stop_loss),  // price is this context is the actual exit (stop loss)
+        Some(stop_price), // stopPrice is the trigger to place the stop loss order
         None,
         Some(5000),
     );
@@ -270,12 +272,13 @@ pub async fn handle_streams(
                     }
                     WebSocketEvent::OrderTrade(trade) => {
                         info!(
-                            "Ticker: {}, ID: {}, Side: {}, Price: {}, Status: {}",
+                            "Ticker: {}, ID: {}, Side: {}, Price: {}, Status: {}, Type: {}",
                             trade.symbol,
                             trade.new_client_order_id,
                             trade.side,
                             trade.price,
-                            trade.order_status
+                            trade.order_status,
+                            trade.order_type
                         );
                         let res = queue_tx.send(event);
                         if let Err(e) = res {

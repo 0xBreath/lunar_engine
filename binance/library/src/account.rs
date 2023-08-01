@@ -267,29 +267,31 @@ impl Account {
                             None,
                         ));
                     }
-                    // TODO: restrict new active order with take profit or stop loss placed first
+                    // restrict new active order creation with limit entry first
                     OrderType::TakeProfitLimit => {
-                        info!("Creating active order take profit");
-                        updated_order = Some(OrderBundle::new(
-                            event_id,
-                            event.event_time,
-                            side,
-                            None,
-                            Some(OrderBundleTrade::from_order_trade_event(&event)?),
-                            None,
-                        ));
+                        info!("No active trade, waiting for new limit entry...");
+                        // info!("Creating active order take profit");
+                        // updated_order = Some(OrderBundle::new(
+                        //     event_id,
+                        //     event.event_time,
+                        //     side,
+                        //     None,
+                        //     Some(OrderBundleTrade::from_order_trade_event(&event)?),
+                        //     None,
+                        // ));
                     }
-                    // TODO: restrict new active order with take profit or stop loss placed first
+                    // restrict new active order creation with limit entry first
                     OrderType::StopLossLimit => {
-                        info!("Creating active order stop loss");
-                        updated_order = Some(OrderBundle::new(
-                            event_id,
-                            event.event_time,
-                            side,
-                            None,
-                            None,
-                            Some(OrderBundleTrade::from_order_trade_event(&event)?),
-                        ));
+                        info!("No active trade, waiting for new limit entry...");
+                        // info!("Creating active order stop loss");
+                        // updated_order = Some(OrderBundle::new(
+                        //     event_id,
+                        //     event.event_time,
+                        //     side,
+                        //     None,
+                        //     None,
+                        //     Some(OrderBundleTrade::from_order_trade_event(&event)?),
+                        // ));
                     }
                     _ => {
                         info!("Invalid order event order type to create active order");
