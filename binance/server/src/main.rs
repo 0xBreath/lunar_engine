@@ -85,17 +85,14 @@ async fn test() -> impl Responder {
 #[get("/account")]
 async fn account_info() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
-    let res = account
-        .account_info()
-        .await
-        .expect("failed to get account info");
+    let res = account.account_info().expect("failed to get account info");
     Ok(HttpResponse::Ok().json(res))
 }
 
 #[get("/assets")]
 async fn get_assets() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
-    let res = account.all_assets().await.expect("failed to get assets");
+    let res = account.all_assets().expect("failed to get assets");
     debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }
@@ -106,7 +103,6 @@ async fn cancel_orders() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let res = account
         .cancel_all_active_orders()
-        .await
         .expect("failed to cancel orders");
     let ids = res
         .iter()
@@ -121,7 +117,6 @@ async fn get_price() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let res = account
         .get_price(account.ticker.clone())
-        .await
         .expect("failed to get price");
     debug!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
@@ -133,7 +128,6 @@ async fn all_orders() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let res = account
         .all_orders(account.ticker.clone())
-        .await
         .expect("failed to get historical orders");
     let last = res.last().unwrap();
     info!(
@@ -149,7 +143,6 @@ async fn open_order() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let res = account
         .open_orders(account.ticker.clone())
-        .await
         .expect("failed to get last order");
     info!("Last open order: {:?}", res);
     Ok(HttpResponse::Ok().json(res))
@@ -160,7 +153,6 @@ async fn exchange_info() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let info = account
         .exchange_info(account.ticker.clone())
-        .await
         .expect("Failed to get exchange info");
     Ok(HttpResponse::Ok().json(info))
 }

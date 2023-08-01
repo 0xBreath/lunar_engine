@@ -5,7 +5,7 @@ use hex::encode as hex_encode;
 use hmac::{Hmac, Mac};
 use log::*;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
-use reqwest::Response;
+use reqwest::blocking::Response;
 use serde::de::DeserializeOwned;
 use sha2::Sha256;
 
@@ -14,7 +14,7 @@ pub struct Client {
     api_key: String,
     secret_key: String,
     host: String,
-    inner_client: reqwest::Client,
+    inner_client: reqwest::blocking::Client,
 }
 
 impl Client {
@@ -23,7 +23,7 @@ impl Client {
             api_key: api_key.unwrap_or_default(),
             secret_key: secret_key.unwrap_or_default(),
             host,
-            inner_client: reqwest::Client::builder()
+            inner_client: reqwest::blocking::Client::builder()
                 .pool_idle_timeout(None)
                 .timeout(std::time::Duration::from_secs(10))
                 .connect_timeout(std::time::Duration::from_secs(10))
@@ -32,7 +32,7 @@ impl Client {
         }
     }
 
-    pub async fn get_signed<T: DeserializeOwned>(
+    pub fn get_signed<T: DeserializeOwned>(
         &self,
         endpoint: API,
         request: Option<String>,
@@ -43,11 +43,11 @@ impl Client {
             .get(url.as_str())
             .headers(self.build_headers(true)?)
             .send()
-            .await.map_err(BinanceError::Reqwest)?;
-        self.handler(response).await
+            .map_err(BinanceError::Reqwest)?;
+        self.handler(response)
     }
 
-    pub async fn post_signed<T: DeserializeOwned>(
+    pub fn post_signed<T: DeserializeOwned>(
         &self,
         endpoint: API,
         request: String,
@@ -56,11 +56,11 @@ impl Client {
         info!("url: {}", url);
         let client = &self.inner_client;
         let request = client.post(url.as_str()).headers(self.build_headers(true)?);
-        let response = request.send().await.map_err(BinanceError::Reqwest)?;
-        self.handler(response).await
+        let response = request.send().map_err(BinanceError::Reqwest)?;
+        self.handler(response)
     }
 
-    pub async fn delete_signed<T: DeserializeOwned>(
+    pub  fn delete_signed<T: DeserializeOwned>(
         &self,
         endpoint: API,
         request: Option<String>,
@@ -71,11 +71,11 @@ impl Client {
             .delete(url.as_str())
             .headers(self.build_headers(true)?)
             .send()
-            .await.map_err(BinanceError::Reqwest)?;
-        self.handler(response).await
+            .map_err(BinanceError::Reqwest)?;
+        self.handler(response)
     }
 
-    pub async fn get<T: DeserializeOwned>(
+    pub fn get<T: DeserializeOwned>(
         &self,
         endpoint: API,
         request: Option<String>,
@@ -87,24 +87,24 @@ impl Client {
             }
         }
         let client = &self.inner_client;
-        let response = client.get(url.as_str()).send().await.map_err(BinanceError::Reqwest)?;
-        self.handler(response).await
+        let response = client.get(url.as_str()).send().map_err(BinanceError::Reqwest)?;
+        self.handler(response)
     }
 
     #[allow(dead_code)]
-    pub async fn post<T: DeserializeOwned>(&self, endpoint: API) -> Result<T> {
+    pub fn post<T: DeserializeOwned>(&self, endpoint: API) -> Result<T> {
         let url: String = format!("{}{}", self.host, String::from(endpoint));
         let client = &self.inner_client;
         let response = client
             .post(url.as_str())
             .headers(self.build_headers(false)?)
             .send()
-            .await.map_err(BinanceError::Reqwest)?;
-        self.handler(response).await
+            .map_err(BinanceError::Reqwest)?;
+        self.handler(response)
     }
 
     #[allow(dead_code)]
-    pub async fn put<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
+    pub fn put<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
         let url: String = format!("{}{}", self.host, String::from(endpoint));
         let data: String = format!("listenKey={}", listen_key);
         let client = &self.inner_client;
@@ -113,12 +113,12 @@ impl Client {
             .headers(self.build_headers(false)?)
             .body(data)
             .send()
-            .await.map_err(BinanceError::Reqwest)?;
-        self.handler(response).await
+            .map_err(BinanceError::Reqwest)?;
+        self.handler(response)
     }
 
     #[allow(dead_code)]
-    pub async fn delete<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
+    pub fn delete<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
         let url: String = format!("{}{}", self.host, String::from(endpoint));
         let data: String = format!("listenKey={}", listen_key);
         let client = &self.inner_client;
@@ -127,8 +127,8 @@ impl Client {
             .headers(self.build_headers(false)?)
             .body(data)
             .send()
-            .await.map_err(BinanceError::Reqwest)?;
-        self.handler(response).await
+            .map_err(BinanceError::Reqwest)?;
+        self.handler(response)
     }
 
     // Request must be signed
@@ -161,11 +161,11 @@ impl Client {
         Ok(custom_headers)
     }
 
-    async fn handler<T: DeserializeOwned>(&self, response: Response) -> Result<T> {
+    fn handler<T: DeserializeOwned>(&self, response: Response) -> Result<T> {
         if response.status().is_success() {
-            Ok(response.json::<T>().await.map_err(BinanceError::Reqwest)?)
+            Ok(response.json::<T>().map_err(BinanceError::Reqwest)?)
         } else {
-            let error: BinanceContentError = response.json().await.map_err(BinanceError::Reqwest)?;
+            let error: BinanceContentError = response.json().map_err(BinanceError::Reqwest)?;
             Err(BinanceError::Binance(error).into())
         }
     }

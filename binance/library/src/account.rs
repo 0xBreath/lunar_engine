@@ -107,29 +107,26 @@ impl Account {
     }
 
     #[allow(dead_code)]
-    pub async fn exchange_info(&self, symbol: String) -> Result<ExchangeInformation> {
+    pub fn exchange_info(&self, symbol: String) -> Result<ExchangeInformation> {
         let req = ExchangeInfo::request(symbol);
         self.client
             .get::<ExchangeInformation>(API::Spot(Spot::ExchangeInfo), Some(req))
-            .await
     }
 
     /// Place a trade
-    pub async fn trade<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
+    pub fn trade<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
         let req = trade.request();
         self.client
             .post_signed::<T>(API::Spot(Spot::Order), req)
-            .await
     }
 
     /// Get account info which includes token balances
-    pub async fn account_info(&self) -> Result<AccountInfoResponse> {
+    pub fn account_info(&self) -> Result<AccountInfoResponse> {
         let req = AccountInfo::request(Some(5000));
         let pre = SystemTime::now();
         let res = self
             .client
-            .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req))
-            .await;
+            .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req));
         let dur = SystemTime::now().duration_since(pre).unwrap().as_millis();
         info!("Request time: {:?}ms", dur);
         if let Err(e) = &res {
@@ -140,31 +137,27 @@ impl Account {
 
     /// Get all assets
     /// Not available on testnet
-    pub async fn all_assets(&self) -> Result<Vec<CoinInfo>> {
+    pub fn all_assets(&self) -> Result<Vec<CoinInfo>> {
         let req = AllAssets::request(Some(5000));
         self.client
             .get_signed::<Vec<CoinInfo>>(API::Savings(Sapi::AllCoins), Some(req))
-            .await
     }
 
     /// Get price of a single symbol
-    pub async fn get_price(&self, symbol: String) -> Result<f64> {
+    pub fn get_price(&self, symbol: String) -> Result<f64> {
         let req = Price::request(symbol, Some(5000));
         let res = self
             .client
-            .get::<PriceResponse>(API::Spot(Spot::Price), Some(req))
-            .await?;
-        let price = res.price.parse::<f64>().expect("failed to parse price");
-        Ok(price)
+            .get::<PriceResponse>(API::Spot(Spot::Price), Some(req))?;
+        res.price.parse::<f64>().map_err(|e| BinanceError::Custom(e.to_string()))
     }
 
     /// Get historical orders for a single symbol
-    pub async fn all_orders(&self, symbol: String) -> Result<Vec<HistoricalOrder>> {
+    pub fn all_orders(&self, symbol: String) -> Result<Vec<HistoricalOrder>> {
         let req = AllOrders::request(symbol, Some(5000));
         let mut orders = self
             .client
-            .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))
-            .await?;
+            .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))?;
         // order by time
         orders.sort_by(|a, b| a.update_time.partial_cmp(&b.update_time).unwrap());
         Ok(orders)
@@ -172,12 +165,11 @@ impl Account {
 
     /// Get last open trade for a single symbol
     /// Returns Some if there is an open trade, None otherwise
-    pub async fn open_orders(&self, symbol: String) -> Result<Vec<HistoricalOrder>> {
+    pub fn open_orders(&self, symbol: String) -> Result<Vec<HistoricalOrder>> {
         let req = AllOrders::request(symbol, Some(5000));
         let orders = self
             .client
-            .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))
-            .await?;
+            .get_signed::<Vec<HistoricalOrder>>(API::Spot(Spot::AllOrders), Some(req))?;
         // filter out orders that are not filled or canceled
         let open_orders = orders
             .into_iter()
@@ -187,12 +179,11 @@ impl Account {
     }
 
     /// Cancel all open orders for a single symbol
-    pub async fn cancel_all_active_orders(&self) -> Result<Vec<OrderCanceled>> {
+    pub fn cancel_all_active_orders(&self) -> Result<Vec<OrderCanceled>> {
         let req = CancelOrders::request(self.ticker.clone(), Some(5000));
         let res = self
             .client
-            .delete_signed::<Vec<OrderCanceled>>(API::Spot(Spot::OpenOrders), Some(req))
-            .await;
+            .delete_signed::<Vec<OrderCanceled>>(API::Spot(Spot::OpenOrders), Some(req));
         if let Err(e) = &res {
             if let BinanceError::Binance(err) = &e {
                 if err.code != 2011 {
@@ -211,7 +202,7 @@ impl Account {
     /// If no active order exists, initialize with either entry, take profit, or stop loss, depending on event order type.
     ///
     /// If active order exists, update either entry, take profit, or stop loss, depending on event order type.
-    pub async fn stream_update_active_order(
+    pub fn stream_update_active_order(
         &mut self,
         event: OrderTradeEvent,
     ) -> Result<Option<OrderBundle>> {
@@ -319,7 +310,7 @@ impl Account {
                         OrderStatus::Filled | OrderStatus::PartiallyFilled,
                         OrderStatus::Filled | OrderStatus::PartiallyFilled,
                     ) => {
-                        self.cancel_all_active_orders().await?;
+                        self.cancel_all_active_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                         error!(
                             "Order bundle {} orders all filled. Should never happen.",
@@ -339,7 +330,7 @@ impl Account {
                         OrderStatus::New,
                         OrderStatus::Filled | OrderStatus::PartiallyFilled,
                     ) => {
-                        self.cancel_all_active_orders().await?;
+                        self.cancel_all_active_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                         info!("Order bundle {} exited with stop loss", id);
                         updated_order = None;
@@ -351,7 +342,7 @@ impl Account {
                         OrderStatus::Filled | OrderStatus::PartiallyFilled,
                         OrderStatus::New,
                     ) => {
-                        self.cancel_all_active_orders().await?;
+                        self.cancel_all_active_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                         info!("Order bundle {} exited with trailing take profit", id);
                         updated_order = None;
@@ -368,7 +359,7 @@ impl Account {
                     }
                     _ => {
                         error!("Invalid OrderBundle order status combination. Cancelling all orders to start from scratch.");
-                        self.cancel_all_active_orders().await?;
+                        self.cancel_all_active_orders()?;
                         updated_order = None;
                     }
                 }
@@ -382,8 +373,8 @@ impl Account {
     }
 
     /// Update active order via API query of all orders as vector of [`HistoricalOrder`]
-    pub async fn update_active_order(&mut self) -> Result<Option<OrderBundle>> {
-        let orders = self.all_orders(self.ticker.clone()).await?;
+    pub fn update_active_order(&mut self) -> Result<Option<OrderBundle>> {
+        let orders = self.all_orders(self.ticker.clone())?;
         // all 3 orders in OrderBundle have the same client_order_id prefix
         // filter all orders and insert to a Vec<HistoricalOrder> by the client_order_id prefix
         // e.g. 123456789-TAKE_PROFIT_LIMIT -> prefix = 1234566789, suffix = TAKE_PROFIT_LIMIT
@@ -436,7 +427,7 @@ impl Account {
         match order_bundles.last() {
             // no complete bundle found, cancel all orders to start from scratch
             None => {
-                self.cancel_all_active_orders().await?;
+                self.cancel_all_active_orders()?;
                 Ok(None)
             }
             Some(latest_bundle) => {
@@ -451,7 +442,7 @@ impl Account {
                         // If enter is FILLED && take profit is FILLED && stop loss is FILLED
                         //      -> cancel open orders, log error, return None
                         (OrderStatus::Filled, OrderStatus::Filled, OrderStatus::Filled) => {
-                            self.cancel_all_active_orders().await?;
+                            self.cancel_all_active_orders()?;
                             let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                             error!(
                                 "Order bundle {} orders all filled. Should never happen.",
@@ -468,14 +459,14 @@ impl Account {
                         // If entry is FILLED && take profit is NEW && stop loss is FILLED
                         //      -> trade closed, cancel remaining exit order, return None
                         (OrderStatus::Filled, OrderStatus::New, OrderStatus::Filled) => {
-                            self.cancel_all_active_orders().await?;
+                            self.cancel_all_active_orders()?;
                             let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                             info!("Order bundle {} exited with stop loss", id);
                         }
                         // If entry is FILLED && take profit is FILLED && stop loss is NEW
                         //      -> trade closed, cancel remaining exit order, return None
                         (OrderStatus::Filled, OrderStatus::Filled, OrderStatus::New) => {
-                            self.cancel_all_active_orders().await?;
+                            self.cancel_all_active_orders()?;
                             let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                             info!("Order bundle {} exited with trailing take profit", id);
                         }
@@ -488,7 +479,7 @@ impl Account {
                         }
                         _ => {
                             error!("Invalid OrderBundle order status combination. Cancelling all orders to start from scratch.");
-                            self.cancel_all_active_orders().await?;
+                            self.cancel_all_active_orders()?;
                             return Ok(None);
                         }
                     }
@@ -496,7 +487,7 @@ impl Account {
                     self.active_order = active_order.clone();
                     Ok(active_order)
                 } else {
-                    self.cancel_all_active_orders().await?;
+                    self.cancel_all_active_orders()?;
                     Ok(None)
                 }
             }

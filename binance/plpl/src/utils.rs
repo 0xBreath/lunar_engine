@@ -1,4 +1,3 @@
-use crossbeam::channel::Sender;
 use library::*;
 use log::*;
 use simplelog::{
@@ -7,7 +6,6 @@ use simplelog::{
 };
 use std::fs::File;
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
 use time_series::{Candle, Time};
 
 pub fn init_logger(log_file: &PathBuf) {
@@ -238,96 +236,4 @@ pub fn plpl_short(
         Some(5000),
     );
     vec![entry, profit, loss]
-}
-
-/// Kline stream and User Stream of account and order updates
-pub async fn handle_streams(
-    user_stream: &UserStream,
-    kline_sub: String,
-    keep_running: AtomicBool,
-    queue_tx: Sender<WebSocketEvent>,
-    testnet: bool,
-) -> Result<()> {
-    match user_stream.start().await {
-        Ok(answer) => {
-            let listen_key = answer.listen_key;
-            let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
-                match &event {
-                    WebSocketEvent::Kline(_) => {
-                        let res = queue_tx.send(event);
-                        if let Err(e) = res {
-                            error!("Failed to send Kline event to queue: {:?}", e);
-                        }
-                    }
-                    WebSocketEvent::AccountUpdate(account_update) => {
-                        for balance in &account_update.data.balances {
-                            info!(
-                                "Asset: {}, wallet_balance: {}, cross_wallet_balance: {}, balance: {}",
-                                balance.asset,
-                                balance.wallet_balance,
-                                balance.cross_wallet_balance,
-                                balance.balance_change
-                            );
-                        }
-                    }
-                    WebSocketEvent::OrderTrade(trade) => {
-                        info!(
-                            "Ticker: {}, ID: {}, Side: {}, Price: {}, Status: {}, Type: {}",
-                            trade.symbol,
-                            trade.new_client_order_id,
-                            trade.side,
-                            trade.price,
-                            trade.order_status,
-                            trade.order_type
-                        );
-                        let res = queue_tx.send(event);
-                        if let Err(e) = res {
-                            error!("Failed to send OrderTrade event to queue: {:?}", e);
-                        }
-                    }
-                    _ => (),
-                };
-                Ok(())
-            });
-
-            let subs = vec![kline_sub, listen_key.clone()];
-            match ws.connect_multiple_streams(&subs, testnet) {
-                Err(e) => {
-                    error!("Failed to connect to Binance websocket: {}", e);
-                    return Err(e);
-                }
-                Ok(_) => info!("Binance websocket connected"),
-            }
-
-            if let Err(e) = ws.event_loop(&keep_running) {
-                error!("Binance websocket error: {}", e);
-            }
-
-            user_stream.close(&listen_key).await?;
-
-            return match ws.disconnect() {
-                Err(e) => {
-                    error!("Failed to disconnect from Binance websocket: {}", e);
-                    match ws.connect_multiple_streams(&subs, testnet) {
-                        Err(e) => {
-                            error!("Failed to connect to Binance websocket: {}", e);
-                            Err(e)
-                        }
-                        Ok(_) => {
-                            info!("Binance websocket connected");
-                            Ok(())
-                        }
-                    }
-                }
-                Ok(_) => {
-                    info!("Binance websocket disconnected");
-                    Ok(())
-                }
-            };
-        }
-        Err(e) => {
-            error!("Error starting websocket {:?}", e);
-            Err(e)
-        }
-    }
 }

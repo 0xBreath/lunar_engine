@@ -12,17 +12,17 @@ pub struct UserStream {
 
 impl UserStream {
     // User Stream
-    pub async fn start(&self) -> Result<UserDataStream> {
-        self.client.post(API::Spot(Spot::UserDataStream)).await
+    pub fn start(&self) -> Result<UserDataStream> {
+        self.client.post(API::Spot(Spot::UserDataStream))
     }
 
     // Current open orders on a symbol
-    pub async fn keep_alive(&self, listen_key: &str) -> Result<Success> {
-        self.client.put(API::Spot(Spot::UserDataStream), listen_key).await
+    pub fn keep_alive(&self, listen_key: &str) -> Result<Success> {
+        self.client.put(API::Spot(Spot::UserDataStream), listen_key)
     }
 
-    pub async fn close(&self, listen_key: &str) -> Result<Success> {
+    pub fn close(&self, listen_key: &str) -> Result<Success> {
         self.client
-            .delete(API::Spot(Spot::UserDataStream), listen_key).await
+            .delete(API::Spot(Spot::UserDataStream), listen_key)
     }
 }
