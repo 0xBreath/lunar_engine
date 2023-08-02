@@ -116,8 +116,7 @@ impl Account {
     /// Place a trade
     pub fn trade<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
         let req = trade.request();
-        self.client
-            .post_signed::<T>(API::Spot(Spot::Order), req)
+        self.client.post_signed::<T>(API::Spot(Spot::Order), req)
     }
 
     /// Get account info which includes token balances
@@ -149,7 +148,9 @@ impl Account {
         let res = self
             .client
             .get::<PriceResponse>(API::Spot(Spot::Price), Some(req))?;
-        res.price.parse::<f64>().map_err(|e| BinanceError::Custom(e.to_string()))
+        res.price
+            .parse::<f64>()
+            .map_err(|e| BinanceError::Custom(e.to_string()))
     }
 
     /// Get historical orders for a single symbol
@@ -186,7 +187,7 @@ impl Account {
             .delete_signed::<Vec<OrderCanceled>>(API::Spot(Spot::OpenOrders), Some(req));
         if let Err(e) = &res {
             if let BinanceError::Binance(err) = &e {
-                if err.code != 2011 {
+                if err.code != -2011 {
                     error!("Failed to cancel all active orders: {:?}", e);
                     return Err(BinanceError::Binance(err.clone()));
                 } else {

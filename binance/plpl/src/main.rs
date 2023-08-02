@@ -76,7 +76,7 @@ lazy_static! {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    init_logger(&PathBuf::from("plpl_binance.log".to_string()));
+    init_logger(&PathBuf::from("plpl.log".to_string()))?;
 
     info!("Starting Binance PLPL!");
     let keep_running = AtomicBool::new(true);
@@ -144,312 +144,148 @@ async fn main() -> Result<()> {
                     (Some(prev_candle), None) => {
                         *curr = Some(candle.clone());
                         if plpl_system.long_signal(prev_candle, &candle, plpl) {
-                            // if position is Long, ignore
-                            // if position is Short, close short and open Long
                             // if position is None, enter Long
-                            match active_order {
-                                None => {
-                                    info!(
-                                        "No active order, enter Long @ {} | {}",
-                                        candle.close,
-                                        date.to_string()
-                                    );
-                                    let account_info = account.account_info()?;
-                                    let trades = plpl_long(
-                                        &account_info,
-                                        &client_order_id,
-                                        &candle,
-                                        trailing_stop,
-                                        stop_loss_pct,
-                                        TICKER,
-                                        QUOTE_ASSET,
-                                        BASE_ASSET,
-                                    );
-                                    for trade in trades {
-                                        let side = trade.side.clone();
-                                        let order_type = trade.order_type.clone();
-                                        if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                                            error!(
-                                                "Error entering {} for {}: {:?}",
-                                                side.fmt_binance(),
-                                                order_type.fmt_binance(),
-                                                e
-                                            );
-                                        }
+                            // else ignore signal and let active trade play out
+                            if active_order.is_none() {
+                                info!(
+                                    "No active order, enter Long @ {} | {}",
+                                    candle.close,
+                                    date.to_string()
+                                );
+                                let account_info = account.account_info()?;
+                                let trades = plpl_long(
+                                    &account_info,
+                                    &client_order_id,
+                                    &candle,
+                                    trailing_stop,
+                                    stop_loss_pct,
+                                    TICKER,
+                                    QUOTE_ASSET,
+                                    BASE_ASSET,
+                                )?;
+                                for trade in trades {
+                                    let side = trade.side.clone();
+                                    let order_type = trade.order_type.clone();
+                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                                        error!(
+                                            "Error entering {} for {}: {:?}",
+                                            side.fmt_binance(),
+                                            order_type.fmt_binance(),
+                                            e
+                                        );
                                     }
-                                    trade_placed = true;
                                 }
-                                Some(active_order) => match active_order.side {
-                                    Side::Long => {
-                                        debug!("Already Long, ignoring");
-                                    }
-                                    Side::Short => {
-                                        info!(
-                                            "Close Short, enter Long @ {} | {}",
-                                            candle.close,
-                                            date.to_string()
-                                        );
-                                        let account_info = account.account_info()?;
-                                        let trades = plpl_long(
-                                            &account_info,
-                                            &client_order_id,
-                                            &candle,
-                                            trailing_stop,
-                                            stop_loss_pct,
-                                            TICKER,
-                                            QUOTE_ASSET,
-                                            BASE_ASSET,
-                                        );
-                                        for trade in trades {
-                                            let side = trade.side.clone();
-                                            let order_type = trade.order_type.clone();
-                                            if let Err(e) =
-                                                account.trade::<LimitOrderResponse>(trade)
-                                            {
-                                                error!(
-                                                    "Error entering {} for {}: {:?}",
-                                                    side.fmt_binance(),
-                                                    order_type.fmt_binance(),
-                                                    e
-                                                );
-                                            }
-                                        }
-                                        trade_placed = true;
-                                    }
-                                },
+                                trade_placed = true;
                             }
                         } else if plpl_system.short_signal(prev_candle, &candle, plpl) {
-                            // if position is Short, ignore
-                            // if position is Long, close long and open Short
                             // if position is None, enter Short
-                            match active_order {
-                                None => {
-                                    info!(
-                                        "No active order, enter Short @ {} | {}",
-                                        candle.close,
-                                        date.to_string()
-                                    );
-                                    let account_info = account.account_info()?;
-                                    let trades = plpl_short(
-                                        &account_info,
-                                        &client_order_id,
-                                        &candle,
-                                        trailing_stop,
-                                        stop_loss_pct,
-                                        TICKER,
-                                        QUOTE_ASSET,
-                                        BASE_ASSET,
-                                    );
-                                    for trade in trades {
-                                        let side = trade.side.clone();
-                                        let order_type = trade.order_type.clone();
-                                        if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                                            error!(
-                                                "Error entering {} for {}: {:?}",
-                                                side.fmt_binance(),
-                                                order_type.fmt_binance(),
-                                                e
-                                            );
-                                        }
+                            // else ignore signal and let active trade play out
+                            if active_order.is_none() {
+                                info!(
+                                    "No active order, enter Short @ {} | {}",
+                                    candle.close,
+                                    date.to_string()
+                                );
+                                let account_info = account.account_info()?;
+                                let trades = plpl_short(
+                                    &account_info,
+                                    &client_order_id,
+                                    &candle,
+                                    trailing_stop,
+                                    stop_loss_pct,
+                                    TICKER,
+                                    QUOTE_ASSET,
+                                    BASE_ASSET,
+                                )?;
+                                for trade in trades {
+                                    let side = trade.side.clone();
+                                    let order_type = trade.order_type.clone();
+                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                                        error!(
+                                            "Error entering {} for {}: {:?}",
+                                            side.fmt_binance(),
+                                            order_type.fmt_binance(),
+                                            e
+                                        );
                                     }
-                                    trade_placed = true;
                                 }
-                                Some(active_order) => match active_order.side {
-                                    Side::Long => {
-                                        info!(
-                                            "Close Long, enter Short @ {} | {}",
-                                            candle.close,
-                                            date.to_string()
-                                        );
-                                        let account_info = account.account_info()?;
-                                        let trades = plpl_short(
-                                            &account_info,
-                                            &client_order_id,
-                                            &candle,
-                                            trailing_stop,
-                                            stop_loss_pct,
-                                            TICKER,
-                                            QUOTE_ASSET,
-                                            BASE_ASSET,
-                                        );
-                                        for trade in trades {
-                                            let side = trade.side.clone();
-                                            let order_type = trade.order_type.clone();
-                                            if let Err(e) =
-                                                account.trade::<LimitOrderResponse>(trade)
-                                            {
-                                                error!(
-                                                    "Error entering {} for {}: {:?}",
-                                                    side.fmt_binance(),
-                                                    order_type.fmt_binance(),
-                                                    e
-                                                );
-                                            }
-                                        }
-                                        trade_placed = true;
-                                    }
-                                    Side::Short => {
-                                        debug!("Already Short, ignoring");
-                                    }
-                                },
+                                trade_placed = true;
                             }
                         }
                     }
                     (None, Some(_)) => {
                         error!(
-                                "Previous candle is None and current candle is Some. Should never occur!"
-                            );
+                            "Previous candle is None and current candle is Some. Should never occur!"
+                        );
                     }
                     (Some(_prev_candle), Some(curr_candle)) => {
                         if plpl_system.long_signal(curr_candle, &candle, plpl) {
-                            // if position is Long, ignore
-                            // if position is Short, close short and enter Long
                             // if position is None, enter Long
-                            match active_order {
-                                None => {
-                                    info!(
-                                        "No active order, enter Long @ {} | {}",
-                                        candle.close,
-                                        date.to_string()
-                                    );
-                                    let account_info = account.account_info()?;
-                                    let trades = plpl_long(
-                                        &account_info,
-                                        &client_order_id,
-                                        &candle,
-                                        trailing_stop,
-                                        stop_loss_pct,
-                                        TICKER,
-                                        QUOTE_ASSET,
-                                        BASE_ASSET,
-                                    );
-                                    for trade in trades {
-                                        let side = trade.side.clone();
-                                        let order_type = trade.order_type.clone();
-                                        if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                                            error!(
-                                                "Error entering {} for {}: {:?}",
-                                                side.fmt_binance(),
-                                                order_type.fmt_binance(),
-                                                e
-                                            );
-                                        }
+                            // else ignore signal and let active trade play out
+                            if active_order.is_none() {
+                                info!(
+                                    "No active order, enter Long @ {} | {}",
+                                    candle.close,
+                                    date.to_string()
+                                );
+                                let account_info = account.account_info()?;
+                                let trades = plpl_long(
+                                    &account_info,
+                                    &client_order_id,
+                                    &candle,
+                                    trailing_stop,
+                                    stop_loss_pct,
+                                    TICKER,
+                                    QUOTE_ASSET,
+                                    BASE_ASSET,
+                                )?;
+                                for trade in trades {
+                                    let side = trade.side.clone();
+                                    let order_type = trade.order_type.clone();
+                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                                        error!(
+                                            "Error entering {} for {}: {:?}",
+                                            side.fmt_binance(),
+                                            order_type.fmt_binance(),
+                                            e
+                                        );
                                     }
-                                    trade_placed = true;
                                 }
-                                Some(active_order) => match active_order.side {
-                                    Side::Long => {
-                                        debug!("Already Long, ignoring");
-                                    }
-                                    Side::Short => {
-                                        info!(
-                                            "Close Short, enter Long @ {} | {}",
-                                            candle.close,
-                                            date.to_string()
-                                        );
-                                        let account_info = account.account_info()?;
-                                        let trades = plpl_long(
-                                            &account_info,
-                                            &client_order_id,
-                                            &candle,
-                                            trailing_stop,
-                                            stop_loss_pct,
-                                            TICKER,
-                                            QUOTE_ASSET,
-                                            BASE_ASSET,
-                                        );
-                                        for trade in trades {
-                                            let side = trade.side.clone();
-                                            let order_type = trade.order_type.clone();
-                                            if let Err(e) =
-                                                account.trade::<LimitOrderResponse>(trade)
-                                            {
-                                                error!(
-                                                    "Error entering {} for {}: {:?}",
-                                                    side.fmt_binance(),
-                                                    order_type.fmt_binance(),
-                                                    e
-                                                );
-                                            }
-                                        }
-                                        trade_placed = true;
-                                    }
-                                },
+                                trade_placed = true;
                             }
                         } else if plpl_system.short_signal(curr_candle, &candle, plpl) {
-                            // if position is Short, ignore
-                            // if position is Long, close long and enter Short
                             // if position is None, enter Short
-                            match active_order {
-                                None => {
-                                    info!(
-                                        "No active order, enter Short @ {} | {}",
-                                        candle.close,
-                                        date.to_string()
-                                    );
-                                    let account_info = account.account_info()?;
-                                    let trades = plpl_short(
-                                        &account_info,
-                                        &client_order_id,
-                                        &candle,
-                                        trailing_stop,
-                                        stop_loss_pct,
-                                        TICKER,
-                                        QUOTE_ASSET,
-                                        BASE_ASSET,
-                                    );
-                                    for trade in trades {
-                                        let side = trade.side.clone();
-                                        let order_type = trade.order_type.clone();
-                                        if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                                            error!(
-                                                "Error entering {} for {}: {:?}",
-                                                side.fmt_binance(),
-                                                order_type.fmt_binance(),
-                                                e
-                                            );
-                                        }
+                            // else ignore signal and let active trade play out
+                            if active_order.is_none() {
+                                info!(
+                                    "No active order, enter Short @ {} | {}",
+                                    candle.close,
+                                    date.to_string()
+                                );
+                                let account_info = account.account_info()?;
+                                let trades = plpl_short(
+                                    &account_info,
+                                    &client_order_id,
+                                    &candle,
+                                    trailing_stop,
+                                    stop_loss_pct,
+                                    TICKER,
+                                    QUOTE_ASSET,
+                                    BASE_ASSET,
+                                )?;
+                                for trade in trades {
+                                    let side = trade.side.clone();
+                                    let order_type = trade.order_type.clone();
+                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                                        error!(
+                                            "Error entering {} for {}: {:?}",
+                                            side.fmt_binance(),
+                                            order_type.fmt_binance(),
+                                            e
+                                        );
                                     }
-                                    trade_placed = true;
                                 }
-                                Some(active_order) => match active_order.side {
-                                    Side::Long => {
-                                        info!(
-                                            "Close Long, enter Short @ {} | {}",
-                                            candle.close,
-                                            date.to_string()
-                                        );
-                                        let account_info = account.account_info()?;
-                                        let trades = plpl_short(
-                                            &account_info,
-                                            &client_order_id,
-                                            &candle,
-                                            trailing_stop,
-                                            stop_loss_pct,
-                                            TICKER,
-                                            QUOTE_ASSET,
-                                            BASE_ASSET,
-                                        );
-                                        for trade in trades {
-                                            let side = trade.side.clone();
-                                            let order_type = trade.order_type.clone();
-                                            if let Err(e) =
-                                                account.trade::<LimitOrderResponse>(trade)
-                                            {
-                                                error!(
-                                                    "Error entering {} for {}: {:?}",
-                                                    side.fmt_binance(),
-                                                    order_type.fmt_binance(),
-                                                    e
-                                                );
-                                            }
-                                        }
-                                        trade_placed = true;
-                                    }
-                                    Side::Short => {
-                                        debug!("Already Short, ignoring");
-                                    }
-                                },
+                                trade_placed = true;
                             }
                         }
                         *prev = Some(curr_candle.clone());

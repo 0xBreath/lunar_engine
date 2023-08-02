@@ -8,13 +8,13 @@ use std::fs::File;
 use std::path::PathBuf;
 use time_series::{Candle, Time};
 
-pub fn init_logger(log_file: &PathBuf) {
+pub fn init_logger(log_file: &PathBuf) -> Result<()> {
     CombinedLogger::init(vec![
         TermLogger::new(
             LevelFilter::Info,
             SimpleLogConfig::default(),
             TerminalMode::Mixed,
-            ColorChoice::Auto,
+            ColorChoice::Always,
         ),
         WriteLogger::new(
             LevelFilter::Info,
@@ -23,10 +23,12 @@ pub fn init_logger(log_file: &PathBuf) {
                     "[hour]:[minute]:[second].[subsecond]"
                 ))
                 .build(),
-            File::create(log_file).expect("Failed to create PLPL Binance log file"),
+            File::create(log_file).map_err(|_| {
+                BinanceError::Custom("Failed to create PLPL Binance log file".to_string())
+            })?,
         ),
     ])
-    .expect("Failed to initialize logger");
+    .map_err(|_| BinanceError::Custom("Failed to initialize PLPL Binance logger".to_string()))
 }
 
 pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
@@ -57,26 +59,32 @@ pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
     })
 }
 
-pub fn free_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
-    account_info
-        .balances
-        .iter()
-        .find(|&x| x.asset == asset)
-        .expect(&format!("Failed to find asset {}", asset))
-        .free
-        .parse::<f64>()
-        .expect(&format!("Failed to parse free asset {}", asset))
+pub fn free_asset(account_info: &AccountInfoResponse, asset: &str) -> Result<f64> {
+    let balances = account_info.balances.iter().find(|&x| x.asset == asset);
+    match balances {
+        Some(balances) => balances
+            .free
+            .parse::<f64>()
+            .map_err(|e| BinanceError::Custom(format!("Failed to parse free asset {}", asset))),
+        None => Err(BinanceError::Custom(format!(
+            "Failed to find asset {}",
+            asset
+        ))),
+    }
 }
 
-pub fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
-    account_info
-        .balances
-        .iter()
-        .find(|&x| x.asset == asset)
-        .expect(&format!("Failed to find asset {}", asset))
-        .locked
-        .parse::<f64>()
-        .expect(&format!("Failed to parse locked asset {}", asset))
+pub fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> Result<f64> {
+    let balances = account_info.balances.iter().find(|&x| x.asset == asset);
+    match balances {
+        Some(balances) => balances
+            .locked
+            .parse::<f64>()
+            .map_err(|e| BinanceError::Custom(format!("Failed to parse locked asset {}", asset))),
+        None => Err(BinanceError::Custom(format!(
+            "Failed to find asset {}",
+            asset
+        ))),
+    }
 }
 
 pub struct Assets {
@@ -90,17 +98,17 @@ pub fn account_assets(
     account: &AccountInfoResponse,
     quote_asset: &str,
     base_asset: &str,
-) -> Assets {
-    let free_quote = free_asset(account, quote_asset);
-    let locked_quote = locked_asset(account, quote_asset);
-    let free_base = free_asset(account, base_asset);
-    let locked_base = locked_asset(account, base_asset);
-    Assets {
+) -> Result<Assets> {
+    let free_quote = free_asset(account, quote_asset)?;
+    let locked_quote = locked_asset(account, quote_asset)?;
+    let free_base = free_asset(account, base_asset)?;
+    let locked_base = locked_asset(account, base_asset)?;
+    Ok(Assets {
         free_quote,
         locked_quote,
         free_base,
         locked_base,
-    }
+    })
 }
 
 pub fn trade_qty(
@@ -109,8 +117,8 @@ pub fn trade_qty(
     base_asset: &str,
     side: Side,
     candle: &Candle,
-) -> f64 {
-    let assets = account_assets(account_info, quote_asset, base_asset);
+) -> Result<f64> {
+    let assets = account_assets(account_info, quote_asset, base_asset)?;
     info!(
         "{}, Free: {}, Locked: {}",
         quote_asset, assets.free_quote, assets.locked_quote,
@@ -119,7 +127,7 @@ pub fn trade_qty(
         "{}, Free: {}, Locked: {}",
         base_asset, assets.free_base, assets.locked_base,
     );
-    match side {
+    Ok(match side {
         Side::Long => {
             let qty = assets.free_quote / candle.close * 0.99 * 0.33;
             BinanceTrade::round_quantity(qty, 5)
@@ -128,7 +136,7 @@ pub fn trade_qty(
             let qty = assets.free_base * 0.99 * 0.33;
             BinanceTrade::round_quantity(qty, 5)
         }
-    }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -141,11 +149,11 @@ pub fn plpl_long(
     ticker: &str,
     quote_asset: &str,
     base_asset: &str,
-) -> Vec<BinanceTrade> {
+) -> Result<Vec<BinanceTrade>> {
     // each order gets 1/3 of 99% of account balance
     // 99% is to account for fees
     // 1/3 is to account for 3 orders
-    let long_qty = trade_qty(account_info, quote_asset, base_asset, Side::Long, candle);
+    let long_qty = trade_qty(account_info, quote_asset, base_asset, Side::Long, candle)?;
     let limit = BinanceTrade::round_price(candle.close);
     let entry = BinanceTrade::new(
         ticker.to_string(),
@@ -183,7 +191,7 @@ pub fn plpl_long(
         None,
         Some(5000),
     );
-    vec![entry, profit, loss]
+    Ok(vec![entry, profit, loss])
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -196,8 +204,8 @@ pub fn plpl_short(
     ticker: &str,
     quote_asset: &str,
     base_asset: &str,
-) -> Vec<BinanceTrade> {
-    let short_qty = trade_qty(account_info, quote_asset, base_asset, Side::Short, candle);
+) -> Result<Vec<BinanceTrade>> {
+    let short_qty = trade_qty(account_info, quote_asset, base_asset, Side::Short, candle)?;
     let limit = BinanceTrade::round_price(candle.close);
     let entry = BinanceTrade::new(
         ticker.to_string(),
@@ -235,5 +243,5 @@ pub fn plpl_short(
         None,
         Some(5000),
     );
-    vec![entry, profit, loss]
+    Ok(vec![entry, profit, loss])
 }
