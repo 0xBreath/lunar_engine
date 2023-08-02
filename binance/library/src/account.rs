@@ -128,8 +128,9 @@ impl Account {
             .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req));
         let dur = SystemTime::now().duration_since(pre).unwrap().as_millis();
         info!("Request time: {:?}ms", dur);
-        if let Err(e) = &res {
+        if let Err(e) = res {
             error!("Failed to get account info: {:?}", e);
+            return Err(e);
         }
         res
     }
