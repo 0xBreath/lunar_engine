@@ -29,32 +29,32 @@ pub fn init_logger(log_file: &PathBuf) {
     .expect("Failed to initialize logger");
 }
 
-pub fn kline_to_candle(kline_event: &KlineEvent) -> Candle {
+pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
     let date = Time::from_unix_msec(kline_event.event_time as i64);
-    Candle {
+    Ok(Candle {
         date,
         open: kline_event
             .kline
             .open
             .parse::<f64>()
-            .expect("Failed to parse Kline open to f64"),
+            .map_err(|_| BinanceError::Custom("Failed to parse Kline open to f64".to_string()))?,
         high: kline_event
             .kline
             .high
             .parse::<f64>()
-            .expect("Failed to parse Kline high to f64"),
+            .map_err(|_| BinanceError::Custom("Failed to parse Kline high to f64".to_string()))?,
         low: kline_event
             .kline
             .low
             .parse::<f64>()
-            .expect("Failed to parse Kline low to f64"),
+            .map_err(|_| BinanceError::Custom("Failed to parse Kline low to f64".to_string()))?,
         close: kline_event
             .kline
             .close
             .parse::<f64>()
-            .expect("Failed to parse Kline close to f64"),
+            .map_err(|_| BinanceError::Custom("Failed to parse Kline close to f64".to_string()))?,
         volume: None,
-    }
+    })
 }
 
 pub fn free_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
@@ -62,10 +62,10 @@ pub fn free_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
         .balances
         .iter()
         .find(|&x| x.asset == asset)
-        .unwrap()
+        .expect(&format!("Failed to find asset {}", asset))
         .free
         .parse::<f64>()
-        .unwrap()
+        .expect(&format!("Failed to parse free asset {}", asset))
 }
 
 pub fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
@@ -73,10 +73,10 @@ pub fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> f64 {
         .balances
         .iter()
         .find(|&x| x.asset == asset)
-        .unwrap()
+        .expect(&format!("Failed to find asset {}", asset))
         .locked
         .parse::<f64>()
-        .unwrap()
+        .expect(&format!("Failed to parse locked asset {}", asset))
 }
 
 pub struct Assets {

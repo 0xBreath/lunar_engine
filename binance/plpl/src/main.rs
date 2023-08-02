@@ -122,7 +122,7 @@ async fn main() -> Result<()> {
                 let kline_event_time = kline_event.event_time as i64;
                 let date = Time::from_unix_msec(kline_event_time);
                 let client_order_id = format!("{}", kline_event_time);
-                let candle = kline_to_candle(&kline_event);
+                let candle = kline_to_candle(&kline_event)?;
                 let mut prev = prev_candle.lock().map_err(|_| {
                     BinanceError::Custom("Failed to lock previous candle".to_string())
                 })?;
@@ -133,7 +133,7 @@ async fn main() -> Result<()> {
                 // compute closest PLPL to current Candle
                 let plpl = plpl_system
                     .closest_plpl(&candle)
-                    .expect("Closest PLPL not found");
+                    .map_err(|_| BinanceError::Custom("Closest PLPL not found".to_string()))?;
                 // active order bundle on Binance
                 let active_order = account.get_active_order();
                 let mut trade_placed = false;
