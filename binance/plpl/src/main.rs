@@ -173,6 +173,7 @@ async fn main() -> Result<()> {
                                             order_type.fmt_binance(),
                                             e
                                         );
+                                        return Err(e);
                                     }
                                 }
                                 trade_placed = true;
@@ -207,6 +208,7 @@ async fn main() -> Result<()> {
                                             order_type.fmt_binance(),
                                             e
                                         );
+                                        return Err(e);
                                     }
                                 }
                                 trade_placed = true;
@@ -249,6 +251,7 @@ async fn main() -> Result<()> {
                                             order_type.fmt_binance(),
                                             e
                                         );
+                                        return Err(e);
                                     }
                                 }
                                 trade_placed = true;
@@ -283,6 +286,7 @@ async fn main() -> Result<()> {
                                             order_type.fmt_binance(),
                                             e
                                         );
+                                        return Err(e);
                                     }
                                 }
                                 trade_placed = true;
