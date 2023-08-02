@@ -60,31 +60,31 @@ pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
 }
 
 pub fn free_asset(account_info: &AccountInfoResponse, asset: &str) -> Result<f64> {
-    let balances = account_info.balances.iter().find(|&x| x.asset == asset);
-    match balances {
-        Some(balances) => balances
-            .free
-            .parse::<f64>()
-            .map_err(|e| BinanceError::Custom(format!("Failed to parse free asset {}", asset))),
-        None => Err(BinanceError::Custom(format!(
+    account_info
+        .balances
+        .iter()
+        .find(|&x| x.asset == asset)
+        .ok_or(BinanceError::Custom(format!(
             "Failed to find asset {}",
             asset
-        ))),
-    }
+        )))?
+        .free
+        .parse::<f64>()
+        .map_err(|_| BinanceError::Custom(format!("Failed to parse free asset {}", asset)))
 }
 
 pub fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> Result<f64> {
-    let balances = account_info.balances.iter().find(|&x| x.asset == asset);
-    match balances {
-        Some(balances) => balances
-            .locked
-            .parse::<f64>()
-            .map_err(|e| BinanceError::Custom(format!("Failed to parse locked asset {}", asset))),
-        None => Err(BinanceError::Custom(format!(
+    account_info
+        .balances
+        .iter()
+        .find(|&x| x.asset == asset)
+        .ok_or(BinanceError::Custom(format!(
             "Failed to find asset {}",
             asset
-        ))),
-    }
+        )))?
+        .locked
+        .parse::<f64>()
+        .map_err(|_| BinanceError::Custom(format!("Failed to parse locked asset {}", asset)))
 }
 
 pub struct Assets {
