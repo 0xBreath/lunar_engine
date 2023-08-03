@@ -220,6 +220,8 @@ async fn main() -> Result<()> {
                                             order_type.fmt_binance(),
                                             e
                                         );
+                                        account.cancel_all_active_orders()?;
+                                        account.active_order = None;
                                         return Err(e);
                                     }
                                 }
@@ -255,6 +257,8 @@ async fn main() -> Result<()> {
                                             order_type.fmt_binance(),
                                             e
                                         );
+                                        account.cancel_all_active_orders()?;
+                                        account.active_order = None;
                                         return Err(e);
                                     }
                                 }
@@ -298,6 +302,8 @@ async fn main() -> Result<()> {
                                             order_type.fmt_binance(),
                                             e
                                         );
+                                        account.cancel_all_active_orders()?;
+                                        account.active_order = None;
                                         return Err(e);
                                     }
                                 }
@@ -333,6 +339,8 @@ async fn main() -> Result<()> {
                                             order_type.fmt_binance(),
                                             e
                                         );
+                                        account.cancel_all_active_orders()?;
+                                        account.active_order = None;
                                         return Err(e);
                                     }
                                 }
