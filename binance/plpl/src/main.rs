@@ -115,6 +115,9 @@ async fn main() -> Result<()> {
     let answer = user_stream.start()?;
     let listen_key = answer.listen_key;
 
+    // cancel all open orders to start with a clean slate
+    account.cancel_all_active_orders()?;
+
     let mut ws = WebSockets::new(IS_TESTNET, |event: WebSocketEvent| {
         let start = SystemTime::now();
         match event {
