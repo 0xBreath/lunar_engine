@@ -124,7 +124,7 @@ fn main() {
     let return_per_trade = 0.02; // % return per trade
     let num_trades = 42_852; // number of trades per year
     let initial_capital = 10_000.0; // $ initial capital
-    let risk_pct = 10.0; // % risk of capital per trade
+    let risk_pct = 50.0; // % risk of capital per trade
 
     compounded_returns(return_per_trade, num_trades, initial_capital, risk_pct);
     info!("========================================================");
