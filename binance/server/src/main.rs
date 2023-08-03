@@ -30,18 +30,42 @@ const QUOTE_ASSET: &str = "USDT";
 const TICKER: &str = "BTCUSDT";
 
 lazy_static! {
-    static ref ACCOUNT: Mutex<Account> = Mutex::new(Account {
-        client: Client::new(
-            Some(BINANCE_TEST_API_KEY.to_string()),
-            Some(BINANCE_TEST_API_SECRET.to_string()),
-            BINANCE_TEST_API.to_string()
-        ),
-        recv_window: 5000,
-        base_asset: BASE_ASSET.to_string(),
-        quote_asset: QUOTE_ASSET.to_string(),
-        ticker: TICKER.to_string(),
-        active_order: None,
-    });
+    static ref ACCOUNT: Mutex<Account> = match std::env::var("TESTNET")
+        .expect(
+            "ACCOUNT init failed. TESTNET environment variable must be set to either true or false"
+        )
+        .parse::<bool>()
+        .expect("Failed to parse env TESTNET to boolean")
+    {
+        true => {
+            Mutex::new(Account {
+                client: Client::new(
+                    Some(BINANCE_TEST_API_KEY.to_string()),
+                    Some(BINANCE_TEST_API_SECRET.to_string()),
+                    BINANCE_TEST_API.to_string(),
+                ),
+                recv_window: 5000,
+                base_asset: BASE_ASSET.to_string(),
+                quote_asset: QUOTE_ASSET.to_string(),
+                ticker: TICKER.to_string(),
+                active_order: None,
+            })
+        }
+        false => {
+            Mutex::new(Account {
+                client: Client::new(
+                    Some(BINANCE_LIVE_API_KEY.to_string()),
+                    Some(BINANCE_LIVE_API_SECRET.to_string()),
+                    BINANCE_LIVE_API.to_string(),
+                ),
+                recv_window: 5000,
+                base_asset: BASE_ASSET.to_string(),
+                quote_asset: QUOTE_ASSET.to_string(),
+                ticker: TICKER.to_string(),
+                active_order: None,
+            })
+        }
+    };
 }
 
 #[actix_web::main]
