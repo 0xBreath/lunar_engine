@@ -362,11 +362,12 @@ async fn main() -> Result<()> {
             }
             WebSocketEvent::OrderTrade(event) => {
                 info!(
-                    "Ticker: {}, ID: {}, Side: {}, Price: {}, Status: {}, Type: {}",
+                    "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",
                     event.symbol,
                     event.new_client_order_id,
                     event.side,
                     event.price,
+                    event.execution_type,
                     event.order_status,
                     event.order_type
                 );
