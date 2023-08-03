@@ -122,7 +122,7 @@ fn main() {
     init_logger();
 
     let return_per_trade = 0.02; // % return per trade
-    let num_trades = 42_852; // number of trades per year
+    let num_trades = 45_985; // number of trades per year
     let initial_capital = 10_000.0; // $ initial capital
     let risk_pct = 50.0; // % risk of capital per trade
 

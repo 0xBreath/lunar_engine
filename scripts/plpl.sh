@@ -1,1 +1,1 @@
-cargo build -r && cargo run -r -p plpl_binance
+cargo run -r -p plpl TESTNET=false

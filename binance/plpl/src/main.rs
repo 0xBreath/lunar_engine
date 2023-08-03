@@ -35,39 +35,68 @@ const KLINE_STREAM: &str = "btcusdt@kline_5m";
 const BASE_ASSET: &str = "BTC";
 const QUOTE_ASSET: &str = "USDT";
 const TICKER: &str = "BTCUSDT";
-const IS_TESTNET: bool = true;
 
 lazy_static! {
-    static ref ACCOUNT: Mutex<Account> = Mutex::new(Account {
-        // client: Client::new(
-        //     Some(BINANCE_LIVE_API_KEY.to_string()),
-        //     Some(BINANCE_LIVE_API_SECRET.to_string()),
-        //     BINANCE_LIVE_API.to_string()
-        // ),
-        client: Client::new(
-            Some(BINANCE_TEST_API_KEY.to_string()),
-            Some(BINANCE_TEST_API_SECRET.to_string()),
-            BINANCE_TEST_API.to_string()
-        ),
-        recv_window: 5000,
-        base_asset: BASE_ASSET.to_string(),
-        quote_asset: QUOTE_ASSET.to_string(),
-        ticker: TICKER.to_string(),
-        active_order: None,
-    });
-    static ref USER_STREAM: Mutex<UserStream> = Mutex::new(UserStream {
-        // client: Client::new(
-        //     Some(BINANCE_LIVE_API_KEY.to_string()),
-        //     Some(BINANCE_LIVE_API_SECRET.to_string()),
-        //     BINANCE_LIVE_API.to_string()
-        // ),
-        client: Client::new(
-            Some(BINANCE_TEST_API_KEY.to_string()),
-            Some(BINANCE_TEST_API_SECRET.to_string()),
-            BINANCE_TEST_API.to_string()
-        ),
-        recv_window: 10000,
-    });
+    static ref ACCOUNT: Mutex<Account> = match std::env::var("TESTNET")
+      .expect("ACCOUNT init failed. TESTNET environment variable must be set to either true or false")
+      .parse::<bool>()
+      .expect("Failed to parse env TESTNET to boolean")
+    {
+        true => {
+            Mutex::new(Account {
+                client: Client::new(
+                    Some(BINANCE_TEST_API_KEY.to_string()),
+                    Some(BINANCE_TEST_API_SECRET.to_string()),
+                    BINANCE_TEST_API.to_string()
+                ),
+                recv_window: 5000,
+                base_asset: BASE_ASSET.to_string(),
+                quote_asset: QUOTE_ASSET.to_string(),
+                ticker: TICKER.to_string(),
+                active_order: None,
+            })
+        },
+        false => {
+            Mutex::new(Account {
+                client: Client::new(
+                    Some(BINANCE_LIVE_API_KEY.to_string()),
+                    Some(BINANCE_LIVE_API_SECRET.to_string()),
+                    BINANCE_LIVE_API.to_string()
+                ),
+                recv_window: 5000,
+                base_asset: BASE_ASSET.to_string(),
+                quote_asset: QUOTE_ASSET.to_string(),
+                ticker: TICKER.to_string(),
+                active_order: None,
+            })
+        }
+    };
+    static ref USER_STREAM: Mutex<UserStream> = match std::env::var("TESTNET")
+        .expect("USER_STREAM init failed. TESTNET environment variable must be set to either true or false")
+        .parse::<bool>()
+        .expect("Failed to parse env TESTNET to boolean")
+    {
+        true => {
+            Mutex::new(UserStream {
+                client: Client::new(
+                    Some(BINANCE_TEST_API_KEY.to_string()),
+                    Some(BINANCE_TEST_API_SECRET.to_string()),
+                    BINANCE_TEST_API.to_string()
+                ),
+                recv_window: 10000,
+            })
+        },
+        false => {
+            Mutex::new(UserStream {
+                client: Client::new(
+                    Some(BINANCE_LIVE_API_KEY.to_string()),
+                    Some(BINANCE_LIVE_API_SECRET.to_string()),
+                    BINANCE_LIVE_API.to_string()
+                ),
+                recv_window: 10000,
+            })
+        }
+    };
     // cache previous and current Kline/Candle to assess PLPL trade signal
     static ref PREV_CANDLE: Mutex<Option<Candle>> = Mutex::new(None);
     static ref CURR_CANDLE: Mutex<Option<Candle>> = Mutex::new(None);
@@ -103,6 +132,14 @@ async fn main() -> Result<()> {
     })
     .map_err(|e| BinanceError::Custom(e.to_string()))?;
 
+    let testnet = std::env::var("TESTNET")
+        .map_err(|_| {
+            BinanceError::Custom(
+                "Failed to read TESTNET env. Must be set to either true or false".to_string(),
+            )
+        })?
+        .parse::<bool>()
+        .map_err(|_| BinanceError::Custom("Failed to parse env TESTNET to boolean".to_string()))?;
     let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
     let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
     let mut account = ACCOUNT
@@ -116,9 +153,16 @@ async fn main() -> Result<()> {
     let listen_key = answer.listen_key;
 
     // cancel all open orders to start with a clean slate
-    account.cancel_all_active_orders()?;
+    let reset_orders = account.cancel_all_active_orders();
+    if let Err(e) = reset_orders {
+        if let BinanceError::Binance(err) = &e {
+            if err.code != -2011 {
+                return Err(e);
+            }
+        }
+    }
 
-    let mut ws = WebSockets::new(IS_TESTNET, |event: WebSocketEvent| {
+    let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
         let start = SystemTime::now();
         match event {
             WebSocketEvent::Kline(kline_event) => {
@@ -343,7 +387,7 @@ async fn main() -> Result<()> {
     });
 
     let subs = vec![KLINE_STREAM.to_string(), listen_key.clone()];
-    match ws.connect_multiple_streams(&subs, IS_TESTNET) {
+    match ws.connect_multiple_streams(&subs, testnet) {
         Err(e) => {
             error!("Failed to connect to Binance websocket: {}", e);
             return Err(e);
@@ -360,7 +404,7 @@ async fn main() -> Result<()> {
     match ws.disconnect() {
         Err(e) => {
             error!("Failed to disconnect from Binance websocket: {}", e);
-            match ws.connect_multiple_streams(&subs, IS_TESTNET) {
+            match ws.connect_multiple_streams(&subs, testnet) {
                 Err(e) => {
                     error!("Failed to connect to Binance websocket: {}", e);
                     Err(e)
