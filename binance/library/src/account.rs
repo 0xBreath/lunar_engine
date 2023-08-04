@@ -208,6 +208,13 @@ impl Account {
         &mut self,
         event: OrderTradeEvent,
     ) -> Result<Option<OrderBundle>> {
+        let order_type = OrderType::from_str(&event.order_type)?;
+        let order_status = OrderStatus::from_str(&event.order_status)?;
+        if order_type == OrderType::Limit && order_status == OrderStatus::Canceled {
+            self.cancel_all_active_orders()?;
+            self.active_order = None;
+            return Ok(None);
+        }
         // update active order with new OrderTradeEvent
         match &self.active_order {
             // existing active order
