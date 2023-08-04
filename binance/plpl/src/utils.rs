@@ -129,11 +129,11 @@ pub fn trade_qty(
     );
     Ok(match side {
         Side::Long => {
-            let qty = assets.free_quote / candle.close * 0.99 * 0.33;
+            let qty = assets.free_quote / candle.close * 0.97 * 0.33;
             BinanceTrade::round_quantity(qty, 5)
         }
         Side::Short => {
-            let qty = assets.free_base * 0.99 * 0.33;
+            let qty = assets.free_base * 0.97 * 0.33;
             BinanceTrade::round_quantity(qty, 5)
         }
     })
