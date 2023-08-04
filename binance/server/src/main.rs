@@ -84,7 +84,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_price)
             .service(exchange_info)
             .service(all_orders)
-            .service(open_order)
+            .service(open_orders)
             .route("/", web::get().to(test))
     })
     .bind(bind_address)?
@@ -161,8 +161,8 @@ async fn all_orders() -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().json(res))
 }
 
-#[get("/openOrder")]
-async fn open_order() -> Result<HttpResponse, Error> {
+#[get("/openOrders")]
+async fn open_orders() -> Result<HttpResponse, Error> {
     info!("Fetching last open order...");
     let account = ACCOUNT.lock().await;
     let res = account
