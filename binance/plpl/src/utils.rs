@@ -1,3 +1,5 @@
+use crate::{BASE_ASSET, QUOTE_ASSET, TICKER};
+use ephemeris::PLPLSystem;
 use library::*;
 use log::*;
 use simplelog::{
@@ -6,6 +8,7 @@ use simplelog::{
 };
 use std::fs::File;
 use std::path::PathBuf;
+use std::sync::MutexGuard;
 use time_series::{Candle, Time};
 
 pub fn init_logger(log_file: &PathBuf) -> Result<()> {
@@ -244,4 +247,96 @@ pub fn plpl_short(
         Some(5000),
     );
     Ok(vec![entry, profit, loss])
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn handle_signal(
+    plpl_system: &PLPLSystem,
+    plpl: f32,
+    prev_candle: &Candle,
+    candle: &Candle,
+    date: &Time,
+    client_order_id: String,
+    account: &mut MutexGuard<Account>,
+    active_order: Option<OrderBundle>,
+    trailing_stop: f64,
+    stop_loss_pct: f64,
+) -> Result<bool> {
+    let mut trade_placed = false;
+    if plpl_system.long_signal(prev_candle, &candle, plpl) {
+        // if position is None, enter Long
+        // else ignore signal and let active trade play out
+        if active_order.is_none() {
+            info!(
+                "No active order, enter Long @ {} | {}",
+                candle.close,
+                date.to_string()
+            );
+            let account_info = account.account_info()?;
+            let trades = plpl_long(
+                &account_info,
+                &client_order_id,
+                &candle,
+                trailing_stop,
+                stop_loss_pct,
+                TICKER,
+                QUOTE_ASSET,
+                BASE_ASSET,
+            )?;
+            for trade in trades {
+                let side = trade.side.clone();
+                let order_type = trade.order_type.clone();
+                if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                    error!(
+                        "Error entering {} for {}: {:?}",
+                        side.fmt_binance(),
+                        order_type.fmt_binance(),
+                        e
+                    );
+                    account.cancel_all_active_orders()?;
+                    account.active_order = None;
+                    return Err(e);
+                }
+            }
+            trade_placed = true;
+        }
+    } else if plpl_system.short_signal(prev_candle, &candle, plpl) {
+        // if position is None, enter Short
+        // else ignore signal and let active trade play out
+        if active_order.is_none() {
+            info!(
+                "No active order, enter Short @ {} | {}",
+                candle.close,
+                date.to_string()
+            );
+            let account_info = account.account_info()?;
+            let trades = plpl_short(
+                &account_info,
+                &client_order_id,
+                &candle,
+                trailing_stop,
+                stop_loss_pct,
+                TICKER,
+                QUOTE_ASSET,
+                BASE_ASSET,
+            )?;
+            for trade in trades {
+                let side = trade.side.clone();
+                let order_type = trade.order_type.clone();
+                if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                    error!(
+                        "Error entering {} for {}: {:?}",
+                        side.fmt_binance(),
+                        order_type.fmt_binance(),
+                        e
+                    );
+                    account.cancel_all_active_orders()?;
+                    account.active_order = None;
+                    return Err(e);
+                }
+            }
+            trade_placed = true;
+        }
+    }
+    Ok(trade_placed)
 }

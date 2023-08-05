@@ -15,26 +15,26 @@ use utils::*;
 
 // Binance Spot Test Network API credentials
 #[allow(dead_code)]
-const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
+pub const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
 #[allow(dead_code)]
-const BINANCE_TEST_API_KEY: &str =
+pub const BINANCE_TEST_API_KEY: &str =
     "AekFIdmCDmPkaeQjCjaPtEE9IvYtpoceePvvelkthAh7tEtvMAm7oHzcxkhbmxl0";
 #[allow(dead_code)]
-const BINANCE_TEST_API_SECRET: &str =
+pub const BINANCE_TEST_API_SECRET: &str =
     "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
 // Binance Spot Live Network API credentials
 #[allow(dead_code)]
-const BINANCE_LIVE_API: &str = "https://api.binance.us";
+pub const BINANCE_LIVE_API: &str = "https://api.binance.us";
 #[allow(dead_code)]
-const BINANCE_LIVE_API_KEY: &str =
+pub const BINANCE_LIVE_API_KEY: &str =
     "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
 #[allow(dead_code)]
-const BINANCE_LIVE_API_SECRET: &str =
+pub const BINANCE_LIVE_API_SECRET: &str =
     "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
-const KLINE_STREAM: &str = "btcusdt@kline_5m";
-const BASE_ASSET: &str = "BTC";
-const QUOTE_ASSET: &str = "USDT";
-const TICKER: &str = "BTCUSDT";
+pub const KLINE_STREAM: &str = "btcusdt@kline_5m";
+pub const BASE_ASSET: &str = "BTC";
+pub const QUOTE_ASSET: &str = "USDT";
+pub const TICKER: &str = "BTCUSDT";
 
 lazy_static! {
     static ref ACCOUNT: Mutex<Account> = match std::env::var("TESTNET")
@@ -106,9 +106,7 @@ lazy_static! {
 #[tokio::main]
 async fn main() -> Result<()> {
     init_logger(&PathBuf::from("plpl.log".to_string()))?;
-
     info!("Starting Binance PLPL!");
-    let keep_running = AtomicBool::new(true);
 
     // PLPL parameters; tuned for 5 minute candles
     let trailing_stop = 0.5;
@@ -190,81 +188,18 @@ async fn main() -> Result<()> {
                     (None, None) => *prev = Some(candle),
                     (Some(prev_candle), None) => {
                         *curr = Some(candle.clone());
-                        if plpl_system.long_signal(prev_candle, &candle, plpl) {
-                            // if position is None, enter Long
-                            // else ignore signal and let active trade play out
-                            if active_order.is_none() {
-                                info!(
-                                    "No active order, enter Long @ {} | {}",
-                                    candle.close,
-                                    date.to_string()
-                                );
-                                let account_info = account.account_info()?;
-                                let trades = plpl_long(
-                                    &account_info,
-                                    &client_order_id,
-                                    &candle,
-                                    trailing_stop,
-                                    stop_loss_pct,
-                                    TICKER,
-                                    QUOTE_ASSET,
-                                    BASE_ASSET,
-                                )?;
-                                for trade in trades {
-                                    let side = trade.side.clone();
-                                    let order_type = trade.order_type.clone();
-                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                                        error!(
-                                            "Error entering {} for {}: {:?}",
-                                            side.fmt_binance(),
-                                            order_type.fmt_binance(),
-                                            e
-                                        );
-                                        account.cancel_all_active_orders()?;
-                                        account.active_order = None;
-                                        return Err(e);
-                                    }
-                                }
-                                trade_placed = true;
-                            }
-                        } else if plpl_system.short_signal(prev_candle, &candle, plpl) {
-                            // if position is None, enter Short
-                            // else ignore signal and let active trade play out
-                            if active_order.is_none() {
-                                info!(
-                                    "No active order, enter Short @ {} | {}",
-                                    candle.close,
-                                    date.to_string()
-                                );
-                                let account_info = account.account_info()?;
-                                let trades = plpl_short(
-                                    &account_info,
-                                    &client_order_id,
-                                    &candle,
-                                    trailing_stop,
-                                    stop_loss_pct,
-                                    TICKER,
-                                    QUOTE_ASSET,
-                                    BASE_ASSET,
-                                )?;
-                                for trade in trades {
-                                    let side = trade.side.clone();
-                                    let order_type = trade.order_type.clone();
-                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                                        error!(
-                                            "Error entering {} for {}: {:?}",
-                                            side.fmt_binance(),
-                                            order_type.fmt_binance(),
-                                            e
-                                        );
-                                        account.cancel_all_active_orders()?;
-                                        account.active_order = None;
-                                        return Err(e);
-                                    }
-                                }
-                                trade_placed = true;
-                            }
-                        }
+                        trade_placed = handle_signal(
+                            &plpl_system,
+                            plpl,
+                            prev_candle,
+                            &candle,
+                            &date,
+                            client_order_id,
+                            &mut account,
+                            active_order,
+                            trailing_stop,
+                            stop_loss_pct,
+                        )?;
                     }
                     (None, Some(_)) => {
                         error!(
@@ -272,81 +207,18 @@ async fn main() -> Result<()> {
                         );
                     }
                     (Some(_prev_candle), Some(curr_candle)) => {
-                        if plpl_system.long_signal(curr_candle, &candle, plpl) {
-                            // if position is None, enter Long
-                            // else ignore signal and let active trade play out
-                            if active_order.is_none() {
-                                info!(
-                                    "No active order, enter Long @ {} | {}",
-                                    candle.close,
-                                    date.to_string()
-                                );
-                                let account_info = account.account_info()?;
-                                let trades = plpl_long(
-                                    &account_info,
-                                    &client_order_id,
-                                    &candle,
-                                    trailing_stop,
-                                    stop_loss_pct,
-                                    TICKER,
-                                    QUOTE_ASSET,
-                                    BASE_ASSET,
-                                )?;
-                                for trade in trades {
-                                    let side = trade.side.clone();
-                                    let order_type = trade.order_type.clone();
-                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                                        error!(
-                                            "Error entering {} for {}: {:?}",
-                                            side.fmt_binance(),
-                                            order_type.fmt_binance(),
-                                            e
-                                        );
-                                        account.cancel_all_active_orders()?;
-                                        account.active_order = None;
-                                        return Err(e);
-                                    }
-                                }
-                                trade_placed = true;
-                            }
-                        } else if plpl_system.short_signal(curr_candle, &candle, plpl) {
-                            // if position is None, enter Short
-                            // else ignore signal and let active trade play out
-                            if active_order.is_none() {
-                                info!(
-                                    "No active order, enter Short @ {} | {}",
-                                    candle.close,
-                                    date.to_string()
-                                );
-                                let account_info = account.account_info()?;
-                                let trades = plpl_short(
-                                    &account_info,
-                                    &client_order_id,
-                                    &candle,
-                                    trailing_stop,
-                                    stop_loss_pct,
-                                    TICKER,
-                                    QUOTE_ASSET,
-                                    BASE_ASSET,
-                                )?;
-                                for trade in trades {
-                                    let side = trade.side.clone();
-                                    let order_type = trade.order_type.clone();
-                                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                                        error!(
-                                            "Error entering {} for {}: {:?}",
-                                            side.fmt_binance(),
-                                            order_type.fmt_binance(),
-                                            e
-                                        );
-                                        account.cancel_all_active_orders()?;
-                                        account.active_order = None;
-                                        return Err(e);
-                                    }
-                                }
-                                trade_placed = true;
-                            }
-                        }
+                        trade_placed = handle_signal(
+                            &plpl_system,
+                            plpl,
+                            curr_candle,
+                            &candle,
+                            &date,
+                            client_order_id,
+                            &mut account,
+                            active_order,
+                            trailing_stop,
+                            stop_loss_pct,
+                        )?;
                         *prev = Some(curr_candle.clone());
                         *curr = Some(candle);
                     }
@@ -404,7 +276,7 @@ async fn main() -> Result<()> {
         Ok(_) => info!("Binance websocket connected"),
     }
 
-    if let Err(e) = ws.event_loop(&keep_running) {
+    if let Err(e) = ws.event_loop(&AtomicBool::new(true)) {
         error!("Binance websocket error: {}", e);
     }
 
