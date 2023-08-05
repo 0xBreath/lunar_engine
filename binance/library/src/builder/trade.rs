@@ -121,8 +121,8 @@ impl BinanceTrade {
 
     pub fn calc_stop_loss(order: Side, price: f64, stop_loss_pct: f64) -> f64 {
         match order {
-            Side::Long => Self::round_price(price * (1.0 - stop_loss_pct)),
-            Side::Short => Self::round_price(price * (1.0 + stop_loss_pct)),
+            Side::Long => Self::round_price(price * (1.0 - (stop_loss_pct / 100.0))),
+            Side::Short => Self::round_price(price * (1.0 + (stop_loss_pct / 100.0))),
         }
     }
 }
