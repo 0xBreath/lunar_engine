@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::errors::Result;
 use crate::model::*;
 use crate::BinanceError;
-use log::{error, info};
+use log::*;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -210,6 +210,10 @@ impl Account {
     ) -> Result<Option<OrderBundle>> {
         let order_status = OrderStatus::from_str(&event.order_status)?;
         if order_status == OrderStatus::Canceled {
+            warn!(
+                "Order {} canceled, clearing active order",
+                &event.order_type
+            );
             self.active_order = None;
             return Ok(None);
         }

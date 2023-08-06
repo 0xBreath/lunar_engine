@@ -234,6 +234,12 @@ impl Time {
             .timestamp()
     }
 
+    pub fn to_unix_ms(&self) -> i64 {
+        self.to_datetime()
+            .expect("Failed to convert Time to DateTime")
+            .timestamp_millis()
+    }
+
     pub fn from_unix_msec(unix: i64) -> Self {
         let date = chrono::Utc.timestamp_millis_opt(unix).unwrap();
         let year = date.naive_utc().year();

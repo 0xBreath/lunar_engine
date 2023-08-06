@@ -7,7 +7,7 @@ use log::*;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Mutex;
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 use time_series::{Candle, Day, Month, Time};
 
 mod utils;
@@ -144,6 +144,7 @@ async fn main() -> Result<()> {
         .lock()
         .map_err(|e| BinanceError::Custom(e.to_string()))?;
 
+    let mut user_stream_keep_alive_time = SystemTime::now();
     let user_stream = USER_STREAM
         .lock()
         .map_err(|e| BinanceError::Custom(e.to_string()))?;
@@ -162,6 +163,22 @@ async fn main() -> Result<()> {
 
     let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
         let start = SystemTime::now();
+        // check if timestamp is 30 minutes after UserStream last keep alive ping
+        let secs_since_keep_alive = start
+            .duration_since(user_stream_keep_alive_time)
+            .map(|d| d.as_secs())
+            .map_err(|e| BinanceError::Custom(e.to_string()))?;
+
+        if secs_since_keep_alive > 30 * 60 {
+            let now =
+                Time::from_unix_msec(start.duration_since(UNIX_EPOCH).unwrap().as_millis() as i64);
+            match user_stream.keep_alive(&listen_key) {
+                Ok(_) => info!("Keep alive UserStream @ {}", now.to_string()),
+                Err(e) => error!("Error keep alive UserStream: {}", e),
+            }
+            user_stream_keep_alive_time = start;
+        }
+
         match event {
             WebSocketEvent::Kline(kline_event) => {
                 let kline_event_time = kline_event.event_time as i64;

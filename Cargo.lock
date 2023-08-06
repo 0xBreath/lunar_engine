@@ -699,6 +699,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "date"
+version = "0.2.0"
+dependencies = [
+ "log",
+ "simplelog",
+ "time 0.3.17",
+ "time_series",
+]
+
+[[package]]
 name = "derive_more"
 version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
