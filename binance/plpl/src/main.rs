@@ -174,7 +174,7 @@ async fn main() -> Result<()> {
                 Time::from_unix_msec(start.duration_since(UNIX_EPOCH).unwrap().as_millis() as i64);
             match user_stream.keep_alive(&listen_key) {
                 Ok(_) => info!("Keep alive UserStream @ {}", now.to_string()),
-                Err(e) => error!("Error keep alive UserStream: {}", e),
+                Err(e) => error!("Error keeping alive UserStream: {}", e),
             }
             user_stream_keep_alive_time = start;
         }
