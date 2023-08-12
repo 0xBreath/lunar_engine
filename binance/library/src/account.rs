@@ -192,7 +192,7 @@ impl Account {
                     error!("Failed to cancel all active orders: {:?}", e);
                     return Err(BinanceError::Binance(err.clone()));
                 } else {
-                    info!("No active orders to cancel");
+                    trace!("No active orders to cancel");
                 }
             }
         }
@@ -210,7 +210,7 @@ impl Account {
     ) -> Result<Option<OrderBundle>> {
         let order_status = OrderStatus::from_str(&event.order_status)?;
         if order_status == OrderStatus::Canceled {
-            warn!(
+            debug!(
                 "Order {} canceled, clearing active order",
                 &event.order_type
             );
@@ -229,22 +229,22 @@ impl Account {
                     let order_type = OrderType::from_str(&event.order_type)?;
                     match order_type {
                         OrderType::Limit => {
-                            info!("Updating active order entry");
+                            debug!("Updating active order entry");
                             updated_order.entry =
                                 Some(OrderBundleTrade::from_order_trade_event(&event)?);
                         }
                         OrderType::TakeProfitLimit => {
-                            info!("Updating active order take profit");
+                            debug!("Updating active order take profit");
                             updated_order.take_profit =
                                 Some(OrderBundleTrade::from_order_trade_event(&event)?);
                         }
                         OrderType::StopLossLimit => {
-                            info!("Updating active order stop loss");
+                            debug!("Updating active order stop loss");
                             updated_order.stop_loss =
                                 Some(OrderBundleTrade::from_order_trade_event(&event)?);
                         }
                         _ => {
-                            info!("Invalid order event order type to update active order");
+                            error!("Invalid order event order type to update active order");
                         }
                     }
                     self.active_order = Some(updated_order);
@@ -252,14 +252,14 @@ impl Account {
             }
             // create new active order
             None => {
-                info!("New active order");
                 let event_id = OrderBundle::client_order_id_prefix(&event.new_client_order_id);
                 let side = Side::from_str(&event.side)?;
                 let order_type = OrderType::from_str(&event.order_type)?;
                 let mut updated_order = None;
                 match order_type {
                     OrderType::Limit => {
-                        info!("Creating active order entry");
+                        info!("New active order");
+                        debug!("Creating active order entry");
                         updated_order = Some(OrderBundle::new(
                             event_id,
                             event.event_time,
@@ -271,32 +271,14 @@ impl Account {
                     }
                     // restrict new active order creation with limit entry first
                     OrderType::TakeProfitLimit => {
-                        info!("No active trade, waiting for new limit entry...");
-                        // info!("Creating active order take profit");
-                        // updated_order = Some(OrderBundle::new(
-                        //     event_id,
-                        //     event.event_time,
-                        //     side,
-                        //     None,
-                        //     Some(OrderBundleTrade::from_order_trade_event(&event)?),
-                        //     None,
-                        // ));
+                        debug!("No active trade, waiting for new limit entry...");
                     }
                     // restrict new active order creation with limit entry first
                     OrderType::StopLossLimit => {
-                        info!("No active trade, waiting for new limit entry...");
-                        // info!("Creating active order stop loss");
-                        // updated_order = Some(OrderBundle::new(
-                        //     event_id,
-                        //     event.event_time,
-                        //     side,
-                        //     None,
-                        //     None,
-                        //     Some(OrderBundleTrade::from_order_trade_event(&event)?),
-                        // ));
+                        debug!("No active trade, waiting for new limit entry...");
                     }
                     _ => {
-                        info!("Invalid order event order type to create active order");
+                        error!("Invalid order event order type to create active order");
                     }
                 }
                 self.active_order = updated_order;
@@ -332,7 +314,7 @@ impl Account {
                     //      -> do nothing, order is active, return Some
                     (OrderStatus::New, OrderStatus::New, OrderStatus::New) => {
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        info!("Order bundle {} orders all new", id);
+                        debug!("Order bundle {} orders all new", id);
                     }
                     // If entry is FILLED && take profit is NEW && stop loss is FILLED
                     //      -> trade closed, cancel remaining exit order, return None
@@ -343,7 +325,7 @@ impl Account {
                     ) => {
                         self.cancel_all_active_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        info!("Order bundle {} exited with stop loss", id);
+                        info!("LOSS -- Order bundle {} exited with stop loss", id);
                         updated_order = None;
                     }
                     // If entry is FILLED && take profit is FILLED && stop loss is NEW
@@ -355,7 +337,10 @@ impl Account {
                     ) => {
                         self.cancel_all_active_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        info!("Order bundle {} exited with trailing take profit", id);
+                        info!(
+                            "WIN -- Order bundle {} exited with trailing take profit",
+                            id
+                        );
                         updated_order = None;
                     }
                     // If enter is FILLED && take profit is NEW && stop loss is NEW
@@ -366,7 +351,7 @@ impl Account {
                         OrderStatus::New,
                     ) => {
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        info!("Order bundle {} is active", id);
+                        debug!("Order bundle {} is active", id);
                     }
                     _ => {
                         error!("Invalid OrderBundle order status combination. Cancelling all orders to start from scratch.");
@@ -507,5 +492,29 @@ impl Account {
 
     pub fn get_active_order(&self) -> Option<OrderBundle> {
         self.active_order.clone()
+    }
+
+    pub fn log_active_order(&self) {
+        match &self.active_order {
+            None => info!("Active Order: None"),
+            Some(active_order) => {
+                let entry = match &active_order.entry {
+                    None => "None".to_string(),
+                    Some(entry) => format!("{:?}", entry.status),
+                };
+                let take_profit = match &active_order.take_profit {
+                    None => "None".to_string(),
+                    Some(take_profit) => format!("{:?}", take_profit.status),
+                };
+                let stop_loss = match &active_order.stop_loss {
+                    None => "None".to_string(),
+                    Some(stop_loss) => format!("{:?}", stop_loss.status),
+                };
+                info!(
+                    "Active Order: {}, {:?}, entry: {}, take_profit: {}, stop_loss: {}",
+                    active_order.id, active_order.side, entry, take_profit, stop_loss
+                )
+            }
+        }
     }
 }

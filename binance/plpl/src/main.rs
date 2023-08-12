@@ -269,8 +269,8 @@ async fn main() -> Result<()> {
                     event.order_type
                 );
                 return match account.stream_update_active_order(event) {
-                    Ok(active_order) => {
-                        info!("Active order updated {:?}", active_order);
+                    Ok(_) => {
+                        account.log_active_order();
                         Ok(())
                     }
                     Err(e) => {

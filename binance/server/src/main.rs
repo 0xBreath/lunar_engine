@@ -117,7 +117,7 @@ async fn account_info() -> Result<HttpResponse, Error> {
 async fn get_assets() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let res = account.all_assets().expect("failed to get assets");
-    debug!("{:?}", res);
+    trace!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }
 
@@ -142,7 +142,7 @@ async fn get_price() -> Result<HttpResponse, Error> {
     let res = account
         .get_price(account.ticker.clone())
         .expect("failed to get price");
-    debug!("{:?}", res);
+    trace!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }
 

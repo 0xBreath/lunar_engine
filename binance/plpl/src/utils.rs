@@ -263,7 +263,7 @@ pub fn handle_signal(
     stop_loss_pct: f64,
 ) -> Result<bool> {
     let mut trade_placed = false;
-    if plpl_system.long_signal(prev_candle, &candle, plpl) {
+    if plpl_system.long_signal(prev_candle, candle, plpl) {
         // if position is None, enter Long
         // else ignore signal and let active trade play out
         if active_order.is_none() {
@@ -276,7 +276,7 @@ pub fn handle_signal(
             let trades = plpl_long(
                 &account_info,
                 &client_order_id,
-                &candle,
+                candle,
                 trailing_stop,
                 stop_loss_pct,
                 TICKER,
@@ -300,7 +300,7 @@ pub fn handle_signal(
             }
             trade_placed = true;
         }
-    } else if plpl_system.short_signal(prev_candle, &candle, plpl) {
+    } else if plpl_system.short_signal(prev_candle, candle, plpl) {
         // if position is None, enter Short
         // else ignore signal and let active trade play out
         if active_order.is_none() {
@@ -313,7 +313,7 @@ pub fn handle_signal(
             let trades = plpl_short(
                 &account_info,
                 &client_order_id,
-                &candle,
+                candle,
                 trailing_stop,
                 stop_loss_pct,
                 TICKER,
