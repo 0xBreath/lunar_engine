@@ -109,8 +109,8 @@ async fn main() -> Result<()> {
     info!("Starting Binance PLPL!");
 
     // PLPL parameters; tuned for 5 minute candles
-    let trailing_stop = 0.5;
-    let stop_loss_pct = 0.05;
+    let trailing_take_profit = ExitType::Percent(0.5);
+    let stop_loss = ExitType::Percent(0.05);
     let planet = Planet::from("Jupiter");
     let plpl_scale = 0.5;
     let plpl_price = 20000.0;
@@ -183,7 +183,7 @@ async fn main() -> Result<()> {
             WebSocketEvent::Kline(kline_event) => {
                 let kline_event_time = kline_event.event_time as i64;
                 let date = Time::from_unix_msec(kline_event_time);
-                let client_order_id = format!("{}", kline_event_time);
+                let timestamp = format!("{}", kline_event_time);
                 let candle = kline_to_candle(&kline_event)?;
                 let mut prev = prev_candle.lock().map_err(|_| {
                     BinanceError::Custom("Failed to lock previous candle".to_string())
@@ -211,11 +211,11 @@ async fn main() -> Result<()> {
                             prev_candle,
                             &candle,
                             &date,
-                            client_order_id,
+                            timestamp,
                             &mut account,
                             active_order,
-                            trailing_stop,
-                            stop_loss_pct,
+                            trailing_take_profit.clone(),
+                            stop_loss.clone(),
                         )?;
                     }
                     (None, Some(_)) => {
@@ -230,11 +230,11 @@ async fn main() -> Result<()> {
                             curr_candle,
                             &candle,
                             &date,
-                            client_order_id,
+                            timestamp,
                             &mut account,
                             active_order,
-                            trailing_stop,
-                            stop_loss_pct,
+                            trailing_take_profit.clone(),
+                            stop_loss.clone(),
                         )?;
                         *prev = Some(curr_candle.clone());
                         *curr = Some(candle);
@@ -258,6 +258,7 @@ async fn main() -> Result<()> {
                 }
             }
             WebSocketEvent::OrderTrade(event) => {
+                let order_type = OrderBundle::client_order_id_suffix(&event.new_client_order_id);
                 info!(
                     "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",
                     event.symbol,
@@ -266,7 +267,7 @@ async fn main() -> Result<()> {
                     event.price,
                     event.execution_type,
                     event.order_status,
-                    event.order_type
+                    order_type
                 );
                 return match account.stream_update_active_order(event) {
                     Ok(_) => {

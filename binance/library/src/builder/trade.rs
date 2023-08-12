@@ -28,15 +28,17 @@ impl BinanceTrade {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         symbol: String,
+        timestamp: String,
+        order_id_suffix: String,
         side: Side,
         order_type: OrderType,
         quantity: f64,
-        client_order_id: String,
         price: Option<f64>,
         stop_price: Option<f64>,
         trailing_stop: Option<f64>,
         recv_window: Option<u32>,
     ) -> Self {
+        let client_order_id = format!("{}-{}", timestamp, order_id_suffix);
         Self {
             symbol,
             side,
@@ -56,10 +58,6 @@ impl BinanceTrade {
             .duration_since(UNIX_EPOCH)
             .expect("System time is before UNIX EPOCH");
         Ok(since_epoch.as_secs() * 1000 + u64::from(since_epoch.subsec_nanos()) / 1_000_000)
-    }
-
-    fn build_client_order_id(&self) -> String {
-        format!("{}-{}", self.client_order_id, self.order_type.fmt_binance())
     }
 
     fn build(&self) -> Vec<(String, String)> {
@@ -91,7 +89,10 @@ impl BinanceTrade {
         if let Some(recv_window) = self.recv_window {
             btree.push(("recvWindow".to_string(), recv_window.to_string()));
         }
-        btree.push(("newClientOrderId".to_string(), self.build_client_order_id()));
+        btree.push((
+            "newClientOrderId".to_string(),
+            self.client_order_id.to_string(),
+        ));
         btree
     }
 
@@ -110,13 +111,13 @@ impl BinanceTrade {
         trailing_stop_pct * 100.0
     }
 
-    pub fn round_quantity(quantity: f64, decimals: u32) -> f64 {
+    pub fn round(value: f64, decimals: u32) -> f64 {
         let pow = 10_u64.pow(decimals);
-        (quantity * pow as f64).round() / pow as f64
+        (value * pow as f64).round() / pow as f64
     }
 
     pub fn round_price(quantity: f64) -> f64 {
-        (quantity * 100.0).round() / 100.0
+        Self::round(quantity, 2)
     }
 
     pub fn calc_stop_loss(order: Side, price: f64, stop_loss_pct: f64) -> f64 {

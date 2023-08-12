@@ -132,12 +132,12 @@ pub fn trade_qty(
     );
     Ok(match side {
         Side::Long => {
-            let qty = assets.free_quote / candle.close * 0.97 * 0.33;
-            BinanceTrade::round_quantity(qty, 5)
+            let qty = assets.free_quote / candle.close * 0.98 * 0.33;
+            BinanceTrade::round(qty, 5)
         }
         Side::Short => {
-            let qty = assets.free_base * 0.97 * 0.33;
-            BinanceTrade::round_quantity(qty, 5)
+            let qty = assets.free_base * 0.98 * 0.33;
+            BinanceTrade::round(qty, 5)
         }
     })
 }
@@ -145,14 +145,18 @@ pub fn trade_qty(
 #[allow(clippy::too_many_arguments)]
 pub fn plpl_long(
     account_info: &AccountInfoResponse,
-    client_order_id: &str,
+    timestamp: &str,
     candle: &Candle,
-    trailing_stop_pct: f64,
-    stop_loss_pct: f64,
+    trailing_take_profit: ExitType,
+    stop_loss: ExitType,
     ticker: &str,
     quote_asset: &str,
     base_asset: &str,
-) -> Result<Vec<BinanceTrade>> {
+) -> Result<(
+    Vec<BinanceTrade>,
+    TrailingTakeProfitTracker,
+    StopLossTracker,
+)> {
     // each order gets 1/3 of 99% of account balance
     // 99% is to account for fees
     // 1/3 is to account for 3 orders
@@ -160,93 +164,111 @@ pub fn plpl_long(
     let limit = BinanceTrade::round_price(candle.close);
     let entry = BinanceTrade::new(
         ticker.to_string(),
+        timestamp.to_string(),
+        "ENTRY".to_string(),
         Side::Long,
         OrderType::Limit,
         long_qty,
-        client_order_id.to_string(),
         Some(limit),
         None,
         None,
         Some(5000),
     );
-    let trailing_stop = BinanceTrade::bips_trailing_stop(trailing_stop_pct);
+    let trailing_take_profit_tracker =
+        TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Long);
     let profit = BinanceTrade::new(
         ticker.to_string(),
+        timestamp.to_string(),
+        "TAKE_PROFIT".to_string(),
         Side::Short,
-        OrderType::TakeProfitLimit,
+        OrderType::Limit,
         long_qty,
-        client_order_id.to_string(),
-        Some(limit),
+        Some(trailing_take_profit_tracker.trigger),
         None,
-        Some(trailing_stop),
+        None,
         Some(5000),
     );
-    let stop_loss = BinanceTrade::calc_stop_loss(Side::Long, candle.close, stop_loss_pct);
-    let stop_price = BinanceTrade::round_price(stop_loss - (stop_loss - limit) / 2.0);
+    let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
     let loss = BinanceTrade::new(
         ticker.to_string(),
+        timestamp.to_string(),
+        "STOP_LOSS".to_string(),
         Side::Short,
-        OrderType::StopLossLimit,
+        OrderType::Limit,
         long_qty,
-        client_order_id.to_string(),
-        Some(stop_loss),  // price in this context is the actual exit (stop loss)
-        Some(stop_price), // stopPrice is the trigger to place the stop loss order, in this case the entry price
+        Some(stop_loss_tracker.trigger),
+        None,
         None,
         Some(5000),
     );
-    Ok(vec![entry, profit, loss])
+    Ok((
+        vec![entry, profit, loss],
+        trailing_take_profit_tracker,
+        stop_loss_tracker,
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
 pub fn plpl_short(
     account_info: &AccountInfoResponse,
-    client_order_id: &str,
+    timestamp: &str,
     candle: &Candle,
-    trailing_stop_pct: f64,
-    stop_loss_pct: f64,
+    trailing_take_profit: ExitType,
+    stop_loss: ExitType,
     ticker: &str,
     quote_asset: &str,
     base_asset: &str,
-) -> Result<Vec<BinanceTrade>> {
+) -> Result<(
+    Vec<BinanceTrade>,
+    TrailingTakeProfitTracker,
+    StopLossTracker,
+)> {
     let short_qty = trade_qty(account_info, quote_asset, base_asset, Side::Short, candle)?;
     let limit = BinanceTrade::round_price(candle.close);
     let entry = BinanceTrade::new(
         ticker.to_string(),
+        timestamp.to_string(),
+        "ENTRY".to_string(),
         Side::Short,
         OrderType::Limit,
         short_qty,
-        client_order_id.to_string(),
         Some(limit),
         None,
         None,
         Some(5000),
     );
-    let trailing_stop = BinanceTrade::bips_trailing_stop(trailing_stop_pct);
+    let trailing_take_profit_tracker =
+        TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Short);
     let profit = BinanceTrade::new(
         ticker.to_string(),
+        timestamp.to_string(),
+        "TAKE_PROFIT".to_string(),
         Side::Long,
-        OrderType::TakeProfitLimit,
+        OrderType::Limit,
         short_qty,
-        client_order_id.to_string(),
-        Some(limit),
+        Some(trailing_take_profit_tracker.trigger),
         None,
-        Some(trailing_stop),
+        None,
         Some(5000),
     );
-    let stop_loss = BinanceTrade::calc_stop_loss(Side::Short, candle.close, stop_loss_pct);
-    let stop_price = BinanceTrade::round_price(stop_loss + (limit - stop_loss) / 2.0);
+    let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
     let loss = BinanceTrade::new(
         ticker.to_string(),
+        timestamp.to_string(),
+        "STOP_LOSS".to_string(),
         Side::Long,
-        OrderType::StopLossLimit,
+        OrderType::Limit,
         short_qty,
-        client_order_id.to_string(),
-        Some(stop_loss),  // price is this context is the actual exit (stop loss)
-        Some(stop_price), // stopPrice is the trigger to place the stop loss order
+        Some(stop_loss_tracker.trigger),
+        None,
         None,
         Some(5000),
     );
-    Ok(vec![entry, profit, loss])
+    Ok((
+        vec![entry, profit, loss],
+        trailing_take_profit_tracker,
+        stop_loss_tracker,
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -256,86 +278,159 @@ pub fn handle_signal(
     prev_candle: &Candle,
     candle: &Candle,
     date: &Time,
-    client_order_id: String,
+    timestamp: String,
     account: &mut MutexGuard<Account>,
     active_order: Option<OrderBundle>,
-    trailing_stop: f64,
-    stop_loss_pct: f64,
+    trailing_take_profit: ExitType,
+    stop_loss: ExitType,
 ) -> Result<bool> {
     let mut trade_placed = false;
-    if plpl_system.long_signal(prev_candle, candle, plpl) {
-        // if position is None, enter Long
-        // else ignore signal and let active trade play out
-        if active_order.is_none() {
-            info!(
-                "No active order, enter Long @ {} | {}",
-                candle.close,
-                date.to_string()
-            );
-            let account_info = account.account_info()?;
-            let trades = plpl_long(
-                &account_info,
-                &client_order_id,
-                candle,
-                trailing_stop,
-                stop_loss_pct,
-                TICKER,
-                QUOTE_ASSET,
-                BASE_ASSET,
-            )?;
-            for trade in trades {
-                let side = trade.side.clone();
-                let order_type = trade.order_type.clone();
-                if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                    error!(
-                        "Error entering {} for {}: {:?}",
-                        side.fmt_binance(),
-                        order_type.fmt_binance(),
-                        e
-                    );
-                    account.cancel_all_active_orders()?;
-                    account.active_order = None;
-                    return Err(e);
+    match active_order {
+        None => {
+            if plpl_system.long_signal(prev_candle, candle, plpl) {
+                // if position is None, enter Long
+                // else ignore signal and let active trade play out
+                info!(
+                    "No active order, enter Long @ {} | {}",
+                    candle.close,
+                    date.to_string()
+                );
+                let account_info = account.account_info()?;
+                let (trades, tp_tracker, sl_tracker) = plpl_long(
+                    &account_info,
+                    &timestamp,
+                    candle,
+                    trailing_take_profit,
+                    stop_loss,
+                    TICKER,
+                    QUOTE_ASSET,
+                    BASE_ASSET,
+                )?;
+                account.active_order = Some(OrderBundle::new(
+                    None,
+                    None,
+                    Side::Long,
+                    None,
+                    None,
+                    tp_tracker,
+                    None,
+                    sl_tracker,
+                ));
+                info!("{:?}", account.log_active_order());
+                for trade in trades {
+                    let side = trade.side.clone();
+                    let client_order_id = trade.client_order_id.clone();
+                    let order_type = OrderBundle::client_order_id_suffix(&client_order_id);
+                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                        error!(
+                            "Error entering {} for {}: {:?}",
+                            side.fmt_binance(),
+                            order_type,
+                            e
+                        );
+                        account.cancel_all_active_orders()?;
+                        account.active_order = None;
+                        return Err(e);
+                    }
                 }
+                trade_placed = true;
+            } else if plpl_system.short_signal(prev_candle, candle, plpl) {
+                // if position is None, enter Short
+                // else ignore signal and let active trade play out
+                info!(
+                    "No active order, enter Short @ {} | {}",
+                    candle.close,
+                    date.to_string()
+                );
+                let account_info = account.account_info()?;
+                let (trades, tp_tracker, sl_tracker) = plpl_short(
+                    &account_info,
+                    &timestamp,
+                    candle,
+                    trailing_take_profit,
+                    stop_loss,
+                    TICKER,
+                    QUOTE_ASSET,
+                    BASE_ASSET,
+                )?;
+                account.active_order = Some(OrderBundle::new(
+                    None,
+                    None,
+                    Side::Short,
+                    None,
+                    None,
+                    tp_tracker,
+                    None,
+                    sl_tracker,
+                ));
+                info!("{:?}", account.log_active_order());
+                for trade in trades {
+                    let side = trade.side.clone();
+                    let order_type = OrderBundle::client_order_id_suffix(&trade.client_order_id);
+                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                        error!(
+                            "Error entering {} for {}: {:?}",
+                            side.fmt_binance(),
+                            order_type,
+                            e
+                        );
+                        account.cancel_all_active_orders()?;
+                        account.active_order = None;
+                        return Err(e);
+                    }
+                }
+                trade_placed = true;
             }
-            trade_placed = true;
         }
-    } else if plpl_system.short_signal(prev_candle, candle, plpl) {
-        // if position is None, enter Short
-        // else ignore signal and let active trade play out
-        if active_order.is_none() {
-            info!(
-                "No active order, enter Short @ {} | {}",
-                candle.close,
-                date.to_string()
-            );
-            let account_info = account.account_info()?;
-            let trades = plpl_short(
-                &account_info,
-                &client_order_id,
-                candle,
-                trailing_stop,
-                stop_loss_pct,
-                TICKER,
-                QUOTE_ASSET,
-                BASE_ASSET,
-            )?;
-            for trade in trades {
-                let side = trade.side.clone();
-                let order_type = trade.order_type.clone();
-                if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                    error!(
-                        "Error entering {} for {}: {:?}",
-                        side.fmt_binance(),
-                        order_type.fmt_binance(),
-                        e
-                    );
-                    account.cancel_all_active_orders()?;
-                    account.active_order = None;
-                    return Err(e);
+        Some(mut active_order) => {
+            let take_profit_action = active_order.take_profit_tracker.check(candle);
+            match take_profit_action {
+                UpdateAction::None => debug!("Take profit updated"),
+                UpdateAction::Close => info!(
+                    "Take profit triggered @ {} | {}",
+                    candle.close,
+                    date.to_string()
+                ),
+                UpdateAction::CancelAndUpdate => {
+                    // cancel take profit order and place new one
+                    match active_order.take_profit {
+                        None => {
+                            error!("No take profit order to cancel");
+                            return Err(BinanceError::Custom(
+                                "No take profit order to cancel".to_string(),
+                            ));
+                        }
+                        Some(tp) => {
+                            // cancel exiting trailing take profit order
+                            let res = account.cancel_order(tp.order_id)?;
+                            // place new take profit order with updated trigger price
+                            let exit_side = active_order.take_profit_tracker.exit_side;
+                            let trade = BinanceTrade::new(
+                                res.symbol,
+                                timestamp,
+                                "TAKE_PROFIT".to_string(),
+                                exit_side.clone(),
+                                OrderType::Limit,
+                                tp.quantity,
+                                Some(active_order.take_profit_tracker.trigger),
+                                None,
+                                None,
+                                Some(5000),
+                            );
+                            if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
+                                error!(
+                                    "Error updating take profit {} with error: {:?}",
+                                    exit_side.fmt_binance(),
+                                    e
+                                );
+                                account.cancel_all_active_orders()?;
+                                account.active_order = None;
+                                return Err(e);
+                            }
+                        }
+                    }
                 }
             }
-            trade_placed = true;
         }
     }
     Ok(trade_placed)

@@ -7,6 +7,7 @@ pub mod errors;
 pub mod model;
 pub mod userstream;
 pub mod websocket;
+pub mod exit_tracker;
 
 pub use account::*;
 pub use api::*;
@@ -17,3 +18,4 @@ pub use errors::*;
 pub use model::*;
 pub use userstream::*;
 pub use websocket::*;
+pub use exit_tracker::*;
