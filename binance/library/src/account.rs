@@ -388,11 +388,6 @@ impl Account {
         match &self.active_order {
             None => info!("No active order to log"),
             Some(active_order) => {
-                let entry = match &active_order.entry {
-                    None => "None".to_string(),
-                    Some(entry) => format!("{:?}", entry.status),
-                };
-                let entry_trigger = active_order.entry.price;
                 let take_profit = match &active_order.take_profit {
                     None => "None".to_string(),
                     Some(take_profit) => format!("{:?}", take_profit.status),
@@ -403,17 +398,42 @@ impl Account {
                     Some(stop_loss) => format!("{:?}", stop_loss.status),
                 };
                 let sl_trigger = active_order.stop_loss_tracker.trigger;
-                info!(
-                    "Active Order: {:?}, {:?}, entry: {} @ {}, take_profit: {} @ {}, stop_loss: {} @ {}",
-                    active_order.id,
-                    active_order.side,
-                    entry,
-                    entry_trigger,
-                    take_profit,
-                    tp_trigger,
-                    stop_loss,
-                    sl_trigger
-                )
+                match &active_order.entry {
+                    Some(entry) => {
+                        let entry_status = match &active_order.entry {
+                            None => "None".to_string(),
+                            Some(entry) => format!("{:?}", entry.status),
+                        };
+                        let entry_trigger = entry.price;
+                        info!(
+                            "Active Order: {:?}, {:?}, entry: {} @ {}, take_profit: {} @ {}, stop_loss: {} @ {}",
+                            active_order.id,
+                            active_order.side,
+                            entry_status,
+                            entry_trigger,
+                            take_profit,
+                            tp_trigger,
+                            stop_loss,
+                            sl_trigger
+                        );
+                    }
+                    None => {
+                        let entry_status = match &active_order.entry {
+                            None => "None".to_string(),
+                            Some(entry) => format!("{:?}", entry.status),
+                        };
+                        info!(
+                            "Active Order: {:?}, {:?}, entry: {}, take_profit: {} @ {}, stop_loss: {} @ {}",
+                            active_order.id,
+                            active_order.side,
+                            entry_status,
+                            take_profit,
+                            tp_trigger,
+                            stop_loss,
+                            sl_trigger
+                        );
+                    }
+                }
             }
         }
     }
