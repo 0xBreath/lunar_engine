@@ -316,7 +316,7 @@ pub fn handle_signal(
                     None,
                     sl_tracker,
                 ));
-                info!("{:?}", account.log_active_order());
+                account.log_active_order();
                 for trade in trades {
                     let side = trade.side.clone();
                     let client_order_id = trade.client_order_id.clone();
@@ -363,7 +363,7 @@ pub fn handle_signal(
                     None,
                     sl_tracker,
                 ));
-                info!("{:?}", account.log_active_order());
+                account.log_active_order();
                 for trade in trades {
                     let side = trade.side.clone();
                     let order_type = OrderBundle::client_order_id_suffix(&trade.client_order_id);

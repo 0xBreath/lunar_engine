@@ -173,8 +173,8 @@ async fn main() -> Result<()> {
             let now =
                 Time::from_unix_msec(start.duration_since(UNIX_EPOCH).unwrap().as_millis() as i64);
             match user_stream.keep_alive(&listen_key) {
-                Ok(_) => info!("Keep alive UserStream @ {}", now.to_string()),
-                Err(e) => error!("Error keeping alive UserStream: {}", e),
+                Ok(_) => info!("Keep alive user stream @ {}", now.to_string()),
+                Err(e) => error!("Error keeping alive user stream: {}", e),
             }
             user_stream_keep_alive_time = start;
         }
@@ -195,7 +195,7 @@ async fn main() -> Result<()> {
                 // compute closest PLPL to current Candle
                 let plpl = plpl_system
                     .closest_plpl(&candle)
-                    .map_err(|_| BinanceError::Custom("Closest PLPL not found".to_string()))?;
+                    .map_err(BinanceError::PLPL)?;
                 // active order bundle on Binance
                 let active_order = account.get_active_order();
                 let mut trade_placed = false;
@@ -259,12 +259,19 @@ async fn main() -> Result<()> {
             }
             WebSocketEvent::OrderTrade(event) => {
                 let order_type = OrderBundle::client_order_id_suffix(&event.new_client_order_id);
+                let entry_price = BinanceTrade::round(
+                    event
+                        .price
+                        .parse::<f64>()
+                        .map_err(BinanceError::ParseFloat)?,
+                    2,
+                );
                 info!(
                     "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",
                     event.symbol,
                     event.new_client_order_id,
                     event.side,
-                    event.price,
+                    entry_price,
                     event.execution_type,
                     event.order_status,
                     order_type
@@ -296,6 +303,7 @@ async fn main() -> Result<()> {
 
     if let Err(e) = ws.event_loop(&AtomicBool::new(true)) {
         error!("Binance websocket error: {}", e);
+        return Err(e);
     }
 
     user_stream.close(&listen_key)?;
@@ -315,7 +323,7 @@ async fn main() -> Result<()> {
             }
         }
         Ok(_) => {
-            info!("Binance websocket disconnected");
+            warn!("Binance websocket disconnected");
             Ok(())
         }
     }

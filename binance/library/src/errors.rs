@@ -1,3 +1,4 @@
+use ephemeris::PLPLError;
 use log::error;
 use serde::Deserialize;
 
@@ -24,6 +25,7 @@ pub enum BinanceError {
     Tungstenite(tungstenite::Error),
     Time(std::time::SystemTimeError),
     OrderStatusParseError(String),
+    PLPL(PLPLError),
     Custom(String),
 }
 
@@ -89,6 +91,10 @@ impl std::fmt::Display for BinanceError {
             BinanceError::OrderStatusParseError(e) => {
                 error!("Order status parse error: {:?}", e);
                 write!(f, "Order status parse error: {:?}", e)
+            }
+            BinanceError::PLPL(e) => {
+                error!("PLPL error: {:?}", e);
+                write!(f, "PLPL error: {:?}", e)
             }
             BinanceError::Custom(e) => {
                 error!("Custom error: {:?}", e);
