@@ -172,7 +172,7 @@ pub fn plpl_long(
         Some(limit),
         None,
         None,
-        Some(5000),
+        Some(10000),
     );
     let trailing_take_profit_tracker =
         TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Long);
@@ -186,7 +186,7 @@ pub fn plpl_long(
         Some(trailing_take_profit_tracker.trigger),
         None,
         None,
-        Some(5000),
+        Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
     let loss = BinanceTrade::new(
@@ -199,7 +199,7 @@ pub fn plpl_long(
         Some(stop_loss_tracker.trigger),
         None,
         None,
-        Some(5000),
+        Some(10000),
     );
     Ok((
         vec![entry, profit, loss],
@@ -235,7 +235,7 @@ pub fn plpl_short(
         Some(limit),
         None,
         None,
-        Some(5000),
+        Some(10000),
     );
     let trailing_take_profit_tracker =
         TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Short);
@@ -249,7 +249,7 @@ pub fn plpl_short(
         Some(trailing_take_profit_tracker.trigger),
         None,
         None,
-        Some(5000),
+        Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
     let loss = BinanceTrade::new(
@@ -262,7 +262,7 @@ pub fn plpl_short(
         Some(stop_loss_tracker.trigger),
         None,
         None,
-        Some(5000),
+        Some(10000),
     );
     Ok((
         vec![entry, profit, loss],
@@ -415,7 +415,7 @@ pub fn handle_signal(
                                 Some(active_order.take_profit_tracker.trigger),
                                 None,
                                 None,
-                                Some(5000),
+                                Some(10000),
                             );
                             if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
                                 error!(
