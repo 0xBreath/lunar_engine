@@ -41,11 +41,12 @@ impl OrderBundleTrade {
 
     pub fn from_order_trade_event(order_trade_event: &OrderTradeEvent) -> Result<Self> {
         let order_type = OrderType::from_str(order_trade_event.order_type.as_str())?;
+        let status = OrderStatus::from_str(&order_trade_event.order_status)?;
         Ok(Self {
             client_order_id: order_trade_event.new_client_order_id.clone(),
             order_id: order_trade_event.order_id,
             order_type,
-            status: OrderStatus::from_str(&order_trade_event.order_status)?,
+            status,
             event_time: order_trade_event.event_time,
             quantity: order_trade_event
                 .qty
@@ -213,7 +214,7 @@ impl Account {
 
     /// Cancel all open orders for a single symbol
     pub fn cancel_all_active_orders(&self) -> Result<Vec<OrderCanceled>> {
-        let req = CancelOrders::request(self.ticker.clone(), Some(5000));
+        let req = CancelOrders::request(self.ticker.clone(), Some(10000));
         let res = self
             .client
             .delete_signed::<Vec<OrderCanceled>>(API::Spot(Spot::OpenOrders), Some(req));
@@ -257,7 +258,7 @@ impl Account {
                 let should_update = match active_id {
                     Some(active_id) => active_id == &event_id,
                     None => true,
-                };
+                } && order_status != OrderStatus::Canceled;
                 if should_update {
                     let mut updated_order = order_bundle.clone();
                     match order_type.as_str() {
@@ -289,11 +290,20 @@ impl Account {
                 }
             }
             // active order should be set to Some before getting order updates via websocket
+            // unless the update is cancelling of remaining orders in active order
             None => {
-                error!("Active order should have been created on order placement!");
-                return Err(BinanceError::Custom(
-                    "Active order should have been created on order placement!".to_string(),
-                ));
+                let order_status = OrderStatus::from_str(&event.order_status)?;
+                if order_status != OrderStatus::Canceled {
+                    error!("Active order should have been created on order placement!");
+                    return Err(BinanceError::Custom(
+                        "Active order should have been created on order placement!".to_string(),
+                    ));
+                } else {
+                    info!(
+                        "Active order cancelled, removing {}",
+                        event.new_client_order_id
+                    );
+                }
             }
         }
 
@@ -386,7 +396,7 @@ impl Account {
 
     pub fn log_active_order(&self) {
         match &self.active_order {
-            None => info!("No active order to log"),
+            None => info!("No active order"),
             Some(active_order) => {
                 let take_profit = match &active_order.take_profit {
                     None => "None".to_string(),

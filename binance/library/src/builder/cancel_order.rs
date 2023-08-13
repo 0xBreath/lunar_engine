@@ -33,6 +33,10 @@ impl CancelOrder {
         if let Some(recv_window) = self.recv_window {
             btree.insert("recvWindow".to_string(), recv_window.to_string());
         }
+        btree.insert(
+            "newClientOrderId".to_string(),
+            format!("{}-{}", timestamp, "CANCEL"),
+        );
         btree
     }
 
