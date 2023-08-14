@@ -49,7 +49,7 @@ lazy_static! {
                     Some(BINANCE_TEST_API_SECRET.to_string()),
                     BINANCE_TEST_API.to_string()
                 ),
-                recv_window: 5000,
+                recv_window: 10000,
                 base_asset: BASE_ASSET.to_string(),
                 quote_asset: QUOTE_ASSET.to_string(),
                 ticker: TICKER.to_string(),
@@ -63,7 +63,7 @@ lazy_static! {
                     Some(BINANCE_LIVE_API_SECRET.to_string()),
                     BINANCE_LIVE_API.to_string()
                 ),
-                recv_window: 5000,
+                recv_window: 10000,
                 base_asset: BASE_ASSET.to_string(),
                 quote_asset: QUOTE_ASSET.to_string(),
                 ticker: TICKER.to_string(),
@@ -109,7 +109,7 @@ async fn main() -> Result<()> {
     info!("Starting Binance PLPL!");
 
     // PLPL parameters; tuned for 5 minute candles
-    let trailing_take_profit = ExitType::Percent(0.5);
+    let trailing_take_profit = ExitType::Fixed(350);
     let stop_loss = ExitType::Percent(0.05);
     let planet = Planet::from("Jupiter");
     let plpl_scale = 0.5;
