@@ -386,11 +386,15 @@ pub fn handle_signal(
             let take_profit_action = active_order.take_profit_tracker.check(candle);
             match take_profit_action {
                 UpdateAction::None => debug!("Take profit updated"),
-                UpdateAction::Close => info!(
-                    "Take profit triggered @ {} | {}",
-                    candle.close,
-                    date.to_string()
-                ),
+                UpdateAction::Close => {
+                    info!(
+                        "Take profit triggered @ {} | {}",
+                        candle.close,
+                        date.to_string()
+                    );
+                    account.cancel_all_active_orders()?;
+                    account.active_order = None;
+                }
                 UpdateAction::CancelAndUpdate => {
                     // cancel take profit order and place new one
                     match active_order.take_profit {
