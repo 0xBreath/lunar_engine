@@ -130,13 +130,25 @@ pub fn trade_qty(
         "{}, Free: {}, Locked: {}",
         base_asset, assets.free_base, assets.locked_base,
     );
+    // if long, check short has 2x balance for exit order
+    // if short, check long has 2x balance for exit order
+    // if not, error
+    let long_qty = assets.free_quote / candle.close * 1.0 / 3.0;
+    let short_qty = assets.free_base * 0.33;
+
     Ok(match side {
         Side::Long => {
-            let qty = assets.free_quote / candle.close * 0.98 * 0.33;
+            let qty = match long_qty > short_qty / 2.0 {
+                true => short_qty / 2.0,
+                false => long_qty,
+            };
             BinanceTrade::round(qty, 5)
         }
         Side::Short => {
-            let qty = assets.free_base * 0.98 * 0.33;
+            let qty = match short_qty > long_qty / 2.0 {
+                true => long_qty / 2.0,
+                false => short_qty,
+            };
             BinanceTrade::round(qty, 5)
         }
     })
@@ -164,8 +176,7 @@ pub fn plpl_long(
     let limit = BinanceTrade::round_price(candle.close);
     let entry = BinanceTrade::new(
         ticker.to_string(),
-        timestamp.to_string(),
-        "ENTRY".to_string(),
+        format!("{}-{}", timestamp, "ENTRY"),
         Side::Long,
         OrderType::Limit,
         long_qty,
@@ -178,8 +189,7 @@ pub fn plpl_long(
         TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Long);
     let profit = BinanceTrade::new(
         ticker.to_string(),
-        timestamp.to_string(),
-        "TAKE_PROFIT".to_string(),
+        format!("{}-{}", timestamp, "TAKE_PROFIT"),
         Side::Short,
         OrderType::Limit,
         long_qty,
@@ -191,8 +201,7 @@ pub fn plpl_long(
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
     let loss = BinanceTrade::new(
         ticker.to_string(),
-        timestamp.to_string(),
-        "STOP_LOSS".to_string(),
+        format!("{}-{}", timestamp, "STOP_LOSS"),
         Side::Short,
         OrderType::Limit,
         long_qty,
@@ -227,8 +236,7 @@ pub fn plpl_short(
     let limit = BinanceTrade::round_price(candle.close);
     let entry = BinanceTrade::new(
         ticker.to_string(),
-        timestamp.to_string(),
-        "ENTRY".to_string(),
+        format!("{}-{}", timestamp, "ENTRY"),
         Side::Short,
         OrderType::Limit,
         short_qty,
@@ -241,8 +249,7 @@ pub fn plpl_short(
         TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Short);
     let profit = BinanceTrade::new(
         ticker.to_string(),
-        timestamp.to_string(),
-        "TAKE_PROFIT".to_string(),
+        format!("{}-{}", timestamp, "TAKE_PROFIT"),
         Side::Long,
         OrderType::Limit,
         short_qty,
@@ -254,8 +261,7 @@ pub fn plpl_short(
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
     let loss = BinanceTrade::new(
         ticker.to_string(),
-        timestamp.to_string(),
-        "STOP_LOSS".to_string(),
+        format!("{}-{}", timestamp, "STOP_LOSS"),
         Side::Long,
         OrderType::Limit,
         short_qty,
@@ -407,12 +413,16 @@ pub fn handle_signal(
                         Some(tp) => {
                             // cancel exiting trailing take profit order
                             let res = account.cancel_order(tp.order_id)?;
+                            let orig_client_order_id =
+                                res.orig_client_order_id.ok_or(BinanceError::Custom(
+                                    "OrderCanceled orig client order id is none".to_string(),
+                                ))?;
+                            info!("Cancel and update take profit: {:?}", orig_client_order_id);
                             // place new take profit order with updated trigger price
                             let exit_side = active_order.take_profit_tracker.exit_side;
                             let trade = BinanceTrade::new(
                                 res.symbol,
-                                timestamp,
-                                "TAKE_PROFIT".to_string(),
+                                orig_client_order_id,
                                 exit_side.clone(),
                                 OrderType::Limit,
                                 tp.quantity,

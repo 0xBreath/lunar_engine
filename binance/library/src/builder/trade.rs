@@ -28,8 +28,7 @@ impl BinanceTrade {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         symbol: String,
-        timestamp: String,
-        order_id_suffix: String,
+        client_order_id: String,
         side: Side,
         order_type: OrderType,
         quantity: f64,
@@ -38,7 +37,6 @@ impl BinanceTrade {
         trailing_stop: Option<f64>,
         recv_window: Option<u32>,
     ) -> Self {
-        let client_order_id = format!("{}-{}", timestamp, order_id_suffix);
         Self {
             symbol,
             side,
