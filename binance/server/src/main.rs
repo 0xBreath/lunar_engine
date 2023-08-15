@@ -126,7 +126,7 @@ async fn cancel_orders() -> Result<HttpResponse, Error> {
     info!("Cancel all active orders");
     let account = ACCOUNT.lock().await;
     let res = account
-        .cancel_all_active_orders()
+        .cancel_all_open_orders()
         .expect("failed to cancel orders");
     let ids = res
         .iter()

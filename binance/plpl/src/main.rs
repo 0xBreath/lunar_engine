@@ -152,31 +152,27 @@ async fn main() -> Result<()> {
     let listen_key = answer.listen_key;
 
     // cancel all open orders to start with a clean slate
-    let reset_orders = account.cancel_all_active_orders();
-    if let Err(e) = reset_orders {
-        if let BinanceError::Binance(err) = &e {
-            if err.code != -2011 {
-                return Err(e);
-            }
-        }
-    }
+    account.cancel_all_open_orders()?;
 
     let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
-        let start = SystemTime::now();
-        // check if timestamp is 30 minutes after UserStream last keep alive ping
-        let secs_since_keep_alive = start
+        let now = SystemTime::now();
+        // check if timestamp is 10 minutes after last UserStream keep alive ping
+        let secs_since_keep_alive = now
             .duration_since(user_stream_keep_alive_time)
             .map(|d| d.as_secs())
             .map_err(|e| BinanceError::Custom(e.to_string()))?;
 
-        if secs_since_keep_alive > 30 * 60 {
-            let now =
-                Time::from_unix_msec(start.duration_since(UNIX_EPOCH).unwrap().as_millis() as i64);
+        if secs_since_keep_alive > 10 * 60 {
             match user_stream.keep_alive(&listen_key) {
-                Ok(_) => info!("Keep alive user stream @ {}", now.to_string()),
-                Err(e) => error!("Error keeping alive user stream: {}", e),
+                Ok(_) => {
+                    let now = Time::from_unix_msec(
+                        now.duration_since(UNIX_EPOCH).unwrap().as_millis() as i64,
+                    );
+                    info!("Keep alive user stream @ {}", now.to_string())
+                }
+                Err(e) => error!("Error on user stream keep alive: {}", e),
             }
-            user_stream_keep_alive_time = start;
+            user_stream_keep_alive_time = now;
         }
 
         match event {

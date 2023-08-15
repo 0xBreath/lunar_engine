@@ -334,7 +334,7 @@ pub fn handle_signal(
                             order_type,
                             e
                         );
-                        account.cancel_all_active_orders()?;
+                        account.cancel_all_open_orders()?;
                         account.active_order = None;
                         return Err(e);
                     }
@@ -380,7 +380,7 @@ pub fn handle_signal(
                             order_type,
                             e
                         );
-                        account.cancel_all_active_orders()?;
+                        account.cancel_all_open_orders()?;
                         account.active_order = None;
                         return Err(e);
                     }
@@ -398,7 +398,7 @@ pub fn handle_signal(
                         candle.close,
                         date.to_string()
                     );
-                    account.cancel_all_active_orders()?;
+                    account.cancel_all_open_orders()?;
                     account.active_order = None;
                 }
                 UpdateAction::CancelAndUpdate => {
@@ -437,7 +437,7 @@ pub fn handle_signal(
                                     exit_side.fmt_binance(),
                                     e
                                 );
-                                account.cancel_all_active_orders()?;
+                                account.cancel_all_open_orders()?;
                                 account.active_order = None;
                                 return Err(e);
                             }

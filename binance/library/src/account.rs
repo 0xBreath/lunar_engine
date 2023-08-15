@@ -24,7 +24,7 @@ impl OrderBundleTrade {
     pub fn from_historical_order(historical_order: &HistoricalOrder) -> Result<Self> {
         Ok(Self {
             client_order_id: historical_order.client_order_id.clone(),
-            order_id: historical_order.order_id.clone(),
+            order_id: historical_order.order_id,
             order_type: OrderType::from_str(historical_order._type.as_str())?,
             status: OrderStatus::from_str(&historical_order.status)?,
             event_time: historical_order.update_time as u64,
@@ -213,7 +213,7 @@ impl Account {
     }
 
     /// Cancel all open orders for a single symbol
-    pub fn cancel_all_active_orders(&self) -> Result<Vec<OrderCanceled>> {
+    pub fn cancel_all_open_orders(&self) -> Result<Vec<OrderCanceled>> {
         let req = CancelOrders::request(self.ticker.clone(), Some(10000));
         let res = self
             .client
@@ -224,7 +224,7 @@ impl Account {
                     error!("Failed to cancel all active orders: {:?}", e);
                     return Err(BinanceError::Binance(err.clone()));
                 } else {
-                    trace!("No active orders to cancel");
+                    debug!("No open orders to cancel");
                 }
             }
         }
@@ -293,16 +293,11 @@ impl Account {
             // unless the update is cancelling of remaining orders in active order
             None => {
                 let order_status = OrderStatus::from_str(&event.order_status)?;
-                if order_status != OrderStatus::Canceled {
+                if order_status == OrderStatus::New {
                     error!("Active order should have been created on order placement!");
                     return Err(BinanceError::Custom(
                         "Active order should have been created on order placement!".to_string(),
                     ));
-                } else {
-                    info!(
-                        "Active order cancelled, removing {}",
-                        event.new_client_order_id
-                    );
                 }
             }
         }
@@ -325,7 +320,7 @@ impl Account {
                         OrderStatus::Filled | OrderStatus::PartiallyFilled,
                         OrderStatus::Filled | OrderStatus::PartiallyFilled,
                     ) => {
-                        self.cancel_all_active_orders()?;
+                        self.cancel_all_open_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                         error!(
                             "Order bundle {} orders all filled. Should never happen.",
@@ -345,7 +340,7 @@ impl Account {
                         OrderStatus::New,
                         OrderStatus::Filled | OrderStatus::PartiallyFilled,
                     ) => {
-                        self.cancel_all_active_orders()?;
+                        self.cancel_all_open_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                         info!("LOSS -- Order bundle {} exited with stop loss", id);
                         updated_order = None;
@@ -357,7 +352,7 @@ impl Account {
                         OrderStatus::Filled | OrderStatus::PartiallyFilled,
                         OrderStatus::New,
                     ) => {
-                        self.cancel_all_active_orders()?;
+                        self.cancel_all_open_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                         info!(
                             "WIN -- Order bundle {} exited with trailing take profit",
@@ -377,7 +372,7 @@ impl Account {
                     }
                     _ => {
                         error!("Invalid OrderBundle order status combination. Cancelling all orders to start from scratch.");
-                        self.cancel_all_active_orders()?;
+                        self.cancel_all_open_orders()?;
                         updated_order = None;
                     }
                 }
@@ -396,7 +391,7 @@ impl Account {
 
     pub fn log_active_order(&self) {
         match &self.active_order {
-            None => info!("No active order"),
+            None => debug!("No active order"),
             Some(active_order) => {
                 let take_profit = match &active_order.take_profit {
                     None => "None".to_string(),
