@@ -237,7 +237,9 @@ async fn main() -> Result<()> {
                     }
                 }
                 // time to process
-                let elapsed = SystemTime::now().duration_since(start).unwrap();
+                let elapsed = SystemTime::now().duration_since(now).map_err(|e| {
+                    BinanceError::Custom(format!("Failed to get duration since: {}", e))
+                })?;
                 if trade_placed {
                     info!("Time to process PLPL trade: {:?}ms", elapsed.as_millis());
                 }

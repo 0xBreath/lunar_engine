@@ -154,6 +154,14 @@ pub fn trade_qty(
     })
 }
 
+pub struct OrderBuilder {
+    pub entry: BinanceTrade,
+    pub take_profit: BinanceTrade,
+    pub stop_loss: BinanceTrade,
+    pub take_profit_tracker: TrailingTakeProfitTracker,
+    pub stop_loss_tracker: StopLossTracker,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn plpl_long(
     account_info: &AccountInfoResponse,
@@ -164,11 +172,7 @@ pub fn plpl_long(
     ticker: &str,
     quote_asset: &str,
     base_asset: &str,
-) -> Result<(
-    Vec<BinanceTrade>,
-    TrailingTakeProfitTracker,
-    StopLossTracker,
-)> {
+) -> Result<OrderBuilder> {
     // each order gets 1/3 of 99% of account balance
     // 99% is to account for fees
     // 1/3 is to account for 3 orders
@@ -210,11 +214,13 @@ pub fn plpl_long(
         None,
         Some(10000),
     );
-    Ok((
-        vec![entry, profit, loss],
-        trailing_take_profit_tracker,
+    Ok(OrderBuilder {
+        entry,
+        take_profit: profit,
+        stop_loss: loss,
+        take_profit_tracker: trailing_take_profit_tracker,
         stop_loss_tracker,
-    ))
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -227,11 +233,7 @@ pub fn plpl_short(
     ticker: &str,
     quote_asset: &str,
     base_asset: &str,
-) -> Result<(
-    Vec<BinanceTrade>,
-    TrailingTakeProfitTracker,
-    StopLossTracker,
-)> {
+) -> Result<OrderBuilder> {
     let short_qty = trade_qty(account_info, quote_asset, base_asset, Side::Short, candle)?;
     let limit = BinanceTrade::round_price(candle.close);
     let entry = BinanceTrade::new(
@@ -270,147 +272,45 @@ pub fn plpl_short(
         None,
         Some(10000),
     );
-    Ok((
-        vec![entry, profit, loss],
-        trailing_take_profit_tracker,
+    Ok(OrderBuilder {
+        entry,
+        take_profit: profit,
+        stop_loss: loss,
+        take_profit_tracker: trailing_take_profit_tracker,
         stop_loss_tracker,
-    ))
+    })
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn handle_signal(
-    plpl_system: &PLPLSystem,
-    plpl: f32,
-    prev_candle: &Candle,
+fn check_trailing_take_profit(
     candle: &Candle,
     date: &Time,
-    timestamp: String,
     account: &mut MutexGuard<Account>,
-    active_order: Option<OrderBundle>,
-    trailing_take_profit: ExitType,
-    stop_loss: ExitType,
-) -> Result<bool> {
-    let mut trade_placed = false;
-    match active_order {
-        None => {
-            if plpl_system.long_signal(prev_candle, candle, plpl) {
-                // if position is None, enter Long
-                // else ignore signal and let active trade play out
-                info!(
-                    "No active order, enter Long @ {} | {}",
-                    candle.close,
-                    date.to_string()
-                );
-                let account_info = account.account_info()?;
-                let (trades, tp_tracker, sl_tracker) = plpl_long(
-                    &account_info,
-                    &timestamp,
-                    candle,
-                    trailing_take_profit,
-                    stop_loss,
-                    TICKER,
-                    QUOTE_ASSET,
-                    BASE_ASSET,
-                )?;
-                account.active_order = Some(OrderBundle::new(
-                    None,
-                    None,
-                    Side::Long,
-                    None,
-                    None,
-                    tp_tracker,
-                    None,
-                    sl_tracker,
-                ));
-                account.log_active_order();
-                for trade in trades {
-                    let side = trade.side.clone();
-                    let client_order_id = trade.client_order_id.clone();
-                    let order_type = OrderBundle::client_order_id_suffix(&client_order_id);
-                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                        error!(
-                            "Error entering {} for {}: {:?}",
-                            side.fmt_binance(),
-                            order_type,
-                            e
-                        );
-                        account.cancel_all_open_orders()?;
-                        account.active_order = None;
-                        return Err(e);
-                    }
-                }
-                trade_placed = true;
-            } else if plpl_system.short_signal(prev_candle, candle, plpl) {
-                // if position is None, enter Short
-                // else ignore signal and let active trade play out
-                info!(
-                    "No active order, enter Short @ {} | {}",
-                    candle.close,
-                    date.to_string()
-                );
-                let account_info = account.account_info()?;
-                let (trades, tp_tracker, sl_tracker) = plpl_short(
-                    &account_info,
-                    &timestamp,
-                    candle,
-                    trailing_take_profit,
-                    stop_loss,
-                    TICKER,
-                    QUOTE_ASSET,
-                    BASE_ASSET,
-                )?;
-                account.active_order = Some(OrderBundle::new(
-                    None,
-                    None,
-                    Side::Short,
-                    None,
-                    None,
-                    tp_tracker,
-                    None,
-                    sl_tracker,
-                ));
-                account.log_active_order();
-                for trade in trades {
-                    let side = trade.side.clone();
-                    let order_type = OrderBundle::client_order_id_suffix(&trade.client_order_id);
-                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                        error!(
-                            "Error entering {} for {}: {:?}",
-                            side.fmt_binance(),
-                            order_type,
-                            e
-                        );
-                        account.cancel_all_open_orders()?;
-                        account.active_order = None;
-                        return Err(e);
-                    }
-                }
-                trade_placed = true;
-            }
+    mut active_order: OrderBundle,
+) -> Result<Option<OrderBundle>> {
+    let take_profit_action = active_order.take_profit_tracker.check(candle);
+    match take_profit_action {
+        UpdateAction::None => debug!("Take profit updated"),
+        UpdateAction::Close => {
+            info!(
+                "Take profit triggered @ {} | {}",
+                candle.close,
+                date.to_string()
+            );
+            account.cancel_all_open_orders()?;
+            account.active_order = None;
         }
-        Some(mut active_order) => {
-            let take_profit_action = active_order.take_profit_tracker.check(candle);
-            match take_profit_action {
-                UpdateAction::None => debug!("Take profit updated"),
-                UpdateAction::Close => {
-                    info!(
-                        "Take profit triggered @ {} | {}",
-                        candle.close,
-                        date.to_string()
-                    );
-                    account.cancel_all_open_orders()?;
-                    account.active_order = None;
+        UpdateAction::CancelAndUpdate => {
+            // cancel take profit order and place new one
+            match active_order.take_profit {
+                None => {
+                    error!("No take profit order to cancel");
+                    return Err(BinanceError::Custom(
+                        "No take profit order to cancel".to_string(),
+                    ));
                 }
-                UpdateAction::CancelAndUpdate => {
-                    // cancel take profit order and place new one
-                    match active_order.take_profit {
-                        None => {
-                            error!("No take profit order to cancel");
-                            return Err(BinanceError::Custom(
-                                "No take profit order to cancel".to_string(),
-                            ));
-                        }
-                        Some(tp) => {
+                Some(tp) => {
+                    match tp {
+                        PendingOrActiveOrder::Active(tp) => {
                             // cancel exiting trailing take profit order
                             let res = account.cancel_order(tp.order_id)?;
                             let orig_client_order_id =
@@ -442,7 +342,178 @@ pub fn handle_signal(
                                 return Err(e);
                             }
                         }
+                        PendingOrActiveOrder::Pending(tp) => {
+                            debug!("Take profit order is pending, ignore cancel and update");
+                        }
                     }
+                }
+            }
+        }
+    }
+    Ok(account.active_order.clone())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn handle_signal(
+    plpl_system: &PLPLSystem,
+    plpl: f32,
+    prev_candle: &Candle,
+    candle: &Candle,
+    date: &Time,
+    timestamp: String,
+    account: &mut MutexGuard<Account>,
+    active_order: Option<OrderBundle>,
+    trailing_take_profit: ExitType,
+    stop_loss: ExitType,
+) -> Result<bool> {
+    let mut trade_placed = false;
+    match active_order {
+        None => {
+            if plpl_system.long_signal(prev_candle, candle, plpl) {
+                // if position is None, enter Long
+                // else ignore signal and let active trade play out
+                info!(
+                    "No active order, enter Long @ {} | {}",
+                    candle.close,
+                    date.to_string()
+                );
+                let account_info = account.account_info()?;
+                let order_builder = plpl_long(
+                    &account_info,
+                    &timestamp,
+                    candle,
+                    trailing_take_profit,
+                    stop_loss,
+                    TICKER,
+                    QUOTE_ASSET,
+                    BASE_ASSET,
+                )?;
+                account.active_order = Some(OrderBundle::new(
+                    None,
+                    None,
+                    Side::Long,
+                    None,
+                    Some(PendingOrActiveOrder::Pending(order_builder.take_profit)),
+                    order_builder.take_profit_tracker,
+                    Some(PendingOrActiveOrder::Pending(order_builder.stop_loss)),
+                    order_builder.stop_loss_tracker,
+                ));
+                account.log_active_order();
+
+                // place entry order
+                let side = order_builder.entry.side.clone();
+                let client_order_id = order_builder.entry.client_order_id.clone();
+                let order_type = OrderBundle::client_order_id_suffix(&client_order_id);
+                if let Err(e) = account.trade::<LimitOrderResponse>(order_builder.entry) {
+                    error!(
+                        "Error entering {} for {}: {:?}",
+                        side.fmt_binance(),
+                        order_type,
+                        e
+                    );
+                    account.cancel_all_open_orders()?;
+                    account.active_order = None;
+                    return Err(e);
+                }
+                trade_placed = true;
+            } else if plpl_system.short_signal(prev_candle, candle, plpl) {
+                // if position is None, enter Short
+                // else ignore signal and let active trade play out
+                info!(
+                    "No active order, enter Short @ {} | {}",
+                    candle.close,
+                    date.to_string()
+                );
+                let account_info = account.account_info()?;
+                let order_builder = plpl_short(
+                    &account_info,
+                    &timestamp,
+                    candle,
+                    trailing_take_profit,
+                    stop_loss,
+                    TICKER,
+                    QUOTE_ASSET,
+                    BASE_ASSET,
+                )?;
+                account.active_order = Some(OrderBundle::new(
+                    None,
+                    None,
+                    Side::Short,
+                    None,
+                    Some(PendingOrActiveOrder::Pending(order_builder.take_profit)),
+                    order_builder.take_profit_tracker,
+                    Some(PendingOrActiveOrder::Pending(order_builder.stop_loss)),
+                    order_builder.stop_loss_tracker,
+                ));
+                account.log_active_order();
+
+                // place entry order
+                let side = order_builder.entry.side.clone();
+                let order_type =
+                    OrderBundle::client_order_id_suffix(&order_builder.entry.client_order_id);
+                if let Err(e) = account.trade::<LimitOrderResponse>(order_builder.entry) {
+                    error!(
+                        "Error entering {} for {}: {:?}",
+                        side.fmt_binance(),
+                        order_type,
+                        e
+                    );
+                    account.cancel_all_open_orders()?;
+                    account.active_order = None;
+                    return Err(e);
+                }
+                trade_placed = true;
+            }
+        }
+        Some(active_order) => {
+            if let (Some(tp), Some(sl)) = (&active_order.take_profit, &active_order.stop_loss) {
+                match (tp, sl) {
+                    // check if trailing take profit should be updated
+                    (PendingOrActiveOrder::Active(_), PendingOrActiveOrder::Active(_)) => {
+                        account.active_order =
+                            check_trailing_take_profit(candle, date, account, active_order)?;
+                    }
+                    // check if exit orders should be placed
+                    (
+                        PendingOrActiveOrder::Pending(take_profit),
+                        PendingOrActiveOrder::Pending(stop_loss),
+                    ) => {
+                        if active_order.entry.is_some() {
+                            // place take profit order
+                            let side = take_profit.side.clone();
+                            let order_type =
+                                OrderBundle::client_order_id_suffix(&take_profit.client_order_id);
+                            if let Err(e) = account.trade::<LimitOrderResponse>(take_profit.clone())
+                            {
+                                error!(
+                                    "Error entering {} for {}: {:?}",
+                                    side.fmt_binance(),
+                                    order_type,
+                                    e
+                                );
+                                account.cancel_all_open_orders()?;
+                                account.active_order = None;
+                                return Err(e);
+                            }
+
+                            // place stop loss order
+                            let side = stop_loss.side.clone();
+                            let order_type =
+                                OrderBundle::client_order_id_suffix(&stop_loss.client_order_id);
+                            if let Err(e) = account.trade::<LimitOrderResponse>(stop_loss.clone()) {
+                                error!(
+                                    "Error entering {} for {}: {:?}",
+                                    side.fmt_binance(),
+                                    order_type,
+                                    e
+                                );
+                                account.cancel_all_open_orders()?;
+                                account.active_order = None;
+                                return Err(e);
+                            }
+                        }
+                    }
+                    _ => (),
                 }
             }
         }
