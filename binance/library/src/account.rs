@@ -64,21 +64,20 @@ impl TradeInfo {
 pub enum PendingOrActiveOrder {
     Pending(BinanceTrade),
     Active(TradeInfo),
+    Empty,
 }
 
 impl PendingOrActiveOrder {
     pub fn is_pending(&self) -> bool {
-        match self {
-            Self::Pending(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Pending(_))
     }
 
     pub fn is_active(&self) -> bool {
-        match self {
-            Self::Active(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Active(_))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        matches!(self, Self::Empty)
     }
 }
 
@@ -89,9 +88,9 @@ pub struct OrderBundle {
     pub side: Side,
     pub entry: Option<TradeInfo>,
     pub take_profit_tracker: TrailingTakeProfitTracker,
-    pub take_profit: Option<PendingOrActiveOrder>,
+    pub take_profit: PendingOrActiveOrder,
     pub stop_loss_tracker: StopLossTracker,
-    pub stop_loss: Option<PendingOrActiveOrder>,
+    pub stop_loss: PendingOrActiveOrder,
 }
 
 impl OrderBundle {
@@ -101,9 +100,9 @@ impl OrderBundle {
         timestamp: Option<u64>,
         side: Side,
         entry: Option<TradeInfo>,
-        take_profit: Option<PendingOrActiveOrder>,
+        take_profit: PendingOrActiveOrder,
         take_profit_tracker: TrailingTakeProfitTracker,
-        stop_loss: Option<PendingOrActiveOrder>,
+        stop_loss: PendingOrActiveOrder,
         stop_loss_tracker: StopLossTracker,
     ) -> Self {
         Self {
@@ -124,10 +123,6 @@ impl OrderBundle {
 
     pub fn client_order_id_suffix(client_order_id: &str) -> String {
         client_order_id.split('-').last().unwrap().to_string()
-    }
-
-    pub fn has_all(&self) -> bool {
-        self.entry.is_some() && self.take_profit.is_some() && self.stop_loss.is_some()
     }
 }
 
@@ -292,18 +287,18 @@ impl Account {
                             debug!("Updating active order take profit");
                             if order_status == OrderStatus::Canceled {
                                 info!("Take profit trigger updated, removing");
-                                updated_order.take_profit = None;
+                                updated_order.take_profit = PendingOrActiveOrder::Empty;
                             } else {
-                                updated_order.take_profit = Some(PendingOrActiveOrder::Active(
+                                updated_order.take_profit = PendingOrActiveOrder::Active(
                                     TradeInfo::from_order_trade_event(&event)?,
-                                ));
+                                );
                             }
                         }
                         "STOP_LOSS" => {
                             debug!("Updating active order stop loss");
-                            updated_order.stop_loss = Some(PendingOrActiveOrder::Active(
+                            updated_order.stop_loss = PendingOrActiveOrder::Active(
                                 TradeInfo::from_order_trade_event(&event)?,
-                            ));
+                            );
                         }
                         _ => {
                             error!("Invalid order event order type to update active order");
@@ -329,83 +324,81 @@ impl Account {
         // if all 3 orders exist in active order
         // determine whether to cancel, update, or do nothing based on trade status of each order
         if let Some(order_bundle) = &self.active_order {
-            if let (Some(entry), Some(tp), Some(sl)) = (
+            if let (
+                Some(entry),
+                PendingOrActiveOrder::Active(take_profit),
+                PendingOrActiveOrder::Active(stop_loss),
+            ) = (
                 &order_bundle.entry,
                 &order_bundle.take_profit,
                 &order_bundle.stop_loss,
             ) {
-                if let (
-                    PendingOrActiveOrder::Active(take_profit),
-                    PendingOrActiveOrder::Active(stop_loss),
-                ) = (tp, sl)
-                {
-                    let mut updated_order = self.active_order.clone();
-                    match (&entry.status, &take_profit.status, &stop_loss.status) {
-                        // If enter is FILLED && take profit is FILLED && stop loss is FILLED
-                        //      -> cancel open orders, log error, return None
-                        (
-                            OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                            OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                            OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                        ) => {
-                            self.cancel_all_open_orders()?;
-                            let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                            error!(
-                                "Order bundle {} orders all filled. Should never happen.",
-                                id
-                            );
-                        }
-                        // If enter is NEW && take profit is NEW && stop loss is NEW
-                        //      -> do nothing, order is active, return Some
-                        (OrderStatus::New, OrderStatus::New, OrderStatus::New) => {
-                            let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                            debug!("Order bundle {} orders all new", id);
-                        }
-                        // If entry is FILLED && take profit is NEW && stop loss is FILLED
-                        //      -> trade closed, cancel remaining exit order, return None
-                        (
-                            OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                            OrderStatus::New,
-                            OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                        ) => {
-                            self.cancel_all_open_orders()?;
-                            let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                            info!("LOSS -- Order bundle {} exited with stop loss", id);
-                            updated_order = None;
-                        }
-                        // If entry is FILLED && take profit is FILLED && stop loss is NEW
-                        //      -> trade closed, cancel remaining exit order, return None
-                        (
-                            OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                            OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                            OrderStatus::New,
-                        ) => {
-                            self.cancel_all_open_orders()?;
-                            let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                            info!(
-                                "WIN -- Order bundle {} exited with trailing take profit",
-                                id
-                            );
-                            updated_order = None;
-                        }
-                        // If enter is FILLED && take profit is NEW && stop loss is NEW
-                        //      -> trade is active, no nothing, return Some(active_order)
-                        (
-                            OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                            OrderStatus::New,
-                            OrderStatus::New,
-                        ) => {
-                            let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                            debug!("Order bundle {} is active", id);
-                        }
-                        _ => {
-                            error!("Invalid OrderBundle order status combination. Cancelling all orders to start from scratch.");
-                            self.cancel_all_open_orders()?;
-                            updated_order = None;
-                        }
+                let mut updated_order = self.active_order.clone();
+                match (&entry.status, &take_profit.status, &stop_loss.status) {
+                    // If enter is FILLED && take profit is FILLED && stop loss is FILLED
+                    //      -> cancel open orders, log error, return None
+                    (
+                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
+                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
+                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
+                    ) => {
+                        self.cancel_all_open_orders()?;
+                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
+                        error!(
+                            "Order bundle {} orders all filled. Should never happen.",
+                            id
+                        );
                     }
-                    self.active_order = updated_order;
+                    // If enter is NEW && take profit is NEW && stop loss is NEW
+                    //      -> do nothing, order is active, return Some
+                    (OrderStatus::New, OrderStatus::New, OrderStatus::New) => {
+                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
+                        debug!("Order bundle {} orders all new", id);
+                    }
+                    // If entry is FILLED && take profit is NEW && stop loss is FILLED
+                    //      -> trade closed, cancel remaining exit order, return None
+                    (
+                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
+                        OrderStatus::New,
+                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
+                    ) => {
+                        self.cancel_all_open_orders()?;
+                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
+                        info!("LOSS -- Order bundle {} exited with stop loss", id);
+                        updated_order = None;
+                    }
+                    // If entry is FILLED && take profit is FILLED && stop loss is NEW
+                    //      -> trade closed, cancel remaining exit order, return None
+                    (
+                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
+                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
+                        OrderStatus::New,
+                    ) => {
+                        self.cancel_all_open_orders()?;
+                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
+                        info!(
+                            "WIN -- Order bundle {} exited with trailing take profit",
+                            id
+                        );
+                        updated_order = None;
+                    }
+                    // If enter is FILLED && take profit is NEW && stop loss is NEW
+                    //      -> trade is active, no nothing, return Some(active_order)
+                    (
+                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
+                        OrderStatus::New,
+                        OrderStatus::New,
+                    ) => {
+                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
+                        debug!("Order bundle {} is active", id);
+                    }
+                    _ => {
+                        error!("Invalid OrderBundle order status combination. Cancelling all orders to start from scratch.");
+                        self.cancel_all_open_orders()?;
+                        updated_order = None;
+                    }
                 }
+                self.active_order = updated_order;
             }
         }
         // =========================================
@@ -423,23 +416,19 @@ impl Account {
             None => debug!("No active order"),
             Some(active_order) => {
                 let take_profit = match &active_order.take_profit {
-                    None => "None".to_string(),
-                    Some(take_profit) => match take_profit {
-                        PendingOrActiveOrder::Active(take_profit) => {
-                            format!("{:?}", take_profit.status)
-                        }
-                        PendingOrActiveOrder::Pending(_) => "Pending".to_string(),
-                    },
+                    PendingOrActiveOrder::Active(take_profit) => {
+                        format!("{:?}", take_profit.status)
+                    }
+                    PendingOrActiveOrder::Pending(_) => "Pending".to_string(),
+                    PendingOrActiveOrder::Empty => "Empty".to_string(),
                 };
                 let tp_trigger = active_order.take_profit_tracker.trigger;
                 let stop_loss = match &active_order.stop_loss {
-                    None => "None".to_string(),
-                    Some(stop_loss) => match stop_loss {
-                        PendingOrActiveOrder::Active(stop_loss) => {
-                            format!("{:?}", stop_loss.status)
-                        }
-                        PendingOrActiveOrder::Pending(_) => "Pending".to_string(),
-                    },
+                    PendingOrActiveOrder::Active(stop_loss) => {
+                        format!("{:?}", stop_loss.status)
+                    }
+                    PendingOrActiveOrder::Pending(_) => "Pending".to_string(),
+                    PendingOrActiveOrder::Empty => "Empty".to_string(),
                 };
                 let sl_trigger = active_order.stop_loss_tracker.trigger;
                 match &active_order.entry {
