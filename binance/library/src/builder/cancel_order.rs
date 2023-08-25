@@ -3,15 +3,17 @@ use std::io::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct CancelOrder {
-    /// Ticker symbol (e.g. BTCUSDC)
     pub order_id: u64,
+    /// Ticker symbol (e.g. BTCUSDC)
+    pub symbol: String,
     pub recv_window: Option<u32>,
 }
 
 impl CancelOrder {
-    pub fn request(order_id: u64, recv_window: Option<u32>) -> String {
+    pub fn request(order_id: u64, symbol: String, recv_window: Option<u32>) -> String {
         let me = Self {
             order_id,
+            symbol,
             recv_window,
         };
         me.create_request()
@@ -37,6 +39,7 @@ impl CancelOrder {
             "newClientOrderId".to_string(),
             format!("{}-{}", timestamp, "CANCEL"),
         );
+        btree.insert("symbol".to_string(), self.symbol.to_string());
         btree
     }
 

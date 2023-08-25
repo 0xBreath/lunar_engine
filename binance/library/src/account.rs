@@ -252,7 +252,7 @@ impl Account {
 
     pub fn cancel_order(&self, order_id: u64) -> Result<OrderCanceled> {
         info!("Cancelling order {}", order_id);
-        let req = CancelOrder::request(order_id, Some(10000));
+        let req = CancelOrder::request(order_id, self.ticker, Some(10000));
         let res = self
             .client
             .delete_signed::<OrderCanceled>(API::Spot(Spot::Order), Some(req));
