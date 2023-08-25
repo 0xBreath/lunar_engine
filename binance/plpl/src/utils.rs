@@ -340,7 +340,7 @@ fn check_trailing_take_profit(
                         return Err(e);
                     }
                 }
-                PendingOrActiveOrder::Pending(tp) => {
+                PendingOrActiveOrder::Pending(_) => {
                     debug!("Take profit order is pending, ignore cancel and update");
                 }
             }

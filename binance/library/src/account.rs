@@ -250,8 +250,20 @@ impl Account {
 
     pub fn cancel_order(&self, order_id: u64) -> Result<OrderCanceled> {
         let req = CancelOrder::request(order_id, Some(10000));
-        self.client
-            .delete_signed::<OrderCanceled>(API::Spot(Spot::Order), Some(req))
+        let res = self
+            .client
+            .delete_signed::<OrderCanceled>(API::Spot(Spot::Order), Some(req));
+        if let Err(e) = &res {
+            if let BinanceError::Binance(err) = &e {
+                if err.code != -2011 {
+                    error!("Failed to cancel order: {:?}", e);
+                    return Err(BinanceError::Binance(err.clone()));
+                } else {
+                    debug!("No order to cancel");
+                }
+            }
+        }
+        res
     }
 
     /// Update active order via websocket stream of [`OrderTradeEvent`]
