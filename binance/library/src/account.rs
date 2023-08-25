@@ -243,6 +243,7 @@ impl Account {
                     return Err(BinanceError::Binance(err.clone()));
                 } else {
                     debug!("No open orders to cancel");
+                    return Ok(vec![]);
                 }
             }
         }
