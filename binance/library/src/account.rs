@@ -231,6 +231,7 @@ impl Account {
 
     /// Cancel all open orders for a single symbol
     pub fn cancel_all_open_orders(&self) -> Result<Vec<OrderCanceled>> {
+        info!("Cancelling all active orders");
         let req = CancelOrders::request(self.ticker.clone(), Some(10000));
         let res = self
             .client
@@ -249,6 +250,7 @@ impl Account {
     }
 
     pub fn cancel_order(&self, order_id: u64) -> Result<OrderCanceled> {
+        info!("Cancelling order {}", order_id);
         let req = CancelOrder::request(order_id, Some(10000));
         let res = self
             .client
@@ -290,7 +292,7 @@ impl Account {
                 } && order_status != OrderStatus::Canceled;
                 if should_update {
                     let mut updated_order = order_bundle.clone();
-                    match order_type.as_str() {
+                    match &*order_type {
                         "ENTRY" => {
                             debug!("Updating active order entry");
                             updated_order.entry = Some(TradeInfo::from_order_trade_event(&event)?);
