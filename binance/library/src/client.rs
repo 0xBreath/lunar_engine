@@ -80,7 +80,7 @@ impl Client {
                 url.push_str(format!("?{}", request).as_str());
             }
         }
-        info!("url: {}", url);
+        debug!("url: {}", url);
         let client = &self.inner_client;
         let response = client
             .get(url.as_str())

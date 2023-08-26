@@ -6,8 +6,10 @@ use crate::model::*;
 use crate::{BinanceError, StopLossTracker, TrailingTakeProfitTracker};
 use log::*;
 use serde::de::DeserializeOwned;
+use std::fmt::Debug;
 use std::str::FromStr;
 use std::time::SystemTime;
+use time_series::precise_round;
 
 #[derive(Debug, Clone)]
 pub struct TradeInfo {
@@ -336,7 +338,7 @@ impl Account {
             }
         }
 
-        // =========================================
+        // ==================================================================================
         // if all 3 orders exist in active order
         // determine whether to cancel, update, or do nothing based on trade status of each order
         if let Some(order_bundle) = &self.active_order {
@@ -380,7 +382,19 @@ impl Account {
                     ) => {
                         self.cancel_all_open_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        info!("LOSS -- Order bundle {} exited with stop loss", id);
+                        let pnl = precise_round!(
+                            match order_bundle.side {
+                                Side::Long => {
+                                    (stop_loss.price - entry.price) / entry.price * 100_f64
+                                }
+                                Side::Short => {
+                                    (entry.price - stop_loss.price) / entry.price * 100_f64
+                                }
+                            },
+                            5
+                        );
+                        info!("❌ LOSS -- {} exited with stop loss", id);
+                        info!("PnL: {} %", pnl);
                         updated_order = None;
                     }
                     // If entry is FILLED && take profit is FILLED && stop loss is NEW
@@ -392,10 +406,19 @@ impl Account {
                     ) => {
                         self.cancel_all_open_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        info!(
-                            "WIN -- Order bundle {} exited with trailing take profit",
-                            id
+                        let pnl = precise_round!(
+                            match order_bundle.side {
+                                Side::Long => {
+                                    (take_profit.price - entry.price) / entry.price * 100_f64
+                                }
+                                Side::Short => {
+                                    (entry.price - take_profit.price) / entry.price * 100_f64
+                                }
+                            },
+                            5
                         );
+                        info!("✅ WIN -- {} exited with trailing take profit", id);
+                        info!("PnL: {} %", pnl);
                         updated_order = None;
                     }
                     // If enter is FILLED && take profit is NEW && stop loss is NEW
@@ -409,7 +432,7 @@ impl Account {
                         debug!("Order bundle {} is active", id);
                     }
                     _ => {
-                        error!("Invalid OrderBundle order status combination. Canceling all orders to start from scratch.");
+                        error!("Invalid active order status combination. Canceling all orders to start from scratch.");
                         self.cancel_all_open_orders()?;
                         updated_order = None;
                     }
@@ -503,16 +526,16 @@ impl Account {
         let base_balance = assets.free_base;
 
         let sum = quote_balance + base_balance;
-        let equal = BinanceTrade::round(sum / 2_f64, 5);
-        let quote_diff = BinanceTrade::round(quote_balance - equal, 5);
-        let base_diff = BinanceTrade::round(base_balance - equal, 5);
+        let equal = precise_round!(sum / 2_f64, 5);
+        let quote_diff = precise_round!(quote_balance - equal, 5);
+        let base_diff = precise_round!(base_balance - equal, 5);
         let min_notional = 0.001;
 
         // buy BTC
         if quote_diff > 0_f64 && quote_diff > min_notional {
             let timestamp = BinanceTrade::get_timestamp()?;
             let client_order_id = format!("{}-{}", timestamp, "EQUALIZE_QUOTE");
-            let long_qty = BinanceTrade::round(quote_diff, 5);
+            let long_qty = precise_round!(quote_diff, 5);
             info!(
                 "Quote asset too high = {} {}, 50/50 = {} {}, buy base asset = {} {}",
                 quote_balance * price,
@@ -543,7 +566,7 @@ impl Account {
         if base_diff > 0_f64 && base_diff > min_notional {
             let timestamp = BinanceTrade::get_timestamp()?;
             let client_order_id = format!("{}-{}", timestamp, "EQUALIZE_BASE");
-            let short_qty = BinanceTrade::round(base_diff, 5);
+            let short_qty = precise_round!(base_diff, 5);
             info!(
                 "Base asset too high = {} {}, 50/50 = {} {}, sell base asset = {} {}",
                 base_balance, self.base_asset, equal, self.base_asset, short_qty, self.base_asset

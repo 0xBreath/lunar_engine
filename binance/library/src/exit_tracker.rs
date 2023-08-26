@@ -36,15 +36,15 @@ impl TrailingTakeProfitTracker {
                     entry,
                     method,
                     exit_side,
-                    extreme: entry,
-                    trigger: Self::round(entry - (entry * bips / 100.0), 2),
+                    extreme: precise_round!(entry - (entry * bips / 100.0), 2),
+                    trigger: precise_round!(entry - (entry * bips / 100.0), 2),
                 },
                 ExitType::Fixed(pip) => Self {
                     entry,
                     method,
                     exit_side,
-                    extreme: entry,
-                    trigger: Self::round(entry - pip as f64 / 100.0, 2),
+                    extreme: precise_round!(entry - pip as f64 / 100.0, 2),
+                    trigger: precise_round!(entry - pip as f64 / 100.0, 2),
                 },
             },
             // exit is Short, so entry is Long
@@ -54,23 +54,18 @@ impl TrailingTakeProfitTracker {
                     entry,
                     method,
                     exit_side,
-                    extreme: entry,
-                    trigger: Self::round(entry + (entry * bips / 100.0), 2),
+                    extreme: precise_round!(entry + (entry * bips / 100.0), 2),
+                    trigger: precise_round!(entry + (entry * bips / 100.0), 2),
                 },
                 ExitType::Fixed(pip) => Self {
                     entry,
                     method,
                     exit_side,
-                    extreme: entry,
-                    trigger: Self::round(entry + pip as f64 / 100.0, 2),
+                    extreme: precise_round!(entry + pip as f64 / 100.0, 2),
+                    trigger: precise_round!(entry + pip as f64 / 100.0, 2),
                 },
             },
         }
-    }
-
-    pub fn round(value: f64, decimals: u32) -> f64 {
-        let pow = 10_u64.pow(decimals);
-        (value * pow as f64).round() / pow as f64
     }
 
     #[allow(clippy::needless_return)]
@@ -86,7 +81,8 @@ impl TrailingTakeProfitTracker {
                         UpdateAction::Close
                     } else if candle.high > self.extreme {
                         self.extreme = candle.high;
-                        self.trigger = Self::round(candle.high - (candle.high * bips / 100.0), 2);
+                        self.trigger =
+                            precise_round!(candle.high - (candle.high * bips / 100.0), 2);
                         UpdateAction::CancelAndUpdate
                     } else {
                         UpdateAction::None
@@ -97,7 +93,7 @@ impl TrailingTakeProfitTracker {
                         UpdateAction::Close
                     } else if candle.high > self.extreme {
                         self.extreme = candle.high;
-                        self.trigger = Self::round(candle.high - pip as f64 / 100.0, 2);
+                        self.trigger = precise_round!(candle.high - pip as f64 / 100.0, 2);
                         UpdateAction::CancelAndUpdate
                     } else {
                         UpdateAction::None
@@ -113,7 +109,7 @@ impl TrailingTakeProfitTracker {
                         UpdateAction::Close
                     } else if candle.low < self.extreme {
                         self.extreme = candle.low;
-                        self.trigger = Self::round(candle.low + (candle.low * bips / 100.0), 2);
+                        self.trigger = precise_round!(candle.low + (candle.low * bips / 100.0), 2);
                         UpdateAction::CancelAndUpdate
                     } else {
                         UpdateAction::None
@@ -124,7 +120,7 @@ impl TrailingTakeProfitTracker {
                         UpdateAction::Close
                     } else if candle.low < self.extreme {
                         self.extreme = candle.low;
-                        self.trigger = Self::round(candle.low + pip as f64 / 100.0, 2);
+                        self.trigger = precise_round!(candle.low + pip as f64 / 100.0, 2);
                         UpdateAction::CancelAndUpdate
                     } else {
                         UpdateAction::None
@@ -153,13 +149,13 @@ impl StopLossTracker {
                     entry,
                     method,
                     exit_side,
-                    trigger: Self::round(entry - (entry * bips / 100.0), 2),
+                    trigger: precise_round!(entry - (entry * bips / 100.0), 2),
                 },
                 ExitType::Fixed(pip) => StopLossTracker {
                     entry,
                     method,
                     exit_side,
-                    trigger: Self::round(entry - pip as f64 / 100.0, 2),
+                    trigger: precise_round!(entry - pip as f64 / 100.0, 2),
                 },
             },
             // exit is Long, so entry is Short
@@ -169,20 +165,15 @@ impl StopLossTracker {
                     entry,
                     method,
                     exit_side,
-                    trigger: Self::round(entry + (entry * bips / 100.0), 2),
+                    trigger: precise_round!(entry + (entry * bips / 100.0), 2),
                 },
                 ExitType::Fixed(pip) => StopLossTracker {
                     entry,
                     method,
                     exit_side,
-                    trigger: Self::round(entry + pip as f64 / 100.0, 2),
+                    trigger: precise_round!(entry + pip as f64 / 100.0, 2),
                 },
             },
         }
-    }
-
-    pub fn round(value: f64, decimals: u32) -> f64 {
-        let pow = 10_u64.pow(decimals);
-        (value * pow as f64).round() / pow as f64
     }
 }

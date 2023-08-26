@@ -9,7 +9,7 @@ use simplelog::{
 use std::fs::File;
 use std::path::PathBuf;
 use std::sync::MutexGuard;
-use time_series::{Candle, Time};
+use time_series::{precise_round, Candle, Time};
 
 pub fn init_logger(log_file: &PathBuf) -> Result<()> {
     CombinedLogger::init(vec![
@@ -21,12 +21,7 @@ pub fn init_logger(log_file: &PathBuf) -> Result<()> {
         ),
         WriteLogger::new(
             LevelFilter::Info,
-            ConfigBuilder::new()
-                .set_time_format_rfc3339()
-                // .set_time_format_custom(simplelog::format_description!(
-                //     "[hour]:[minute]:[second].[subsecond]"
-                // ))
-                .build(),
+            ConfigBuilder::new().set_time_format_rfc3339().build(),
             File::create(log_file).map_err(|_| {
                 BinanceError::Custom("Failed to create PLPL Binance log file".to_string())
             })?,
@@ -92,14 +87,14 @@ pub fn trade_qty(
                 true => short_qty / 2.0,
                 false => long_qty,
             };
-            BinanceTrade::round(qty, 5)
+            precise_round!(qty, 5)
         }
         Side::Short => {
             let qty = match short_qty > long_qty / 2.0 {
                 true => long_qty / 2.0,
                 false => short_qty,
             };
-            BinanceTrade::round(qty, 5)
+            precise_round!(qty, 5)
         }
     })
 }
@@ -127,7 +122,7 @@ pub fn plpl_long(
     // 99% is to account for fees
     // 1/3 is to account for 3 orders
     let long_qty = trade_qty(account_info, quote_asset, base_asset, Side::Long, candle)?;
-    let limit = BinanceTrade::round_price(candle.close);
+    let limit = precise_round!(candle.close, 2);
     let entry = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "ENTRY"),
@@ -185,7 +180,7 @@ pub fn plpl_short(
     base_asset: &str,
 ) -> Result<OrderBuilder> {
     let short_qty = trade_qty(account_info, quote_asset, base_asset, Side::Short, candle)?;
-    let limit = BinanceTrade::round_price(candle.close);
+    let limit = precise_round!(candle.close, 2);
     let entry = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "ENTRY"),
@@ -241,13 +236,17 @@ fn check_trailing_take_profit(
     match take_profit_action {
         UpdateAction::None => debug!("Take profit updated"),
         UpdateAction::Close => {
-            info!(
-                "Take profit triggered @ {} | {}",
-                candle.close,
-                date.to_string()
-            );
-            account.cancel_all_open_orders()?;
-            account.active_order = None;
+            if let PendingOrActiveOrder::Active(tp) = active_order.take_profit {
+                if tp.status == OrderStatus::Filled || tp.status == OrderStatus::PartiallyFilled {
+                    info!(
+                        "Take profit triggered @ {} | {}",
+                        candle.close,
+                        date.to_string()
+                    );
+                    account.cancel_all_open_orders()?;
+                    account.active_order = None;
+                }
+            }
         }
         UpdateAction::CancelAndUpdate => {
             // cancel take profit order and place new one

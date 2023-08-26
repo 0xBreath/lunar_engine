@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use time_series::{Candle, Day, Month, Time};
+use time_series::{precise_round, Candle, Day, Month, Time};
 
 mod utils;
 use utils::*;
@@ -259,12 +259,12 @@ async fn main() -> Result<()> {
             }
             WebSocketEvent::OrderTrade(event) => {
                 let order_type = OrderBundle::client_order_id_suffix(&event.new_client_order_id);
-                let entry_price = BinanceTrade::round(
+                let entry_price = precise_round!(
                     event
                         .price
                         .parse::<f64>()
                         .map_err(BinanceError::ParseFloat)?,
-                    2,
+                    2
                 );
                 debug!(
                     "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",

@@ -1,6 +1,7 @@
 use crate::model::{OrderType, Side};
 use crate::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
+use time_series::precise_round;
 
 #[derive(Debug, Clone)]
 pub struct BinanceTrade {
@@ -108,19 +109,10 @@ impl BinanceTrade {
         trailing_stop_pct * 100.0
     }
 
-    pub fn round(value: f64, decimals: u32) -> f64 {
-        let pow = 10_u64.pow(decimals);
-        (value * pow as f64).round() / pow as f64
-    }
-
-    pub fn round_price(quantity: f64) -> f64 {
-        Self::round(quantity, 2)
-    }
-
     pub fn calc_stop_loss(order: Side, price: f64, stop_loss_pct: f64) -> f64 {
         match order {
-            Side::Long => Self::round_price(price * (1.0 - (stop_loss_pct / 100.0))),
-            Side::Short => Self::round_price(price * (1.0 + (stop_loss_pct / 100.0))),
+            Side::Long => precise_round!(price * (1.0 - (stop_loss_pct / 100.0)), 2),
+            Side::Short => precise_round!(price * (1.0 + (stop_loss_pct / 100.0)), 2),
         }
     }
 }
@@ -132,7 +124,7 @@ mod tests {
     #[test]
     fn test_round_quantity() {
         let qty = 10_000_f64 / 29246.72 * 0.99;
-        let rounded = BinanceTrade::round(qty, 5);
+        let rounded = precise_round!(qty, 5);
         println!("rounded: {}", rounded);
     }
 }
