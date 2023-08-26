@@ -72,7 +72,7 @@ pub fn trade_qty(
 ) -> Result<f64> {
     let assets = account_info.account_assets(quote_asset, base_asset)?;
     info!(
-        "{}, Free: {}, Locked: {}\t|\t{}, Free: {}, Locked: {}",
+        "{}, Free: {}, Locked: {}  |  {}, Free: {}, Locked: {}",
         quote_asset,
         assets.free_quote,
         assets.locked_quote,
