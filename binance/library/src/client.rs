@@ -4,8 +4,8 @@ use crate::BinanceContentError;
 use hex::encode as hex_encode;
 use hmac::{Hmac, Mac};
 use log::*;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use reqwest::blocking::Response;
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use serde::de::DeserializeOwned;
 use sha2::Sha256;
 
@@ -38,6 +38,7 @@ impl Client {
         request: Option<String>,
     ) -> Result<T> {
         let url = self.sign_request(endpoint, request);
+        debug!("url: {}", url);
         let client = &self.inner_client;
         let response = client
             .get(url.as_str())
@@ -47,11 +48,7 @@ impl Client {
         self.handler(response)
     }
 
-    pub fn post_signed<T: DeserializeOwned>(
-        &self,
-        endpoint: API,
-        request: String,
-    ) -> Result<T> {
+    pub fn post_signed<T: DeserializeOwned>(&self, endpoint: API, request: String) -> Result<T> {
         let url = self.sign_request(endpoint, Some(request));
         info!("url: {}", url);
         let client = &self.inner_client;
@@ -60,12 +57,13 @@ impl Client {
         self.handler(response)
     }
 
-    pub  fn delete_signed<T: DeserializeOwned>(
+    pub fn delete_signed<T: DeserializeOwned>(
         &self,
         endpoint: API,
         request: Option<String>,
     ) -> Result<T> {
         let url = self.sign_request(endpoint, request);
+        debug!("url: {}", url);
         let client = &self.inner_client;
         let response = client
             .delete(url.as_str())
@@ -75,25 +73,26 @@ impl Client {
         self.handler(response)
     }
 
-    pub fn get<T: DeserializeOwned>(
-        &self,
-        endpoint: API,
-        request: Option<String>,
-    ) -> Result<T> {
+    pub fn get<T: DeserializeOwned>(&self, endpoint: API, request: Option<String>) -> Result<T> {
         let mut url: String = format!("{}{}", self.host, String::from(endpoint));
         if let Some(request) = request {
             if !request.is_empty() {
                 url.push_str(format!("?{}", request).as_str());
             }
         }
+        info!("url: {}", url);
         let client = &self.inner_client;
-        let response = client.get(url.as_str()).send().map_err(BinanceError::Reqwest)?;
+        let response = client
+            .get(url.as_str())
+            .send()
+            .map_err(BinanceError::Reqwest)?;
         self.handler(response)
     }
 
     #[allow(dead_code)]
     pub fn post<T: DeserializeOwned>(&self, endpoint: API) -> Result<T> {
         let url: String = format!("{}{}", self.host, String::from(endpoint));
+        debug!("url: {}", url);
         let client = &self.inner_client;
         let response = client
             .post(url.as_str())
@@ -106,6 +105,7 @@ impl Client {
     #[allow(dead_code)]
     pub fn put<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
         let url: String = format!("{}{}", self.host, String::from(endpoint));
+        debug!("url: {}", url);
         let data: String = format!("listenKey={}", listen_key);
         let client = &self.inner_client;
         let response = client
@@ -120,6 +120,7 @@ impl Client {
     #[allow(dead_code)]
     pub fn delete<T: DeserializeOwned>(&self, endpoint: API, listen_key: &str) -> Result<T> {
         let url: String = format!("{}{}", self.host, String::from(endpoint));
+        debug!("url: {}", url);
         let data: String = format!("listenKey={}", listen_key);
         let client = &self.inner_client;
         let response = client
@@ -166,7 +167,7 @@ impl Client {
             Ok(response.json::<T>().map_err(BinanceError::Reqwest)?)
         } else {
             let error: BinanceContentError = response.json().map_err(BinanceError::Reqwest)?;
-            Err(BinanceError::Binance(error).into())
+            Err(BinanceError::Binance(error))
         }
     }
 }

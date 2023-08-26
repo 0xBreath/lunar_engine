@@ -1113,6 +1113,16 @@ pub struct Fill {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Assets {
+    /// Quote is denominator, so USDT for BTCUSDT
+    pub free_quote: f64,
+    pub locked_quote: f64,
+    /// Base is numerator, so BTC for BTCUSDT
+    pub free_base: f64,
+    pub locked_base: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfoResponse {
     pub maker_commission: u32,
@@ -1129,6 +1139,47 @@ pub struct AccountInfoResponse {
     pub account_type: String,
     pub balances: Vec<Balance>,
     pub permissions: Vec<String>,
+}
+
+impl AccountInfoResponse {
+    pub fn free_asset(&self, asset: &str) -> Result<f64> {
+        self.balances
+            .iter()
+            .find(|&x| x.asset == asset)
+            .ok_or(BinanceError::Custom(format!(
+                "Failed to find asset {}",
+                asset
+            )))?
+            .free
+            .parse::<f64>()
+            .map_err(|_| BinanceError::Custom(format!("Failed to parse free asset {}", asset)))
+    }
+
+    pub fn locked_asset(&self, asset: &str) -> Result<f64> {
+        self.balances
+            .iter()
+            .find(|&x| x.asset == asset)
+            .ok_or(BinanceError::Custom(format!(
+                "Failed to find asset {}",
+                asset
+            )))?
+            .locked
+            .parse::<f64>()
+            .map_err(|_| BinanceError::Custom(format!("Failed to parse locked asset {}", asset)))
+    }
+
+    pub fn account_assets(&self, quote_asset: &str, base_asset: &str) -> Result<Assets> {
+        let free_quote = self.free_asset(quote_asset)?;
+        let locked_quote = self.locked_asset(quote_asset)?;
+        let free_base = self.free_asset(base_asset)?;
+        let locked_base = self.locked_asset(base_asset)?;
+        Ok(Assets {
+            free_quote,
+            locked_quote,
+            free_base,
+            locked_base,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

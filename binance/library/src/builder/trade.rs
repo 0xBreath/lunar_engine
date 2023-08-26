@@ -1,5 +1,5 @@
 use crate::model::{OrderType, Side};
-use std::io::Result;
+use crate::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,7 @@ pub struct BinanceTrade {
     /// Trailing stop
     pub trailing_stop: Option<f64>,
     /// The number of milliseconds the request is valid for
-    pub recv_window: Option<u32>,
+    pub recv_window: u32,
 }
 
 impl BinanceTrade {
@@ -37,6 +37,7 @@ impl BinanceTrade {
         trailing_stop: Option<f64>,
         recv_window: Option<u32>,
     ) -> Self {
+        let recv_window = recv_window.unwrap_or(10000);
         Self {
             symbol,
             side,
@@ -50,7 +51,7 @@ impl BinanceTrade {
         }
     }
 
-    fn get_timestamp(&self) -> Result<u64> {
+    pub fn get_timestamp() -> Result<u64> {
         let system_time = SystemTime::now();
         let since_epoch = system_time
             .duration_since(UNIX_EPOCH)
@@ -82,11 +83,9 @@ impl BinanceTrade {
         if let Some(stop_loss) = self.stop_price {
             btree.push(("stopPrice".to_string(), stop_loss.to_string()));
         }
-        let timestamp = self.get_timestamp().expect("Failed to get timestamp");
+        let timestamp = Self::get_timestamp().expect("Failed to get timestamp");
         btree.push(("timestamp".to_string(), timestamp.to_string()));
-        if let Some(recv_window) = self.recv_window {
-            btree.push(("recvWindow".to_string(), recv_window.to_string()));
-        }
+        btree.push(("recvWindow".to_string(), self.recv_window.to_string()));
         btree.push((
             "newClientOrderId".to_string(),
             self.client_order_id.to_string(),
@@ -133,7 +132,7 @@ mod tests {
     #[test]
     fn test_round_quantity() {
         let qty = 10_000_f64 / 29246.72 * 0.99;
-        let rounded = BinanceTrade::round_quantity(qty, 5);
+        let rounded = BinanceTrade::round(qty, 5);
         println!("rounded: {}", rounded);
     }
 }

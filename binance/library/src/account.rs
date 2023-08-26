@@ -163,14 +163,14 @@ impl Account {
     }
 
     /// Place a trade
-    pub fn trade<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
+    pub fn trade<T: DeserializeOwned>(&self, trade: BinanceTrade) -> Result<T> {
         let req = trade.request();
         self.client.post_signed::<T>(API::Spot(Spot::Order), req)
     }
 
     /// Get account info which includes token balances
     pub fn account_info(&self) -> Result<AccountInfoResponse> {
-        let req = AccountInfo::request(Some(5000));
+        let req = AccountInfo::request(None);
         let pre = SystemTime::now();
         let res = self
             .client
@@ -193,8 +193,8 @@ impl Account {
     }
 
     /// Get price of a single symbol
-    pub fn get_price(&self, symbol: String) -> Result<f64> {
-        let req = Price::request(symbol, Some(5000));
+    pub fn get_price(&self) -> Result<f64> {
+        let req = Price::request(self.ticker.to_string());
         let res = self
             .client
             .get::<PriceResponse>(API::Spot(Spot::Price), Some(req))?;
@@ -315,9 +315,9 @@ impl Account {
                                 TradeInfo::from_order_trade_event(&event)?,
                             );
                         }
-                        _ => {
-                            error!("Invalid order event order type to update active order");
-                        }
+                        "EQUALIZE_BASE" => debug!("Equalizing base asset"),
+                        "EQUALIZE_QUOTE" => debug!("Equalizing quote asset"),
+                        _ => error!("Invalid order event order type to update active order"),
                     }
                     self.active_order = Some(updated_order);
                 }
@@ -454,7 +454,7 @@ impl Account {
                         };
                         let entry_trigger = entry.price;
                         info!(
-                            "Active Order: {:?}, {:?}, entry: {} @ {}, take_profit: {} @ {}, stop_loss: {} @ {}",
+                            "Active Order ID: {:?}, {:?}, entry: {} @ {}, take_profit: {} @ {}, stop_loss: {} @ {}",
                             active_order.id,
                             active_order.side,
                             entry_status,
@@ -484,5 +484,87 @@ impl Account {
                 }
             }
         }
+    }
+
+    pub fn equalize_assets(&self) -> Result<()> {
+        // $10000/BTC
+        // $3000
+        // 0.7 BTC
+        // quote_diff = $3000/10000 BTC - 0.5 BTC = -0.2 BTC -> do nothing
+        // base_diff = 0.7 BTC - 0.5 BTC = 0.2 BTC -> sell 0.2 BTC
+
+        info!("Equalizing assets");
+        let account_info = self.account_info()?;
+        let assets = account_info.account_assets(&self.quote_asset, &self.base_asset)?;
+        let price = self.get_price()?;
+
+        // USDT
+        let quote_balance = assets.free_quote / price;
+        // BTC
+        let base_balance = assets.free_base;
+
+        let sum = quote_balance + base_balance;
+        let equal = BinanceTrade::round(sum / 2_f64, 5);
+        let quote_diff = BinanceTrade::round(quote_balance - equal, 5);
+        let base_diff = BinanceTrade::round(base_balance - equal, 5);
+
+        // buy BTC
+        if quote_diff > 0_f64 {
+            let timestamp = BinanceTrade::get_timestamp()?;
+            let client_order_id = format!("{}-{}", timestamp, "EQUALIZE_QUOTE");
+            let long_qty = BinanceTrade::round(quote_diff, 5);
+            info!(
+                "Quote asset too high = {} {}, 50/50 = {} {}, buy base asset = {} {}",
+                quote_balance * price,
+                self.quote_asset,
+                equal * price,
+                self.quote_asset,
+                long_qty,
+                self.base_asset
+            );
+            let buy_base = BinanceTrade::new(
+                self.ticker.to_string(),
+                client_order_id,
+                Side::Long,
+                OrderType::Limit,
+                long_qty,
+                Some(price),
+                None,
+                None,
+                None,
+            );
+            if let Err(e) = self.trade::<LimitOrderResponse>(buy_base) {
+                error!("Error equalizing quote asset with error: {:?}", e);
+                return Err(e);
+            }
+        }
+
+        // sell BTC
+        if base_diff > 0_f64 {
+            let timestamp = BinanceTrade::get_timestamp()?;
+            let client_order_id = format!("{}-{}", timestamp, "EQUALIZE_BASE");
+            let short_qty = BinanceTrade::round(base_diff, 5);
+            info!(
+                "Base asset too high = {} {}, 50/50 = {} {}, sell base asset = {} {}",
+                base_balance, self.base_asset, equal, self.base_asset, short_qty, self.base_asset
+            );
+            let sell_base = BinanceTrade::new(
+                self.ticker.to_string(),
+                client_order_id,
+                Side::Short,
+                OrderType::Limit,
+                short_qty,
+                Some(price),
+                None,
+                None,
+                None,
+            );
+            if let Err(e) = self.trade::<LimitOrderResponse>(sell_base) {
+                error!("Error equalizing base asset with error: {:?}", e);
+                return Err(e);
+            }
+        }
+
+        Ok(())
     }
 }

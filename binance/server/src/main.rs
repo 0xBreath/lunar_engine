@@ -78,7 +78,7 @@ async fn main() -> std::io::Result<()> {
     info!("Starting Server...");
     HttpServer::new(|| {
         App::new()
-            .service(account_info)
+            .service(get_account_info)
             .service(get_assets)
             .service(cancel_orders)
             .service(get_price)
@@ -107,7 +107,7 @@ async fn test() -> impl Responder {
 }
 
 #[get("/account")]
-async fn account_info() -> Result<HttpResponse, Error> {
+async fn get_account_info() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let res = account.account_info().expect("failed to get account info");
     Ok(HttpResponse::Ok().json(res))

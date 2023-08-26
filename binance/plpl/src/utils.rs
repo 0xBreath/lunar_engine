@@ -62,58 +62,6 @@ pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
     })
 }
 
-pub fn free_asset(account_info: &AccountInfoResponse, asset: &str) -> Result<f64> {
-    account_info
-        .balances
-        .iter()
-        .find(|&x| x.asset == asset)
-        .ok_or(BinanceError::Custom(format!(
-            "Failed to find asset {}",
-            asset
-        )))?
-        .free
-        .parse::<f64>()
-        .map_err(|_| BinanceError::Custom(format!("Failed to parse free asset {}", asset)))
-}
-
-pub fn locked_asset(account_info: &AccountInfoResponse, asset: &str) -> Result<f64> {
-    account_info
-        .balances
-        .iter()
-        .find(|&x| x.asset == asset)
-        .ok_or(BinanceError::Custom(format!(
-            "Failed to find asset {}",
-            asset
-        )))?
-        .locked
-        .parse::<f64>()
-        .map_err(|_| BinanceError::Custom(format!("Failed to parse locked asset {}", asset)))
-}
-
-pub struct Assets {
-    free_quote: f64,
-    locked_quote: f64,
-    free_base: f64,
-    locked_base: f64,
-}
-
-pub fn account_assets(
-    account: &AccountInfoResponse,
-    quote_asset: &str,
-    base_asset: &str,
-) -> Result<Assets> {
-    let free_quote = free_asset(account, quote_asset)?;
-    let locked_quote = locked_asset(account, quote_asset)?;
-    let free_base = free_asset(account, base_asset)?;
-    let locked_base = locked_asset(account, base_asset)?;
-    Ok(Assets {
-        free_quote,
-        locked_quote,
-        free_base,
-        locked_base,
-    })
-}
-
 pub fn trade_qty(
     account_info: &AccountInfoResponse,
     quote_asset: &str,
@@ -121,7 +69,7 @@ pub fn trade_qty(
     side: Side,
     candle: &Candle,
 ) -> Result<f64> {
-    let assets = account_assets(account_info, quote_asset, base_asset)?;
+    let assets = account_info.account_assets(quote_asset, base_asset)?;
     info!(
         "{}, Free: {}, Locked: {}",
         quote_asset, assets.free_quote, assets.locked_quote,
@@ -473,37 +421,43 @@ pub fn handle_signal(
                     PendingOrActiveOrder::Pending(take_profit),
                     PendingOrActiveOrder::Pending(stop_loss),
                 ) => {
-                    if active_order.entry.is_some() {
-                        // place take profit order
-                        let side = take_profit.side.clone();
-                        let order_type =
-                            OrderBundle::client_order_id_suffix(&take_profit.client_order_id);
-                        if let Err(e) = account.trade::<LimitOrderResponse>(take_profit.clone()) {
-                            error!(
-                                "Error entering {} for {}: {:?}",
-                                side.fmt_binance(),
-                                order_type,
-                                e
-                            );
-                            account.cancel_all_open_orders()?;
-                            account.active_order = None;
-                            return Err(e);
-                        }
+                    // only place exit orders if entry is filled
+                    if let Some(entry) = active_order.entry {
+                        if entry.status == OrderStatus::PartiallyFilled
+                            || entry.status == OrderStatus::Filled
+                        {
+                            // place take profit order
+                            let side = take_profit.side.clone();
+                            let order_type =
+                                OrderBundle::client_order_id_suffix(&take_profit.client_order_id);
+                            if let Err(e) = account.trade::<LimitOrderResponse>(take_profit.clone())
+                            {
+                                error!(
+                                    "Error entering {} for {}: {:?}",
+                                    side.fmt_binance(),
+                                    order_type,
+                                    e
+                                );
+                                account.cancel_all_open_orders()?;
+                                account.active_order = None;
+                                return Err(e);
+                            }
 
-                        // place stop loss order
-                        let side = stop_loss.side.clone();
-                        let order_type =
-                            OrderBundle::client_order_id_suffix(&stop_loss.client_order_id);
-                        if let Err(e) = account.trade::<LimitOrderResponse>(stop_loss.clone()) {
-                            error!(
-                                "Error entering {} for {}: {:?}",
-                                side.fmt_binance(),
-                                order_type,
-                                e
-                            );
-                            account.cancel_all_open_orders()?;
-                            account.active_order = None;
-                            return Err(e);
+                            // place stop loss order
+                            let side = stop_loss.side.clone();
+                            let order_type =
+                                OrderBundle::client_order_id_suffix(&stop_loss.client_order_id);
+                            if let Err(e) = account.trade::<LimitOrderResponse>(stop_loss.clone()) {
+                                error!(
+                                    "Error entering {} for {}: {:?}",
+                                    side.fmt_binance(),
+                                    order_type,
+                                    e
+                                );
+                                account.cancel_all_open_orders()?;
+                                account.active_order = None;
+                                return Err(e);
+                            }
                         }
                     }
                 }
