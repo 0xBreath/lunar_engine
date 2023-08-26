@@ -429,7 +429,7 @@ pub fn handle_signal(
             if plpl_system.long_signal(prev_candle, candle, plpl) {
                 // if position is None, enter Long
                 // else ignore signal and let active trade play out
-                handle_long_signal(
+                handle_short_signal(
                     candle,
                     date,
                     timestamp,
@@ -441,7 +441,7 @@ pub fn handle_signal(
             } else if plpl_system.short_signal(prev_candle, candle, plpl) {
                 // if position is None, enter Short
                 // else ignore signal and let active trade play out
-                handle_short_signal(
+                handle_long_signal(
                     candle,
                     date,
                     timestamp,
