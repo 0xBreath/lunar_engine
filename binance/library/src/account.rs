@@ -512,9 +512,10 @@ impl Account {
         let equal = BinanceTrade::round(sum / 2_f64, 5);
         let quote_diff = BinanceTrade::round(quote_balance - equal, 5);
         let base_diff = BinanceTrade::round(base_balance - equal, 5);
+        let min_notional = 0.001;
 
         // buy BTC
-        if quote_diff > 0_f64 {
+        if quote_diff > 0_f64 && quote_diff > min_notional {
             let timestamp = BinanceTrade::get_timestamp()?;
             let client_order_id = format!("{}-{}", timestamp, "EQUALIZE_QUOTE");
             let long_qty = BinanceTrade::round(quote_diff, 5);
@@ -545,7 +546,7 @@ impl Account {
         }
 
         // sell BTC
-        if base_diff > 0_f64 {
+        if base_diff > 0_f64 && base_diff > min_notional {
             let timestamp = BinanceTrade::get_timestamp()?;
             let client_order_id = format!("{}-{}", timestamp, "EQUALIZE_BASE");
             let short_qty = BinanceTrade::round(base_diff, 5);
