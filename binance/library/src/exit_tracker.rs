@@ -31,7 +31,7 @@ impl TrailingTakeProfitTracker {
         match exit_side {
             // exit is Long, so entry is Short
             // therefore take profit is below entry
-            Side::Short => match method {
+            Side::Long => match method {
                 ExitType::Percent(bips) => Self {
                     entry,
                     method,
@@ -49,7 +49,7 @@ impl TrailingTakeProfitTracker {
             },
             // exit is Short, so entry is Long
             // therefore take profit is above entry price
-            Side::Long => match method {
+            Side::Short => match method {
                 ExitType::Percent(bips) => Self {
                     entry,
                     method,
@@ -80,7 +80,7 @@ impl TrailingTakeProfitTracker {
             // exit is Short, so entry is Long
             // therefore take profit is above entry
             // and new candle highs increment take profit further above entry
-            Side::Long => match self.method {
+            Side::Short => match self.method {
                 ExitType::Percent(bips) => {
                     if candle.low < self.trigger {
                         UpdateAction::Close
@@ -107,7 +107,7 @@ impl TrailingTakeProfitTracker {
             // exit is Long, so entry is Short
             // therefore take profit is below entry
             // and new candle lows decrement take profit further below entry
-            Side::Short => match self.method {
+            Side::Long => match self.method {
                 ExitType::Percent(bips) => {
                     if candle.high > self.trigger {
                         UpdateAction::Close
@@ -148,7 +148,7 @@ impl StopLossTracker {
         match exit_side {
             // exit is Short, so entry is Long
             // therefore stop loss is below entry
-            Side::Long => match method {
+            Side::Short => match method {
                 ExitType::Percent(bips) => StopLossTracker {
                     entry,
                     method,
@@ -164,7 +164,7 @@ impl StopLossTracker {
             },
             // exit is Long, so entry is Short
             // therefore stop loss is above entry
-            Side::Short => match method {
+            Side::Long => match method {
                 ExitType::Percent(bips) => StopLossTracker {
                     entry,
                     method,
@@ -184,26 +184,5 @@ impl StopLossTracker {
     pub fn round(value: f64, decimals: u32) -> f64 {
         let pow = 10_u64.pow(decimals);
         (value * pow as f64).round() / pow as f64
-    }
-
-    #[allow(clippy::needless_return)]
-    /// Returns true if trailing stop was triggered to exit trade, false otherwise
-    pub fn check(&mut self, candle: &Candle) -> UpdateAction {
-        return match self.exit_side {
-            Side::Long => {
-                if candle.low < self.trigger {
-                    UpdateAction::Close
-                } else {
-                    UpdateAction::None
-                }
-            }
-            Side::Short => {
-                if candle.high > self.trigger {
-                    UpdateAction::Close
-                } else {
-                    UpdateAction::None
-                }
-            }
-        };
     }
 }
