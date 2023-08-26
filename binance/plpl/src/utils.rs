@@ -22,9 +22,10 @@ pub fn init_logger(log_file: &PathBuf) -> Result<()> {
         WriteLogger::new(
             LevelFilter::Info,
             ConfigBuilder::new()
-                .set_time_format_custom(simplelog::format_description!(
-                    "[hour]:[minute]:[second].[subsecond]"
-                ))
+                .set_time_format_rfc3339()
+                // .set_time_format_custom(simplelog::format_description!(
+                //     "[hour]:[minute]:[second].[subsecond]"
+                // ))
                 .build(),
             File::create(log_file).map_err(|_| {
                 BinanceError::Custom("Failed to create PLPL Binance log file".to_string())
@@ -71,12 +72,13 @@ pub fn trade_qty(
 ) -> Result<f64> {
     let assets = account_info.account_assets(quote_asset, base_asset)?;
     info!(
-        "{}, Free: {}, Locked: {}",
-        quote_asset, assets.free_quote, assets.locked_quote,
-    );
-    info!(
-        "{}, Free: {}, Locked: {}",
-        base_asset, assets.free_base, assets.locked_base,
+        "{}, Free: {}, Locked: {}\t|\t{}, Free: {}, Locked: {}",
+        quote_asset,
+        assets.free_quote,
+        assets.locked_quote,
+        base_asset,
+        assets.free_base,
+        assets.locked_base
     );
     // if long, check short has 2x balance for exit order
     // if short, check long has 2x balance for exit order
@@ -427,7 +429,7 @@ pub fn handle_signal(
             if plpl_system.long_signal(prev_candle, candle, plpl) {
                 // if position is None, enter Long
                 // else ignore signal and let active trade play out
-                handle_short_signal(
+                handle_long_signal(
                     candle,
                     date,
                     timestamp,
@@ -439,7 +441,7 @@ pub fn handle_signal(
             } else if plpl_system.short_signal(prev_candle, candle, plpl) {
                 // if position is None, enter Short
                 // else ignore signal and let active trade play out
-                handle_long_signal(
+                handle_short_signal(
                     candle,
                     date,
                     timestamp,

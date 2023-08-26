@@ -243,12 +243,12 @@ async fn main() -> Result<()> {
                     BinanceError::Custom(format!("Failed to get duration since: {}", e))
                 })?;
                 if trade_placed {
-                    info!("Time to process PLPL trade: {:?}ms", elapsed.as_millis());
+                    debug!("Time to process PLPL trade: {:?}ms", elapsed.as_millis());
                 }
             }
             WebSocketEvent::AccountUpdate(account_update) => {
                 for balance in &account_update.data.balances {
-                    info!(
+                    debug!(
                         "Asset: {}, wallet_balance: {}, cross_wallet_balance: {}, balance: {}",
                         balance.asset,
                         balance.wallet_balance,
@@ -266,7 +266,7 @@ async fn main() -> Result<()> {
                         .map_err(BinanceError::ParseFloat)?,
                     2,
                 );
-                info!(
+                debug!(
                     "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",
                     event.symbol,
                     event.new_client_order_id,

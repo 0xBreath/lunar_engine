@@ -139,9 +139,7 @@ async fn cancel_orders() -> Result<HttpResponse, Error> {
 #[get("/price")]
 async fn get_price() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
-    let res = account
-        .get_price(account.ticker.clone())
-        .expect("failed to get price");
+    let res = account.price().expect("failed to get price");
     trace!("{:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }

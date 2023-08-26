@@ -176,7 +176,7 @@ impl Account {
             .client
             .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req));
         let dur = SystemTime::now().duration_since(pre).unwrap().as_millis();
-        info!("Request time: {:?}ms", dur);
+        debug!("Request time: {:?}ms", dur);
         if let Err(e) = res {
             error!("Failed to get account info: {:?}", e);
             return Err(e);
@@ -193,7 +193,7 @@ impl Account {
     }
 
     /// Get price of a single symbol
-    pub fn get_price(&self) -> Result<f64> {
+    pub fn price(&self) -> Result<f64> {
         let req = Price::request(self.ticker.to_string());
         let res = self
             .client
@@ -231,7 +231,7 @@ impl Account {
 
     /// Cancel all open orders for a single symbol
     pub fn cancel_all_open_orders(&self) -> Result<Vec<OrderCanceled>> {
-        info!("Cancelling all active orders");
+        debug!("Canceling all active orders");
         let req = CancelOrders::request(self.ticker.clone(), Some(10000));
         let res = self
             .client
@@ -251,7 +251,7 @@ impl Account {
     }
 
     pub fn cancel_order(&self, order_id: u64) -> Result<OrderCanceled> {
-        info!("Cancelling order {}", order_id);
+        debug!("Canceling order {}", order_id);
         let req = CancelOrder::request(order_id, self.ticker.to_string(), Some(10000));
         let res = self
             .client
@@ -324,7 +324,7 @@ impl Account {
                 }
             }
             // active order should be set to Some before getting order updates via websocket
-            // unless the update is cancelling of remaining orders in active order
+            // unless the update is canceling of remaining orders in active order
             None => {
                 let order_status = OrderStatus::from_str(&event.order_status)?;
                 if order_status == OrderStatus::New {
@@ -409,7 +409,7 @@ impl Account {
                         debug!("Order bundle {} is active", id);
                     }
                     _ => {
-                        error!("Invalid OrderBundle order status combination. Cancelling all orders to start from scratch.");
+                        error!("Invalid OrderBundle order status combination. Canceling all orders to start from scratch.");
                         self.cancel_all_open_orders()?;
                         updated_order = None;
                     }
@@ -495,7 +495,7 @@ impl Account {
         info!("Equalizing assets");
         let account_info = self.account_info()?;
         let assets = account_info.account_assets(&self.quote_asset, &self.base_asset)?;
-        let price = self.get_price()?;
+        let price = self.price()?;
 
         // USDT
         let quote_balance = assets.free_quote / price;
