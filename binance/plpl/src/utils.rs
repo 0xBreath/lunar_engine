@@ -298,6 +298,117 @@ fn check_trailing_take_profit(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn handle_long_signal(
+    candle: &Candle,
+    date: &Time,
+    timestamp: String,
+    account: &mut MutexGuard<Account>,
+    trailing_take_profit: ExitType,
+    stop_loss: ExitType,
+) -> Result<()> {
+    info!(
+        "No active order, enter Long @ {} | {}",
+        candle.close,
+        date.to_string()
+    );
+    let account_info = account.account_info()?;
+    let order_builder = plpl_long(
+        &account_info,
+        &timestamp,
+        candle,
+        trailing_take_profit,
+        stop_loss,
+        TICKER,
+        QUOTE_ASSET,
+        BASE_ASSET,
+    )?;
+    account.active_order = Some(OrderBundle::new(
+        None,
+        None,
+        Side::Long,
+        None,
+        PendingOrActiveOrder::Pending(order_builder.take_profit),
+        order_builder.take_profit_tracker,
+        PendingOrActiveOrder::Pending(order_builder.stop_loss),
+        order_builder.stop_loss_tracker,
+    ));
+    account.log_active_order();
+
+    // place entry order
+    let side = order_builder.entry.side.clone();
+    let client_order_id = order_builder.entry.client_order_id.clone();
+    let order_type = OrderBundle::client_order_id_suffix(&client_order_id);
+    if let Err(e) = account.trade::<LimitOrderResponse>(order_builder.entry) {
+        error!(
+            "Error entering {} for {}: {:?}",
+            side.fmt_binance(),
+            order_type,
+            e
+        );
+        account.cancel_all_open_orders()?;
+        account.active_order = None;
+        return Err(e);
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_short_signal(
+    candle: &Candle,
+    date: &Time,
+    timestamp: String,
+    account: &mut MutexGuard<Account>,
+    trailing_take_profit: ExitType,
+    stop_loss: ExitType,
+) -> Result<()> {
+    // if position is None, enter Short
+    // else ignore signal and let active trade play out
+    info!(
+        "No active order, enter Short @ {} | {}",
+        candle.close,
+        date.to_string()
+    );
+    let account_info = account.account_info()?;
+    let order_builder = plpl_short(
+        &account_info,
+        &timestamp,
+        candle,
+        trailing_take_profit,
+        stop_loss,
+        TICKER,
+        QUOTE_ASSET,
+        BASE_ASSET,
+    )?;
+    account.active_order = Some(OrderBundle::new(
+        None,
+        None,
+        Side::Short,
+        None,
+        PendingOrActiveOrder::Pending(order_builder.take_profit),
+        order_builder.take_profit_tracker,
+        PendingOrActiveOrder::Pending(order_builder.stop_loss),
+        order_builder.stop_loss_tracker,
+    ));
+    account.log_active_order();
+
+    // place entry order
+    let side = order_builder.entry.side.clone();
+    let order_type = OrderBundle::client_order_id_suffix(&order_builder.entry.client_order_id);
+    if let Err(e) = account.trade::<LimitOrderResponse>(order_builder.entry) {
+        error!(
+            "Error entering {} for {}: {:?}",
+            side.fmt_binance(),
+            order_type,
+            e
+        );
+        account.cancel_all_open_orders()?;
+        account.active_order = None;
+        return Err(e);
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn handle_signal(
     plpl_system: &PLPLSystem,
     plpl: f32,
@@ -316,96 +427,26 @@ pub fn handle_signal(
             if plpl_system.long_signal(prev_candle, candle, plpl) {
                 // if position is None, enter Long
                 // else ignore signal and let active trade play out
-                info!(
-                    "No active order, enter Long @ {} | {}",
-                    candle.close,
-                    date.to_string()
-                );
-                let account_info = account.account_info()?;
-                let order_builder = plpl_long(
-                    &account_info,
-                    &timestamp,
+                handle_short_signal(
                     candle,
+                    date,
+                    timestamp,
+                    account,
                     trailing_take_profit,
                     stop_loss,
-                    TICKER,
-                    QUOTE_ASSET,
-                    BASE_ASSET,
                 )?;
-                account.active_order = Some(OrderBundle::new(
-                    None,
-                    None,
-                    Side::Long,
-                    None,
-                    PendingOrActiveOrder::Pending(order_builder.take_profit),
-                    order_builder.take_profit_tracker,
-                    PendingOrActiveOrder::Pending(order_builder.stop_loss),
-                    order_builder.stop_loss_tracker,
-                ));
-                account.log_active_order();
-
-                // place entry order
-                let side = order_builder.entry.side.clone();
-                let client_order_id = order_builder.entry.client_order_id.clone();
-                let order_type = OrderBundle::client_order_id_suffix(&client_order_id);
-                if let Err(e) = account.trade::<LimitOrderResponse>(order_builder.entry) {
-                    error!(
-                        "Error entering {} for {}: {:?}",
-                        side.fmt_binance(),
-                        order_type,
-                        e
-                    );
-                    account.cancel_all_open_orders()?;
-                    account.active_order = None;
-                    return Err(e);
-                }
                 trade_placed = true;
             } else if plpl_system.short_signal(prev_candle, candle, plpl) {
                 // if position is None, enter Short
                 // else ignore signal and let active trade play out
-                info!(
-                    "No active order, enter Short @ {} | {}",
-                    candle.close,
-                    date.to_string()
-                );
-                let account_info = account.account_info()?;
-                let order_builder = plpl_short(
-                    &account_info,
-                    &timestamp,
+                handle_long_signal(
                     candle,
+                    date,
+                    timestamp,
+                    account,
                     trailing_take_profit,
                     stop_loss,
-                    TICKER,
-                    QUOTE_ASSET,
-                    BASE_ASSET,
                 )?;
-                account.active_order = Some(OrderBundle::new(
-                    None,
-                    None,
-                    Side::Short,
-                    None,
-                    PendingOrActiveOrder::Pending(order_builder.take_profit),
-                    order_builder.take_profit_tracker,
-                    PendingOrActiveOrder::Pending(order_builder.stop_loss),
-                    order_builder.stop_loss_tracker,
-                ));
-                account.log_active_order();
-
-                // place entry order
-                let side = order_builder.entry.side.clone();
-                let order_type =
-                    OrderBundle::client_order_id_suffix(&order_builder.entry.client_order_id);
-                if let Err(e) = account.trade::<LimitOrderResponse>(order_builder.entry) {
-                    error!(
-                        "Error entering {} for {}: {:?}",
-                        side.fmt_binance(),
-                        order_type,
-                        e
-                    );
-                    account.cancel_all_open_orders()?;
-                    account.active_order = None;
-                    return Err(e);
-                }
                 trade_placed = true;
             }
         }

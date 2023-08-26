@@ -492,12 +492,6 @@ impl Account {
     }
 
     pub fn equalize_assets(&self) -> Result<()> {
-        // $10000/BTC
-        // $3000
-        // 0.7 BTC
-        // quote_diff = $3000/10000 BTC - 0.5 BTC = -0.2 BTC -> do nothing
-        // base_diff = 0.7 BTC - 0.5 BTC = 0.2 BTC -> sell 0.2 BTC
-
         info!("Equalizing assets");
         let account_info = self.account_info()?;
         let assets = account_info.account_assets(&self.quote_asset, &self.base_asset)?;
