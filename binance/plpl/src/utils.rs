@@ -138,7 +138,7 @@ pub fn plpl_long(
         Some(10000),
     );
     let trailing_take_profit_tracker =
-        TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Long);
+        TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Short);
     let profit = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "TAKE_PROFIT"),
@@ -150,7 +150,7 @@ pub fn plpl_long(
         None,
         Some(10000),
     );
-    let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
+    let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
     let loss = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),
@@ -196,7 +196,7 @@ pub fn plpl_short(
         Some(10000),
     );
     let trailing_take_profit_tracker =
-        TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Short);
+        TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Long);
     let profit = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "TAKE_PROFIT"),
@@ -208,7 +208,7 @@ pub fn plpl_short(
         None,
         Some(10000),
     );
-    let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
+    let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
     let loss = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),

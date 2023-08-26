@@ -454,9 +454,13 @@ impl Account {
                             Some(entry) => format!("{:?}", entry.status),
                         };
                         let entry_trigger = entry.price;
+                        let id = match &active_order.id {
+                            None => "None".to_string(),
+                            Some(id) => id.to_string(),
+                        };
                         info!(
-                            "Active Order ID: {:?}, {:?}, entry: {} @ {}, take_profit: {} @ {}, stop_loss: {} @ {}",
-                            active_order.id,
+                            "Active Order ID: {}, {:?}, entry: {} @ {}, take_profit: {} @ {}, stop_loss: {} @ {}",
+                            id,
                             active_order.side,
                             entry_status,
                             entry_trigger,
