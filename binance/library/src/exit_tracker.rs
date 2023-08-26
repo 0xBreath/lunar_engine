@@ -20,6 +20,7 @@ pub enum UpdateAction {
 pub struct TrailingTakeProfitTracker {
     pub entry: f64,
     pub method: ExitType,
+    // exit side is opposite entry side
     pub exit_side: Side,
     pub extreme: f64,
     pub trigger: f64,
@@ -28,7 +29,9 @@ pub struct TrailingTakeProfitTracker {
 impl TrailingTakeProfitTracker {
     pub fn new(entry: f64, method: ExitType, exit_side: Side) -> Self {
         match exit_side {
-            Side::Short => match method {
+            // exit is Long, so entry is Short
+            // therefore take profit is below entry
+            Side::Long => match method {
                 ExitType::Percent(bips) => Self {
                     entry,
                     method,
@@ -44,7 +47,9 @@ impl TrailingTakeProfitTracker {
                     trigger: Self::round(entry - pip as f64 / 100.0, 2),
                 },
             },
-            Side::Long => match method {
+            // exit is Short, so entry is Long
+            // therefore take profit is above entry price
+            Side::Short => match method {
                 ExitType::Percent(bips) => Self {
                     entry,
                     method,
@@ -72,6 +77,9 @@ impl TrailingTakeProfitTracker {
     /// Returns true if trailing stop was triggered to exit trade, false otherwise
     pub fn check(&mut self, candle: &Candle) -> UpdateAction {
         return match self.exit_side {
+            // exit is Short, so entry is Long
+            // therefore take profit is above entry
+            // and new candle highs increment take profit further above entry
             Side::Short => match self.method {
                 ExitType::Percent(bips) => {
                     if candle.low < self.trigger {
@@ -96,6 +104,9 @@ impl TrailingTakeProfitTracker {
                     }
                 }
             },
+            // exit is Long, so entry is Short
+            // therefore take profit is below entry
+            // and new candle lows decrement take profit further below entry
             Side::Long => match self.method {
                 ExitType::Percent(bips) => {
                     if candle.high > self.trigger {
@@ -135,6 +146,8 @@ pub struct StopLossTracker {
 impl StopLossTracker {
     pub fn new(entry: f64, method: ExitType, exit_side: Side) -> StopLossTracker {
         match exit_side {
+            // exit is Short, so entry is Long
+            // therefore stop loss is below entry
             Side::Short => match method {
                 ExitType::Percent(bips) => StopLossTracker {
                     entry,
@@ -149,6 +162,8 @@ impl StopLossTracker {
                     trigger: Self::round(entry - pip as f64 / 100.0, 2),
                 },
             },
+            // exit is Long, so entry is Short
+            // therefore stop loss is above entry
             Side::Long => match method {
                 ExitType::Percent(bips) => StopLossTracker {
                     entry,

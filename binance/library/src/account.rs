@@ -297,6 +297,7 @@ impl Account {
                         "ENTRY" => {
                             debug!("Updating active order entry");
                             updated_order.entry = Some(TradeInfo::from_order_trade_event(&event)?);
+                            updated_order.id = Some(event_id);
                         }
                         "TAKE_PROFIT" => {
                             debug!("Updating active order take profit");
