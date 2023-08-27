@@ -144,7 +144,7 @@ impl StopLossTracker {
         match exit_side {
             // exit is Short, so entry is Long
             // therefore stop loss is below entry
-            Side::Short => match method {
+            Side::Long => match method {
                 ExitType::Percent(bips) => StopLossTracker {
                     entry,
                     method,
@@ -160,7 +160,7 @@ impl StopLossTracker {
             },
             // exit is Long, so entry is Short
             // therefore stop loss is above entry
-            Side::Long => match method {
+            Side::Short => match method {
                 ExitType::Percent(bips) => StopLossTracker {
                     entry,
                     method,
