@@ -428,7 +428,7 @@ pub fn handle_signal(
             if plpl_system.long_signal(prev_candle, candle, plpl) {
                 // if position is None, enter Long
                 // else ignore signal and let active trade play out
-                handle_lonf_signal(
+                handle_long_signal(
                     candle,
                     date,
                     timestamp,
