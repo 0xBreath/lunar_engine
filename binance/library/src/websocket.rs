@@ -4,7 +4,7 @@ use crate::model::{
     AccountUpdateEvent, BalanceUpdateEvent, KlineEvent, OrderBook, OrderTradeEvent, TradeEvent,
 };
 use crate::BinanceError;
-use log::info;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -170,7 +170,7 @@ impl<'a> WebSockets<'a> {
                         }
                     },
                     Message::Ping(_) => {
-                        info!("Received websocket ping");
+                        debug!("Received websocket ping");
                         match socket.0.write_message(Message::Pong(vec![])) {
                             Ok(_) => {}
                             Err(e) => return Err(BinanceError::Tungstenite(e)),

@@ -150,7 +150,7 @@ async fn all_orders() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let res = account
         .all_orders(account.ticker.clone())
-        .expect("failed to get historical orders");
+        .expect("failed to get all orders");
     let last = res.last().unwrap();
     info!(
         "Last order ID: {:?}, Status: {}",
@@ -164,7 +164,7 @@ async fn open_orders() -> Result<HttpResponse, Error> {
     let account = ACCOUNT.lock().await;
     let res = account
         .open_orders(account.ticker.clone())
-        .expect("failed to get last order");
+        .expect("failed to get open orders");
     info!("Open orders: {:?}", res);
     Ok(HttpResponse::Ok().json(res))
 }

@@ -18,7 +18,7 @@ impl UserStream {
 
     // Current open orders on a symbol
     pub fn keep_alive(&self, listen_key: &str) -> Result<Success> {
-        warn!("Keeping user data stream alive");
+        debug!("Keeping user data stream alive");
         self.client.put(API::Spot(Spot::UserDataStream), listen_key)
     }
 
