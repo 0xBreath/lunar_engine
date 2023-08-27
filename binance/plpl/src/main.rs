@@ -1,7 +1,5 @@
-#[macro_use]
-extern crate lazy_static;
-
 use ephemeris::*;
+use lazy_static::lazy_static;
 use library::*;
 use log::*;
 use std::path::PathBuf;
@@ -218,7 +216,7 @@ async fn main() -> Result<()> {
                     }
                     (None, Some(_)) => {
                         error!(
-                            "Previous candle is None and current candle is Some. Should never occur!"
+                            "Previous candle is None and current candle is Some. Should never occur."
                         );
                     }
                     (Some(_prev_candle), Some(curr_candle)) => {
