@@ -4,7 +4,7 @@ use crate::model::{
     AccountUpdateEvent, BalanceUpdateEvent, KlineEvent, OrderBook, OrderTradeEvent, TradeEvent,
 };
 use crate::BinanceError;
-use log::{debug, info};
+use log::*;
 use serde::{Deserialize, Serialize};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};

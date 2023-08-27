@@ -2,7 +2,7 @@ use crate::api::{Spot, API};
 use crate::client::Client;
 use crate::errors::Result;
 use crate::model::{Success, UserDataStream};
-use log::warn;
+use log::*;
 
 #[derive(Clone)]
 pub struct UserStream {
