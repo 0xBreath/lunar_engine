@@ -162,7 +162,7 @@ async fn main() -> Result<()> {
             .map(|d| d.as_secs())
             .map_err(|e| BinanceError::Custom(e.to_string()))?;
 
-        if secs_since_keep_alive > 10 * 60 {
+        if secs_since_keep_alive > 30 * 60 {
             match user_stream.keep_alive(&listen_key) {
                 Ok(_) => {
                     let now = Time::from_unix_msec(
@@ -245,15 +245,66 @@ async fn main() -> Result<()> {
                 }
             }
             WebSocketEvent::AccountUpdate(account_update) => {
-                for balance in &account_update.data.balances {
-                    debug!(
-                        "Asset: {}, wallet_balance: {}, cross_wallet_balance: {}, balance: {}",
-                        balance.asset,
-                        balance.wallet_balance,
-                        balance.cross_wallet_balance,
-                        balance.balance_change
-                    );
-                }
+                let quote_balance = account_update
+                    .data
+                    .balances
+                    .iter()
+                    .find(|b| b.asset == account.quote_asset)
+                    .ok_or(BinanceError::Custom(
+                        "Failed to find quote balance".to_string(),
+                    ))?
+                    .wallet_balance
+                    .parse::<f64>()
+                    .map_err(|e| {
+                        BinanceError::Custom(format!("Failed to parse quote balance: {}", e))
+                    })?;
+                let base_balance = account_update
+                    .data
+                    .balances
+                    .iter()
+                    .find(|b| b.asset == account.base_asset)
+                    .ok_or(BinanceError::Custom(
+                        "Failed to find base balance".to_string(),
+                    ))?
+                    .wallet_balance
+                    .parse::<f64>()
+                    .map_err(|e| {
+                        BinanceError::Custom(format!("Failed to parse base balance: {}", e))
+                    })?;
+                info!(
+                    "Account Update, {}: {}, {}: {}",
+                    account.quote_asset, quote_balance, account.base_asset, base_balance
+                );
+            }
+            WebSocketEvent::BalanceUpdate(balance_update) => {
+                let quote_balance = balance_update
+                    .balance
+                    .iter()
+                    .find(|b| b.asset == account.quote_asset)
+                    .ok_or(BinanceError::Custom(
+                        "Failed to find quote balance".to_string(),
+                    ))?
+                    .wallet_balance
+                    .parse::<f64>()
+                    .map_err(|e| {
+                        BinanceError::Custom(format!("Failed to parse quote balance: {}", e))
+                    })?;
+                let base_balance = balance_update
+                    .balance
+                    .iter()
+                    .find(|b| b.asset == account.base_asset)
+                    .ok_or(BinanceError::Custom(
+                        "Failed to find base balance".to_string(),
+                    ))?
+                    .wallet_balance
+                    .parse::<f64>()
+                    .map_err(|e| {
+                        BinanceError::Custom(format!("Failed to parse base balance: {}", e))
+                    })?;
+                info!(
+                    "Balance Update, {}: {}, {}: {}",
+                    account.quote_asset, quote_balance, account.base_asset, base_balance
+                );
             }
             WebSocketEvent::OrderTrade(event) => {
                 let order_type = OrderBundle::client_order_id_suffix(&event.new_client_order_id);

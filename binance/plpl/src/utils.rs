@@ -220,7 +220,7 @@ pub fn plpl_short(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),
         Side::Long,
-        OrderType::Limit,
+        OrderType::StopLossLimit,
         short_qty,
         Some(stop_loss_tracker.trigger),
         Some(stop_price),

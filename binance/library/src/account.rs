@@ -8,7 +8,7 @@ use log::*;
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 use time_series::precise_round;
 
 #[derive(Debug, Clone)]
