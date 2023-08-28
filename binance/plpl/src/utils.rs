@@ -149,7 +149,10 @@ pub fn plpl_long(
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
     // half way between limit entry and stop loss trigger
-    let stop_price = precise_round!(limit - ((stop_loss_tracker.trigger - limit).abs() / 2.0), 2);
+    let stop_price = precise_round!(
+        stop_loss_tracker.trigger + ((stop_loss_tracker.trigger - limit).abs() / 4.0),
+        2
+    );
     let loss = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),
@@ -209,7 +212,10 @@ pub fn plpl_short(
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
     // half way between limit entry and stop loss trigger
-    let stop_price = precise_round!(limit + ((stop_loss_tracker.trigger - limit).abs() / 2.0), 2);
+    let stop_price = precise_round!(
+        stop_loss_tracker.trigger - ((stop_loss_tracker.trigger - limit).abs() / 4.0),
+        2
+    );
     let loss = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),

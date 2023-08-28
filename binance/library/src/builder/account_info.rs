@@ -1,13 +1,18 @@
+use crate::Result;
 use std::collections::BTreeMap;
-use std::io::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct AccountInfo {
     recv_window: u32,
 }
 
+pub struct AccountInfoBuilder {
+    pub request: String,
+    pub btree: BTreeMap<String, String>,
+}
+
 impl AccountInfo {
-    pub fn request(recv_window: Option<u32>) -> String {
+    pub fn request(recv_window: Option<u32>) -> AccountInfoBuilder {
         let recv_window = recv_window.unwrap_or(10_000);
         let me = Self { recv_window };
         me.create_request()
@@ -29,13 +34,13 @@ impl AccountInfo {
         btree
     }
 
-    fn create_request(&self) -> String {
+    fn create_request(&self) -> AccountInfoBuilder {
         let btree = self.build();
         let mut request = String::new();
         for (key, value) in btree.iter() {
             request.push_str(&format!("{}={}&", key, value));
         }
         request.pop();
-        request
+        AccountInfoBuilder { request, btree }
     }
 }

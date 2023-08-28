@@ -8,7 +8,7 @@ use log::*;
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::str::FromStr;
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 use time_series::precise_round;
 
 #[derive(Debug, Clone)]
@@ -172,15 +172,25 @@ impl Account {
 
     /// Get account info which includes token balances
     pub fn account_info(&self) -> Result<AccountInfoResponse> {
-        let req = AccountInfo::request(None);
+        let builder = AccountInfo::request(None);
+        let req = builder.request;
         let pre = SystemTime::now();
         let res = self
             .client
             .get_signed::<AccountInfoResponse>(API::Spot(Spot::Account), Some(req));
         let dur = SystemTime::now().duration_since(pre).unwrap().as_millis();
-        debug!("Request time: {:?}ms", dur);
+        info!("Request time: {:?}ms", dur);
         if let Err(e) = res {
-            error!("Failed to get account info: {:?}", e);
+            let now = AccountInfo::get_timestamp()?;
+            let req_time = builder
+                .btree
+                .get("timestamp")
+                .unwrap()
+                .parse::<u64>()
+                .unwrap();
+            // difference between now and req_time
+            let diff = now - req_time;
+            error!("Failed to get account info in {}ms: {:?}", diff, e);
             return Err(e);
         }
         res
@@ -417,7 +427,7 @@ impl Account {
                             },
                             5
                         );
-                        info!("✅ WIN -- {} exited with trailing take profit", id);
+                        info!("✅ WIN -- {} exited with take profit", id);
                         info!("PnL: {} %", pnl);
                         updated_order = None;
                     }
