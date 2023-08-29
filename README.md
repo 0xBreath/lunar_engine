@@ -1,28 +1,25 @@
-# Lunar Engine
+<p align="center">
+  <a href="https://lunarengine.xyz">
+    <img alt="Lunar Engine" src="./logo.png" width="250" />
+  </a>
+</p>
+
+[//]: # (# Lunar Engine)
 
 ### Steps to deploy to virtual machine
 ```bash
-# Download source code dependency
-sudo apt install git
-
-# Manage terminal process dependency
-sudo apt install screen
+# GitHub, manage terminal processes, and Cargo build dependencies
+sudo apt install -y git screen build-essential libsasl2-dev pkg-config libfontconfig libfontconfig1-dev
 
 # Install Rust
 curl https://sh.rustup.rs -sSf | sh
 
-# Cargo build dependencies
-sudo apt install build-essential
-sudo apt-get install -y libsasl2-dev
-sudo apt install pkg-config
-sudo apt-get install libfontconfig libfontconfig1-dev
-
-# Set github remote
+# Set GitHub remote
 git remote add origin https://github.com/LunarEngine/lunar_engine.git
 git reset --hard origin/main
 git pull origin main
 
-# Move to a screen to run the algorithm
+# Create a screen to run the algorithm
 screen -R plpl
 
 # Start the algorithm on Binance testnet
@@ -37,4 +34,7 @@ tail -f plpl.log
 
 # To reenter the screen
 screen -r plpl
+
+# To kill the screen
+screen -X -S plpl quit
 ```

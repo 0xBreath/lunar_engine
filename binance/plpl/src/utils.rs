@@ -244,7 +244,7 @@ fn check_trailing_take_profit(
 ) -> Result<Option<OrderBundle>> {
     let take_profit_action = active_order.take_profit_tracker.check(candle);
     match take_profit_action {
-        UpdateAction::None => debug!("Take profit updated"),
+        UpdateAction::None => debug!("Take profit checked, no update"),
         UpdateAction::Close => {
             if let PendingOrActiveOrder::Active(tp) = active_order.take_profit {
                 if tp.status == OrderStatus::Filled || tp.status == OrderStatus::PartiallyFilled {
