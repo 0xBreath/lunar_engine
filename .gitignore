@@ -1,7 +1,6 @@
 /target
 /.idea
 .DS_Store
-*.png
 data/SPX/output/*
 data/BTCUSD/output/*
 !data/SPX/output/.gitkeep
