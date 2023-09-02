@@ -37,22 +37,10 @@ pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
     let date = Time::from_unix_msec(kline_event.event_time as i64);
     Ok(Candle {
         date,
-        open: kline_event
-            .kline
-            .open
-            .parse::<f64>()?,
-        high: kline_event
-            .kline
-            .high
-            .parse::<f64>()?,
-        low: kline_event
-            .kline
-            .low
-            .parse::<f64>()?,
-        close: kline_event
-            .kline
-            .close
-            .parse::<f64>()?,
+        open: kline_event.kline.open.parse::<f64>()?,
+        high: kline_event.kline.high.parse::<f64>()?,
+        low: kline_event.kline.low.parse::<f64>()?,
+        close: kline_event.kline.close.parse::<f64>()?,
         volume: None,
     })
 }
@@ -471,9 +459,7 @@ pub fn handle_signal(
                 ) => {
                     // only place exit orders if entry is filled
                     if let Some(entry) = active_order.entry {
-                        if entry.status == OrderStatus::PartiallyFilled
-                            || entry.status == OrderStatus::Filled
-                        {
+                        if entry.status == OrderStatus::Filled {
                             // place take profit order
                             let side = take_profit.side.clone();
                             let order_type =
