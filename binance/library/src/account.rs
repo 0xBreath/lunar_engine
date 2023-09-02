@@ -283,15 +283,6 @@ impl Account {
         res
     }
 
-    pub fn update_assets(&mut self, update: Assets) -> Result<()> {
-        self.assets = update;
-        Ok(())
-    }
-
-    pub fn assets(&self) -> Assets {
-        self.assets.clone()
-    }
-
     /// Update active order via websocket stream of [`OrderTradeEvent`]
     ///
     /// If no active order exists, initialize with either entry, take profit, or stop loss, depending on event order type.
@@ -411,8 +402,7 @@ impl Account {
                             },
                             5
                         );
-                        info!("❌ LOSS -- {} exited with stop loss", id);
-                        info!("PnL: {} %", pnl);
+                        info!("❌ LOSS -- order {} exited with {} % loss", id, pnl);
                         updated_order = None;
                     }
                     // If entry is FILLED && take profit is FILLED && stop loss is NEW
@@ -435,8 +425,7 @@ impl Account {
                             },
                             5
                         );
-                        info!("✅ WIN -- {} exited with take profit", id);
-                        info!("PnL: {} %", pnl);
+                        info!("✅ WIN -- order {} exited with {} % profit", id, pnl);
                         updated_order = None;
                     }
                     // If enter is FILLED && take profit is NEW && stop loss is NEW
@@ -607,5 +596,27 @@ impl Account {
         }
 
         Ok(())
+    }
+
+    pub fn update_assets(&mut self, update: Assets) -> Result<()> {
+        self.assets = update;
+        Ok(())
+    }
+
+    pub fn assets(&self) -> Assets {
+        self.assets.clone()
+    }
+
+    pub fn log_assets(&self) {
+        let assets = &self.assets;
+        info!(
+            "Account Assets  |  {}, Free: {}, Locked: {}  |  {}, Free: {}, Locked: {}",
+            self.quote_asset,
+            assets.free_quote,
+            assets.locked_quote,
+            self.base_asset,
+            assets.free_base,
+            assets.locked_base
+        );
     }
 }

@@ -160,6 +160,7 @@ async fn main() -> Result<()> {
     account.assets = account
         .account_info()?
         .account_assets(&account.quote_asset, &account.base_asset)?;
+    account.log_assets();
 
     let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
         let now = SystemTime::now();
