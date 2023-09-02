@@ -136,6 +136,7 @@ pub struct Account {
     pub quote_asset: String,
     pub ticker: String,
     pub active_order: Option<OrderBundle>,
+    pub assets: Assets,
 }
 
 impl Account {
@@ -154,6 +155,7 @@ impl Account {
             quote_asset,
             ticker,
             active_order: None,
+            assets: Assets::default(),
         }
     }
 
@@ -281,15 +283,21 @@ impl Account {
         res
     }
 
+    pub fn update_assets(&mut self, update: Assets) -> Result<()> {
+        self.assets = update;
+        Ok(())
+    }
+
+    pub fn assets(&self) -> Assets {
+        self.assets.clone()
+    }
+
     /// Update active order via websocket stream of [`OrderTradeEvent`]
     ///
     /// If no active order exists, initialize with either entry, take profit, or stop loss, depending on event order type.
     ///
     /// If active order exists, update either entry, take profit, or stop loss, depending on event order type.
-    pub fn stream_update_active_order(
-        &mut self,
-        event: OrderTradeEvent,
-    ) -> Result<Option<OrderBundle>> {
+    pub fn update_active_order(&mut self, event: OrderTradeEvent) -> Result<Option<OrderBundle>> {
         // update active order with new OrderTradeEvent
         match &self.active_order {
             // existing active order
@@ -456,7 +464,7 @@ impl Account {
         Ok(self.active_order.clone())
     }
 
-    pub fn get_active_order(&self) -> Option<OrderBundle> {
+    pub fn active_order(&self) -> Option<OrderBundle> {
         self.active_order.clone()
     }
 

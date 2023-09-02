@@ -5,3 +5,11 @@ members = [
     "time_series",
     "binance/*"
 ]
+
+[workspace.package]
+version = "0.2.3"
+authors = ["Lunar Engine <drew@lunarengine.xyz>"]
+repository = "https://github.com/LunarEngine/lunar_engine"
+homepage = "https://lunarengine.xyz/"
+license = "Apache-2.0"
+edition = "2021"

@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::errors::Result;
 use crate::model::{
-    AccountUpdateEvent, BalanceUpdateEvent, KlineEvent, OrderBook, OrderTradeEvent, TradeEvent,
+    AccountUpdateEvent, BalanceUpdateEvent, KlineEvent, OrderTradeEvent, TradeEvent,
 };
 use crate::BinanceError;
 use log::*;
@@ -55,7 +55,6 @@ pub enum WebSocketEvent {
     BalanceUpdate(BalanceUpdateEvent),
     OrderTrade(OrderTradeEvent),
     Trade(TradeEvent),
-    OrderBook(OrderBook),
     Kline(KlineEvent),
 }
 
@@ -82,7 +81,6 @@ enum Events {
     OrderTradeEvent(OrderTradeEvent),
     TradeEvent(TradeEvent),
     KlineEvent(KlineEvent),
-    OrderBook(OrderBook),
 }
 
 impl<'a> WebSockets<'a> {
@@ -149,7 +147,6 @@ impl<'a> WebSockets<'a> {
                 Events::OrderTradeEvent(v) => WebSocketEvent::OrderTrade(v),
                 Events::TradeEvent(v) => WebSocketEvent::Trade(v),
                 Events::KlineEvent(v) => WebSocketEvent::Kline(v),
-                Events::OrderBook(v) => WebSocketEvent::OrderBook(v),
             };
             (self.handler)(action)?;
         }

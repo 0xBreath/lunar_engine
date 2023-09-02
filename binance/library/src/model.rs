@@ -281,71 +281,12 @@ pub struct TestResponse {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct OrderBook {
-    pub last_update_id: u64,
-    pub bids: Vec<Bids>,
-    pub asks: Vec<Asks>,
-}
-
-#[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
-pub struct Bids {
-    #[serde(with = "string_or_float")]
-    pub price: f64,
-    #[serde(with = "string_or_float")]
-    pub qty: f64,
-}
-
-impl Bids {
-    #[allow(dead_code)]
-    pub fn new(price: f64, qty: f64) -> Bids {
-        Bids { price, qty }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Asks {
-    #[serde(with = "string_or_float")]
-    pub price: f64,
-    #[serde(with = "string_or_float")]
-    pub qty: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct UserDataStream {
     pub listen_key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Success {}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-#[serde(untagged)]
-pub enum Prices {
-    AllPrices(Vec<SymbolPrice>),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SymbolPrice {
-    pub symbol: String,
-    #[serde(with = "string_or_float")]
-    pub price: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AveragePrice {
-    pub mins: u64,
-    #[serde(with = "string_or_float")]
-    pub price: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-#[serde(untagged)]
-pub enum BookTickers {
-    AllBookTickers(Vec<Tickers>),
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -378,36 +319,6 @@ pub struct TradeHistory {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PriceStats {
-    pub symbol: String,
-    pub price_change: String,
-    pub price_change_percent: String,
-    pub weighted_avg_price: String,
-    #[serde(with = "string_or_float")]
-    pub prev_close_price: f64,
-    #[serde(with = "string_or_float")]
-    pub last_price: f64,
-    #[serde(with = "string_or_float")]
-    pub bid_price: f64,
-    #[serde(with = "string_or_float")]
-    pub ask_price: f64,
-    #[serde(with = "string_or_float")]
-    pub open_price: f64,
-    #[serde(with = "string_or_float")]
-    pub high_price: f64,
-    #[serde(with = "string_or_float")]
-    pub low_price: f64,
-    #[serde(with = "string_or_float")]
-    pub volume: f64,
-    pub open_time: u64,
-    pub close_time: u64,
-    pub first_id: i64,
-    pub last_id: i64,
-    pub count: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AggTrade {
     #[serde(rename = "T")]
     pub time: u64,
@@ -429,79 +340,35 @@ pub struct AggTrade {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct UserDataStreamExpiredEvent {
-    #[serde(rename = "e")]
-    pub event_type: String,
-
-    #[serde(rename = "E")]
-    pub event_time: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AccountUpdateEvent {
-    #[serde(rename = "e")]
-    pub event_type: String,
-
-    #[serde(rename = "E")]
-    pub event_time: u64,
-
-    #[serde(rename = "a")]
-    pub data: AccountUpdateDataEvent,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AccountUpdateDataEvent {
-    #[serde(rename = "m")]
-    pub reason: String,
-
-    #[serde(rename = "B")]
-    pub balances: Vec<EventBalance>,
-
-    #[serde(rename = "P")]
-    pub positions: Vec<EventPosition>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct EventBalance {
     #[serde(rename = "a")]
     pub asset: String,
-    #[serde(rename = "wb")]
-    pub wallet_balance: String,
-    #[serde(rename = "cw")]
-    pub cross_wallet_balance: String,
-    #[serde(rename = "bc")]
-    pub balance_change: String, // Balance Change except PnL and Commission
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct EventPosition {
-    #[serde(rename = "s")]
-    pub symbol: String,
-    #[serde(rename = "pa")]
-    pub position_amount: String,
-    #[serde(rename = "ep")]
-    pub entry_price: String,
-    #[serde(rename = "cr")]
-    pub accumulated_realized: String, // (Pre-fee) Accumulated Realized
-    #[serde(rename = "up")]
-    pub unrealized_pnl: String,
-    #[serde(rename = "mt")]
-    pub margin_type: String,
-    #[serde(rename = "iw")]
-    pub isolated_wallet: String,
-    #[serde(rename = "ps")]
-    pub position_side: String,
+    #[serde(rename = "f")]
+    pub free: String,
+    #[serde(rename = "l")]
+    pub locked: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BalanceUpdateEvent {
+    #[serde(rename = "e")]
+    pub event_type: String,
+    #[serde(rename = "E")]
+    pub event_time: u64,
+    #[serde(rename = "a")]
+    pub asset: String,
+    #[serde(rename = "d")]
+    pub balance_delta: String,
+    #[serde(rename = "T")]
+    pub clear_time: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountUpdateEvent {
     #[serde(rename = "B")]
-    pub balance: Vec<EventBalance>,
+    pub balances: Vec<EventBalance>,
 
     #[serde(rename = "e")]
     pub event_type: String,
@@ -511,6 +378,44 @@ pub struct BalanceUpdateEvent {
 
     #[serde(rename = "u")]
     pub last_account_update_time: u64,
+}
+
+impl AccountUpdateEvent {
+    pub fn assets(&self, quote_asset: &str, base_asset: &str) -> Result<Assets> {
+        let quote = self
+            .balances
+            .iter()
+            .find(|b| b.asset == quote_asset)
+            .ok_or(BinanceError::Custom(
+                "Failed to find quote balance".to_string(),
+            ))?;
+        let free_quote = quote.free.parse::<f64>().map_err(|e| {
+            BinanceError::Custom(format!("Failed to parse free quote balance: {}", e))
+        })?;
+        let locked_quote = quote.locked.parse::<f64>().map_err(|e| {
+            BinanceError::Custom(format!("Failed to parse locked quote balance: {}", e))
+        })?;
+
+        let base =
+            self.balances
+                .iter()
+                .find(|b| b.asset == base_asset)
+                .ok_or(BinanceError::Custom(
+                    "Failed to find quote balance".to_string(),
+                ))?;
+        let free_base = quote.free.parse::<f64>().map_err(|e| {
+            BinanceError::Custom(format!("Failed to parse free base balance: {}", e))
+        })?;
+        let locked_base = quote.locked.parse::<f64>().map_err(|e| {
+            BinanceError::Custom(format!("Failed to parse locked base balance: {}", e))
+        })?;
+        Ok(Assets {
+            free_quote,
+            locked_quote,
+            free_base,
+            locked_base,
+        })
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -643,104 +548,6 @@ pub struct TradeEvent {
 
     #[serde(skip, rename = "M")]
     pub m_ignore: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct IndexPriceEvent {
-    #[serde(rename = "e")]
-    pub event_type: String,
-
-    #[serde(rename = "E")]
-    pub event_time: u64,
-
-    #[serde(rename = "i")]
-    pub pair: String,
-
-    #[serde(rename = "p")]
-    pub price: String,
-}
-// https://binance-docs.github.io/apidocs/futures/en/#mark-price-stream
-// https://binance-docs.github.io/apidocs/delivery/en/#mark-price-stream
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct MarkPriceEvent {
-    #[serde(rename = "E")]
-    pub event_time: u64,
-
-    #[serde(rename = "P")]
-    pub estimate_settle_price: String,
-
-    #[serde(rename = "T")]
-    pub next_funding_time: u64,
-
-    #[serde(rename = "e")]
-    pub event_type: String,
-
-    #[serde(rename = "i")]
-    pub index_price: Option<String>,
-
-    #[serde(rename = "p")]
-    pub mark_price: String,
-
-    #[serde(rename = "r")]
-    pub funding_rate: String,
-
-    #[serde(rename = "s")]
-    pub symbol: String,
-}
-
-// Object({"E": Number(1626118018407), "e": String("forceOrder"), "o": Object({"S": String("SELL"), "T": Number(1626118018404), "X": String("FILLED"), "ap": String("33028.07"), "f": String("IOC"), "l": String("0.010"), "o": String("LIMIT"), "p": String("32896.00"), "q": String("0.010"), "s": String("BTCUSDT"), "z": String("0.010")})})
-// https://binance-docs.github.io/apidocs/futures/en/#liquidation-order-streams
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct LiquidationEvent {
-    #[serde(rename = "e")]
-    pub event_type: String,
-
-    #[serde(rename = "E")]
-    pub event_time: u64,
-
-    #[serde(rename = "o")]
-    pub liquidation_order: LiquidationOrder,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct LiquidationOrder {
-    #[serde(rename = "s")]
-    pub symbol: String,
-
-    #[serde(rename = "S")]
-    pub side: String,
-
-    #[serde(rename = "o")]
-    pub order_type: String,
-
-    #[serde(rename = "f")]
-    pub time_in_force: String,
-
-    #[serde(rename = "q")]
-    pub original_quantity: String,
-
-    #[serde(rename = "p")]
-    pub price: String,
-
-    #[serde(rename = "ap")]
-    pub average_price: String,
-
-    #[serde(rename = "X")]
-    pub order_status: String,
-
-    #[serde(rename = "l")]
-    pub order_last_filled_quantity: String,
-
-    #[serde(rename = "z")]
-    pub order_filled_accumulated_quantity: String,
-
-    #[serde(rename = "T")]
-    pub order_trade_time: u64,
 }
 
 /// Response to the Savings API get all coins request
@@ -1120,6 +927,17 @@ pub struct Assets {
     /// Base is numerator, so BTC for BTCUSDT
     pub free_base: f64,
     pub locked_base: f64,
+}
+
+impl Default for Assets {
+    fn default() -> Self {
+        Self {
+            free_quote: 0.0,
+            locked_quote: 0.0,
+            free_base: 0.0,
+            locked_base: 0.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

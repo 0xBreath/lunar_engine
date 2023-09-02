@@ -2,6 +2,7 @@ use ephemeris::*;
 use lazy_static::lazy_static;
 use library::*;
 use log::*;
+use model::Assets;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Mutex;
@@ -52,6 +53,7 @@ lazy_static! {
                 quote_asset: QUOTE_ASSET.to_string(),
                 ticker: TICKER.to_string(),
                 active_order: None,
+                assets: Assets::default(),
             })
         },
         false => {
@@ -66,6 +68,7 @@ lazy_static! {
                 quote_asset: QUOTE_ASSET.to_string(),
                 ticker: TICKER.to_string(),
                 active_order: None,
+                assets: Assets::default(),
             })
         }
     };
@@ -193,7 +196,7 @@ async fn main() -> Result<()> {
                     .closest_plpl(&candle)
                     .map_err(BinanceError::PLPL)?;
                 // active order bundle on Binance
-                let active_order = account.get_active_order();
+                let active_order = account.active_order();
                 let mut trade_placed = false;
 
                 // compare previous candle to current candle to check crossover of PLPL signal threshold
@@ -245,65 +248,10 @@ async fn main() -> Result<()> {
                 }
             }
             WebSocketEvent::AccountUpdate(account_update) => {
-                let quote_balance = account_update
-                    .data
-                    .balances
-                    .iter()
-                    .find(|b| b.asset == account.quote_asset)
-                    .ok_or(BinanceError::Custom(
-                        "Failed to find quote balance".to_string(),
-                    ))?
-                    .wallet_balance
-                    .parse::<f64>()
-                    .map_err(|e| {
-                        BinanceError::Custom(format!("Failed to parse quote balance: {}", e))
-                    })?;
-                let base_balance = account_update
-                    .data
-                    .balances
-                    .iter()
-                    .find(|b| b.asset == account.base_asset)
-                    .ok_or(BinanceError::Custom(
-                        "Failed to find base balance".to_string(),
-                    ))?
-                    .wallet_balance
-                    .parse::<f64>()
-                    .map_err(|e| {
-                        BinanceError::Custom(format!("Failed to parse base balance: {}", e))
-                    })?;
-                info!(
+                let assets = account_update.assets(&account.quote_asset, &account.base_asset)?;
+                debug!(
                     "Account Update, {}: {}, {}: {}",
-                    account.quote_asset, quote_balance, account.base_asset, base_balance
-                );
-            }
-            WebSocketEvent::BalanceUpdate(balance_update) => {
-                let quote_balance = balance_update
-                    .balance
-                    .iter()
-                    .find(|b| b.asset == account.quote_asset)
-                    .ok_or(BinanceError::Custom(
-                        "Failed to find quote balance".to_string(),
-                    ))?
-                    .wallet_balance
-                    .parse::<f64>()
-                    .map_err(|e| {
-                        BinanceError::Custom(format!("Failed to parse quote balance: {}", e))
-                    })?;
-                let base_balance = balance_update
-                    .balance
-                    .iter()
-                    .find(|b| b.asset == account.base_asset)
-                    .ok_or(BinanceError::Custom(
-                        "Failed to find base balance".to_string(),
-                    ))?
-                    .wallet_balance
-                    .parse::<f64>()
-                    .map_err(|e| {
-                        BinanceError::Custom(format!("Failed to parse base balance: {}", e))
-                    })?;
-                info!(
-                    "Balance Update, {}: {}, {}: {}",
-                    account.quote_asset, quote_balance, account.base_asset, base_balance
+                    account.quote_asset, assets.free_quote, account.base_asset, assets.free_base
                 );
             }
             WebSocketEvent::OrderTrade(event) => {
@@ -325,7 +273,7 @@ async fn main() -> Result<()> {
                     event.order_status,
                     order_type
                 );
-                return match account.stream_update_active_order(event) {
+                return match account.update_active_order(event) {
                     Ok(_) => {
                         account.log_active_order();
                         Ok(())

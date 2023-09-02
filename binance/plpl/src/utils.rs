@@ -59,13 +59,12 @@ pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
 }
 
 pub fn trade_qty(
-    account_info: &AccountInfoResponse,
+    assets: Assets,
     quote_asset: &str,
     base_asset: &str,
     side: Side,
     candle: &Candle,
 ) -> Result<f64> {
-    let assets = account_info.account_assets(quote_asset, base_asset)?;
     info!(
         "{}, Free: {}, Locked: {}  |  {}, Free: {}, Locked: {}",
         quote_asset,
@@ -109,7 +108,7 @@ pub struct OrderBuilder {
 
 #[allow(clippy::too_many_arguments)]
 pub fn plpl_long(
-    account_info: &AccountInfoResponse,
+    assets: Assets,
     timestamp: &str,
     candle: &Candle,
     trailing_take_profit: ExitType,
@@ -121,7 +120,7 @@ pub fn plpl_long(
     // each order gets 1/3 of 99% of account balance
     // 99% is to account for fees
     // 1/3 is to account for 3 orders
-    let long_qty = trade_qty(account_info, quote_asset, base_asset, Side::Long, candle)?;
+    let long_qty = trade_qty(assets, quote_asset, base_asset, Side::Long, candle)?;
     let limit = precise_round!(candle.close, 2);
     let entry = BinanceTrade::new(
         ticker.to_string(),
@@ -175,7 +174,7 @@ pub fn plpl_long(
 
 #[allow(clippy::too_many_arguments)]
 pub fn plpl_short(
-    account_info: &AccountInfoResponse,
+    assets: Assets,
     timestamp: &str,
     candle: &Candle,
     trailing_take_profit: ExitType,
@@ -184,7 +183,7 @@ pub fn plpl_short(
     quote_asset: &str,
     base_asset: &str,
 ) -> Result<OrderBuilder> {
-    let short_qty = trade_qty(account_info, quote_asset, base_asset, Side::Short, candle)?;
+    let short_qty = trade_qty(assets, quote_asset, base_asset, Side::Short, candle)?;
     let limit = precise_round!(candle.close, 2);
     let entry = BinanceTrade::new(
         ticker.to_string(),
@@ -322,16 +321,15 @@ fn handle_long_signal(
         candle.close,
         date.to_string()
     );
-    let account_info = account.account_info()?;
     let order_builder = plpl_long(
-        &account_info,
+        account.assets(),
         &timestamp,
         candle,
         trailing_take_profit,
         stop_loss,
-        TICKER,
-        QUOTE_ASSET,
-        BASE_ASSET,
+        &account.ticker,
+        &account.quote_asset,
+        &account.base_asset,
     )?;
     account.active_order = Some(OrderBundle::new(
         None,
@@ -379,16 +377,15 @@ fn handle_short_signal(
         candle.close,
         date.to_string()
     );
-    let account_info = account.account_info()?;
     let order_builder = plpl_short(
-        &account_info,
+        account.assets(),
         &timestamp,
         candle,
         trailing_take_profit,
         stop_loss,
-        TICKER,
-        QUOTE_ASSET,
-        BASE_ASSET,
+        &account.ticker,
+        &account.quote_asset,
+        &account.base_asset,
     )?;
     account.active_order = Some(OrderBundle::new(
         None,
