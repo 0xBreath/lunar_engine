@@ -4,8 +4,7 @@ use time_series::*;
 #[derive(Debug, Clone)]
 pub enum ExitType {
     Percent(f64),
-    /// Pip (percent in point, smallest price change)
-    /// for BTCUSD this is $0.01
+    /// Tick (smallest unit of price change). For BTCUSD this is $0.01
     Fixed(u32),
 }
 
@@ -36,14 +35,14 @@ impl TrailingTakeProfitTracker {
                     entry,
                     method,
                     exit_side,
-                    extreme: precise_round!(entry - (entry * bips / 100.0), 2),
+                    extreme: precise_round!(entry - (entry * (bips * 2.0) / 100.0), 2),
                     trigger: precise_round!(entry - (entry * bips / 100.0), 2),
                 },
                 ExitType::Fixed(pip) => Self {
                     entry,
                     method,
                     exit_side,
-                    extreme: precise_round!(entry - pip as f64 / 100.0, 2),
+                    extreme: precise_round!(entry - (pip as f64 * 2.0) / 100.0, 2),
                     trigger: precise_round!(entry - pip as f64 / 100.0, 2),
                 },
             },
@@ -54,14 +53,14 @@ impl TrailingTakeProfitTracker {
                     entry,
                     method,
                     exit_side,
-                    extreme: precise_round!(entry + (entry * bips / 100.0), 2),
+                    extreme: precise_round!(entry + (entry * (bips * 2.0) / 100.0), 2),
                     trigger: precise_round!(entry + (entry * bips / 100.0), 2),
                 },
                 ExitType::Fixed(pip) => Self {
                     entry,
                     method,
                     exit_side,
-                    extreme: precise_round!(entry + pip as f64 / 100.0, 2),
+                    extreme: precise_round!(entry + (pip as f64 * 2.0) / 100.0, 2),
                     trigger: precise_round!(entry + pip as f64 / 100.0, 2),
                 },
             },

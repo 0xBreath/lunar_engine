@@ -21,12 +21,16 @@ pub fn init_logger(log_file: &PathBuf) -> Result<()> {
         WriteLogger::new(
             LevelFilter::Info,
             ConfigBuilder::new().set_time_format_rfc3339().build(),
-            File::create(log_file).map_err(|_| {
-                BinanceError::Custom("Failed to create PLPL Binance log file".to_string())
-            })?,
+            File::create(log_file)?,
         ),
     ])
     .map_err(|_| BinanceError::Custom("Failed to initialize PLPL Binance logger".to_string()))
+}
+
+pub fn is_testnet() -> Result<bool> {
+    std::env::var("TESTNET")?
+        .parse::<bool>()
+        .map_err(BinanceError::ParseBool)
 }
 
 pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
@@ -36,23 +40,19 @@ pub fn kline_to_candle(kline_event: &KlineEvent) -> Result<Candle> {
         open: kline_event
             .kline
             .open
-            .parse::<f64>()
-            .map_err(|_| BinanceError::Custom("Failed to parse Kline open to f64".to_string()))?,
+            .parse::<f64>()?,
         high: kline_event
             .kline
             .high
-            .parse::<f64>()
-            .map_err(|_| BinanceError::Custom("Failed to parse Kline high to f64".to_string()))?,
+            .parse::<f64>()?,
         low: kline_event
             .kline
             .low
-            .parse::<f64>()
-            .map_err(|_| BinanceError::Custom("Failed to parse Kline low to f64".to_string()))?,
+            .parse::<f64>()?,
         close: kline_event
             .kline
             .close
-            .parse::<f64>()
-            .map_err(|_| BinanceError::Custom("Failed to parse Kline close to f64".to_string()))?,
+            .parse::<f64>()?,
         volume: None,
     })
 }

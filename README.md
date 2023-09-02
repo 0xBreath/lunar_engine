@@ -38,3 +38,12 @@ screen -r plpl
 # To kill the screen
 screen -X -S plpl quit
 ```
+
+### Create Release Tag
+```bash
+git tag -a tag-name -m 'tag-message'
+
+git push origin tag-name
+
+# Go to GitHub and create a release
+```

@@ -111,7 +111,7 @@ impl<'a> WebSockets<'a> {
     }
 
     fn connect_wss(&mut self, wss: &str) -> Result<()> {
-        let url = Url::parse(wss).map_err(BinanceError::UrlParser)?;
+        let url = Url::parse(wss)?;
         match connect(url) {
             Ok(answer) => {
                 self.socket = Some(answer);
@@ -123,7 +123,7 @@ impl<'a> WebSockets<'a> {
 
     pub fn disconnect(&mut self) -> Result<()> {
         if let Some(ref mut socket) = self.socket {
-            socket.0.close(None).map_err(BinanceError::Tungstenite)?;
+            socket.0.close(None)?;
             return Ok(());
         }
         Err(BinanceError::WebSocketDisconnected)
@@ -135,7 +135,7 @@ impl<'a> WebSockets<'a> {
     }
 
     fn handle_msg(&mut self, msg: &str) -> Result<()> {
-        let value: serde_json::Value = serde_json::from_str(msg).map_err(BinanceError::Json)?;
+        let value: serde_json::Value = serde_json::from_str(msg)?;
         if let Some(data) = value.get("data") {
             self.handle_msg(&data.to_string())?;
             return Ok(());
@@ -156,7 +156,7 @@ impl<'a> WebSockets<'a> {
     pub fn event_loop(&mut self, running: &AtomicBool) -> Result<()> {
         while running.load(Ordering::Relaxed) {
             if let Some(ref mut socket) = self.socket {
-                let message = socket.0.read_message().map_err(BinanceError::Tungstenite)?;
+                let message = socket.0.read_message()?;
                 match message {
                     Message::Text(msg) => match self.handle_msg(&msg) {
                         Ok(_) => {}

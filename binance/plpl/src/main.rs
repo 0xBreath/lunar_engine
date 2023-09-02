@@ -36,9 +36,7 @@ pub const QUOTE_ASSET: &str = "USDT";
 pub const TICKER: &str = "BTCUSDT";
 
 lazy_static! {
-    static ref ACCOUNT: Mutex<Account> = match std::env::var("TESTNET")
-      .expect("ACCOUNT init failed. TESTNET environment variable must be set to either true or false")
-      .parse::<bool>()
+    static ref ACCOUNT: Mutex<Account> = match is_testnet()
       .expect("Failed to parse env TESTNET to boolean")
     {
         true => {
@@ -72,9 +70,7 @@ lazy_static! {
             })
         }
     };
-    static ref USER_STREAM: Mutex<UserStream> = match std::env::var("TESTNET")
-        .expect("USER_STREAM init failed. TESTNET environment variable must be set to either true or false")
-        .parse::<bool>()
+    static ref USER_STREAM: Mutex<UserStream> = match is_testnet()
         .expect("Failed to parse env TESTNET to boolean")
     {
         true => {
@@ -128,27 +124,15 @@ async fn main() -> Result<()> {
         plpl_price,
         num_plpls,
         cross_margin_pct,
-    })
-    .map_err(|e| BinanceError::Custom(e.to_string()))?;
+    })?;
 
-    let testnet = std::env::var("TESTNET")
-        .map_err(|_| {
-            BinanceError::Custom(
-                "Failed to read TESTNET env. Must be set to either true or false".to_string(),
-            )
-        })?
-        .parse::<bool>()
-        .map_err(|_| BinanceError::Custom("Failed to parse env TESTNET to boolean".to_string()))?;
+    let testnet = is_testnet()?;
     let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
     let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
-    let mut account = ACCOUNT
-        .lock()
-        .map_err(|e| BinanceError::Custom(e.to_string()))?;
+    let mut account = ACCOUNT.lock()?;
 
     let mut user_stream_keep_alive_time = SystemTime::now();
-    let user_stream = USER_STREAM
-        .lock()
-        .map_err(|e| BinanceError::Custom(e.to_string()))?;
+    let user_stream = USER_STREAM.lock()?;
     let answer = user_stream.start()?;
     let listen_key = answer.listen_key;
 
@@ -167,8 +151,7 @@ async fn main() -> Result<()> {
         // check if timestamp is 10 minutes after last UserStream keep alive ping
         let secs_since_keep_alive = now
             .duration_since(user_stream_keep_alive_time)
-            .map(|d| d.as_secs())
-            .map_err(|e| BinanceError::Custom(e.to_string()))?;
+            .map(|d| d.as_secs())?;
 
         if secs_since_keep_alive > 30 * 60 {
             match user_stream.keep_alive(&listen_key) {
@@ -189,17 +172,11 @@ async fn main() -> Result<()> {
                 let date = Time::from_unix_msec(kline_event_time);
                 let timestamp = format!("{}", kline_event_time);
                 let candle = kline_to_candle(&kline_event)?;
-                let mut prev = prev_candle.lock().map_err(|_| {
-                    BinanceError::Custom("Failed to lock previous candle".to_string())
-                })?;
-                let mut curr = curr_candle.lock().map_err(|_| {
-                    BinanceError::Custom("Failed to lock current candle".to_string())
-                })?;
+                let mut prev = prev_candle.lock()?;
+                let mut curr = curr_candle.lock()?;
 
                 // compute closest PLPL to current Candle
-                let plpl = plpl_system
-                    .closest_plpl(&candle)
-                    .map_err(BinanceError::PLPL)?;
+                let plpl = plpl_system.closest_plpl(&candle)?;
                 // active order bundle on Binance
                 let active_order = account.active_order();
                 let mut trade_placed = false;
@@ -245,9 +222,7 @@ async fn main() -> Result<()> {
                     }
                 }
                 // time to process
-                let elapsed = SystemTime::now().duration_since(now).map_err(|e| {
-                    BinanceError::Custom(format!("Failed to get duration since: {}", e))
-                })?;
+                let elapsed = SystemTime::now().duration_since(now)?;
                 if trade_placed {
                     debug!("Time to process PLPL trade: {:?}ms", elapsed.as_millis());
                 }
@@ -261,13 +236,7 @@ async fn main() -> Result<()> {
             }
             WebSocketEvent::OrderTrade(event) => {
                 let order_type = OrderBundle::client_order_id_suffix(&event.new_client_order_id);
-                let entry_price = precise_round!(
-                    event
-                        .price
-                        .parse::<f64>()
-                        .map_err(BinanceError::ParseFloat)?,
-                    2
-                );
+                let entry_price = precise_round!(event.price.parse::<f64>()?, 2);
                 debug!(
                     "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",
                     event.symbol,

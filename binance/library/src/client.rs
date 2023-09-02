@@ -43,8 +43,7 @@ impl Client {
         let response = client
             .get(url.as_str())
             .headers(self.build_headers(true)?)
-            .send()
-            .map_err(BinanceError::Reqwest)?;
+            .send()?;
         self.handler(response)
     }
 
@@ -53,7 +52,7 @@ impl Client {
         info!("url: {}", url);
         let client = &self.inner_client;
         let request = client.post(url.as_str()).headers(self.build_headers(true)?);
-        let response = request.send().map_err(BinanceError::Reqwest)?;
+        let response = request.send()?;
         self.handler(response)
     }
 
@@ -68,8 +67,7 @@ impl Client {
         let response = client
             .delete(url.as_str())
             .headers(self.build_headers(true)?)
-            .send()
-            .map_err(BinanceError::Reqwest)?;
+            .send()?;
         self.handler(response)
     }
 
@@ -82,10 +80,7 @@ impl Client {
         }
         debug!("url: {}", url);
         let client = &self.inner_client;
-        let response = client
-            .get(url.as_str())
-            .send()
-            .map_err(BinanceError::Reqwest)?;
+        let response = client.get(url.as_str()).send()?;
         self.handler(response)
     }
 
@@ -97,8 +92,7 @@ impl Client {
         let response = client
             .post(url.as_str())
             .headers(self.build_headers(false)?)
-            .send()
-            .map_err(BinanceError::Reqwest)?;
+            .send()?;
         self.handler(response)
     }
 
@@ -112,8 +106,7 @@ impl Client {
             .put(url.as_str())
             .headers(self.build_headers(false)?)
             .body(data)
-            .send()
-            .map_err(BinanceError::Reqwest)?;
+            .send()?;
         self.handler(response)
     }
 
@@ -127,8 +120,7 @@ impl Client {
             .delete(url.as_str())
             .headers(self.build_headers(false)?)
             .body(data)
-            .send()
-            .map_err(BinanceError::Reqwest)?;
+            .send()?;
         self.handler(response)
     }
 
@@ -157,16 +149,16 @@ impl Client {
         }
         custom_headers.insert(
             "x-mbx-apikey",
-            HeaderValue::from_str(self.api_key.as_str()).map_err(BinanceError::InvalidHeader)?,
+            HeaderValue::from_str(self.api_key.as_str())?,
         );
         Ok(custom_headers)
     }
 
     fn handler<T: DeserializeOwned>(&self, response: Response) -> Result<T> {
         if response.status().is_success() {
-            Ok(response.json::<T>().map_err(BinanceError::Reqwest)?)
+            Ok(response.json::<T>()?)
         } else {
-            let error: BinanceContentError = response.json().map_err(BinanceError::Reqwest)?;
+            let error: BinanceContentError = response.json()?;
             Err(BinanceError::Binance(error))
         }
     }

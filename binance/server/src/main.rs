@@ -49,6 +49,7 @@ lazy_static! {
                 quote_asset: QUOTE_ASSET.to_string(),
                 ticker: TICKER.to_string(),
                 active_order: None,
+                assets: Assets::default(),
             })
         }
         false => {
@@ -63,6 +64,7 @@ lazy_static! {
                 quote_asset: QUOTE_ASSET.to_string(),
                 ticker: TICKER.to_string(),
                 active_order: None,
+                assets: Assets::default(),
             })
         }
     };

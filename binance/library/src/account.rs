@@ -30,14 +30,8 @@ impl TradeInfo {
             order_type: OrderType::from_str(historical_order._type.as_str())?,
             status: OrderStatus::from_str(&historical_order.status)?,
             event_time: historical_order.update_time as u64,
-            quantity: historical_order
-                .executed_qty
-                .parse::<f64>()
-                .map_err(BinanceError::ParseFloat)?,
-            price: historical_order
-                .price
-                .parse::<f64>()
-                .map_err(BinanceError::ParseFloat)?,
+            quantity: historical_order.executed_qty.parse::<f64>()?,
+            price: historical_order.price.parse::<f64>()?,
         })
     }
 
@@ -50,14 +44,8 @@ impl TradeInfo {
             order_type,
             status,
             event_time: order_trade_event.event_time,
-            quantity: order_trade_event
-                .qty
-                .parse::<f64>()
-                .map_err(BinanceError::ParseFloat)?,
-            price: order_trade_event
-                .price
-                .parse::<f64>()
-                .map_err(BinanceError::ParseFloat)?,
+            quantity: order_trade_event.qty.parse::<f64>()?,
+            price: order_trade_event.price.parse::<f64>()?,
         })
     }
 }
@@ -212,9 +200,7 @@ impl Account {
         let res = self
             .client
             .get::<PriceResponse>(API::Spot(Spot::Price), Some(req))?;
-        res.price
-            .parse::<f64>()
-            .map_err(|e| BinanceError::Custom(e.to_string()))
+        res.price.parse::<f64>().map_err(BinanceError::ParseFloat)
     }
 
     /// Get historical orders for a single symbol
