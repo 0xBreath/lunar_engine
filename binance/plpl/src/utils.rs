@@ -1,4 +1,3 @@
-use crate::{BASE_ASSET, QUOTE_ASSET, TICKER};
 use ephemeris::PLPLSystem;
 use library::*;
 use log::*;

@@ -156,6 +156,10 @@ async fn main() -> Result<()> {
     account.cancel_all_open_orders()?;
     // equalize base and quote assets to 50/50
     account.equalize_assets()?;
+    // get initial asset balances
+    account.assets = account
+        .account_info()?
+        .account_assets(&account.quote_asset, &account.base_asset)?;
 
     let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
         let now = SystemTime::now();

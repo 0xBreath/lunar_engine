@@ -1,6 +1,7 @@
 use crate::errors::{BinanceError, Result};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
+use time_series::precise_round;
 
 #[derive(Deserialize, Clone)]
 pub struct Empty {}
@@ -403,17 +404,17 @@ impl AccountUpdateEvent {
                 .ok_or(BinanceError::Custom(
                     "Failed to find quote balance".to_string(),
                 ))?;
-        let free_base = quote.free.parse::<f64>().map_err(|e| {
+        let free_base = base.free.parse::<f64>().map_err(|e| {
             BinanceError::Custom(format!("Failed to parse free base balance: {}", e))
         })?;
-        let locked_base = quote.locked.parse::<f64>().map_err(|e| {
+        let locked_base = base.locked.parse::<f64>().map_err(|e| {
             BinanceError::Custom(format!("Failed to parse locked base balance: {}", e))
         })?;
         Ok(Assets {
-            free_quote,
-            locked_quote,
-            free_base,
-            locked_base,
+            free_quote: precise_round!(free_quote, 5),
+            locked_quote: precise_round!(locked_quote, 5),
+            free_base: precise_round!(free_base, 5),
+            locked_base: precise_round!(locked_base, 5),
         })
     }
 }
