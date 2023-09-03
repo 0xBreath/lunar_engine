@@ -106,7 +106,7 @@ impl Time {
 
     pub fn to_string(&self) -> String {
         format!(
-            "{}-{}-{}T{}.{}",
+            "{}-{}-{}.{}.{}",
             self.year,
             self.month.to_string(),
             self.day.to_string(),
