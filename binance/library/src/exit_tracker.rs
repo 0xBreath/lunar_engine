@@ -28,26 +28,6 @@ pub struct TrailingTakeProfitTracker {
 impl TrailingTakeProfitTracker {
     pub fn new(entry: f64, method: ExitType, exit_side: Side) -> Self {
         match exit_side {
-            // exit is Long, so entry is Short
-            // therefore take profit is below entry
-            Side::Long => match method {
-                ExitType::Percent(bips) => Self {
-                    entry,
-                    method,
-                    exit_side,
-                    extreme: precise_round!(entry - (entry * (bips * 2.0) / 100.0), 2),
-                    // extreme: precise_round!(entry - (entry * bips / 100.0), 2),
-                    trigger: precise_round!(entry - (entry * bips / 100.0), 2),
-                },
-                ExitType::Fixed(pip) => Self {
-                    entry,
-                    method,
-                    exit_side,
-                    extreme: precise_round!(entry - (pip as f64 * 2.0) / 100.0, 2),
-                    // extreme: precise_round!(entry - pip as f64 / 100.0, 2),
-                    trigger: precise_round!(entry - pip as f64 / 100.0, 2),
-                },
-            },
             // exit is Short, so entry is Long
             // therefore take profit is above entry price
             Side::Short => match method {
@@ -66,6 +46,26 @@ impl TrailingTakeProfitTracker {
                     extreme: precise_round!(entry + (pip as f64 * 2.0) / 100.0, 2),
                     // extreme: precise_round!(entry + pip as f64 / 100.0, 2),
                     trigger: precise_round!(entry + pip as f64 / 100.0, 2),
+                },
+            },
+            // exit is Long, so entry is Short
+            // therefore take profit is below entry
+            Side::Long => match method {
+                ExitType::Percent(bips) => Self {
+                    entry,
+                    method,
+                    exit_side,
+                    extreme: precise_round!(entry - (entry * (bips * 2.0) / 100.0), 2),
+                    // extreme: precise_round!(entry - (entry * bips / 100.0), 2),
+                    trigger: precise_round!(entry - (entry * bips / 100.0), 2),
+                },
+                ExitType::Fixed(pip) => Self {
+                    entry,
+                    method,
+                    exit_side,
+                    extreme: precise_round!(entry - (pip as f64 * 2.0) / 100.0, 2),
+                    // extreme: precise_round!(entry - pip as f64 / 100.0, 2),
+                    trigger: precise_round!(entry - pip as f64 / 100.0, 2),
                 },
             },
         }
