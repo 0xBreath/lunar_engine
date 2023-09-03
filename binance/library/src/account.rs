@@ -292,12 +292,15 @@ impl Account {
                     let mut updated_order = order_bundle.clone();
                     match &*order_type {
                         "ENTRY" => {
-                            debug!("Updating active order entry");
+                            info!("Updating active order entry as {}", event.order_status);
                             updated_order.entry = Some(TradeInfo::from_order_trade_event(&event)?);
                             updated_order.id = Some(event_id);
                         }
                         "TAKE_PROFIT" => {
-                            debug!("Updating active order take profit");
+                            info!(
+                                "Updating active order take profit as {}",
+                                event.order_status
+                            );
                             if order_status == OrderStatus::Canceled {
                                 info!("Take profit trigger updated, removing");
                                 updated_order.take_profit = PendingOrActiveOrder::Empty;
@@ -305,10 +308,29 @@ impl Account {
                                 updated_order.take_profit = PendingOrActiveOrder::Active(
                                     TradeInfo::from_order_trade_event(&event)?,
                                 );
+                                // TODO: remove after debug
+                                match &updated_order.entry {
+                                    None => {
+                                        error!("Take profit active before entry order placed!");
+                                        return Err(BinanceError::Custom(
+                                            "Take profit active before entry order placed!".into(),
+                                        ));
+                                    }
+                                    Some(entry) => {
+                                        if entry.status == OrderStatus::New
+                                            || entry.status == OrderStatus::PartiallyFilled
+                                        {
+                                            error!("Take profit active before entry filled!");
+                                            return Err(BinanceError::Custom(
+                                                "Take profit active before entry filled!".into(),
+                                            ));
+                                        }
+                                    }
+                                }
                             }
                         }
                         "STOP_LOSS" => {
-                            debug!("Updating active order stop loss");
+                            info!("Updating active order stop loss as {}", event.order_status);
                             updated_order.stop_loss = PendingOrActiveOrder::Active(
                                 TradeInfo::from_order_trade_event(&event)?,
                             );
