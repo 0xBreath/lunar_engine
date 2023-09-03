@@ -17,10 +17,10 @@ use utils::*;
 pub const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
 #[allow(dead_code)]
 pub const BINANCE_TEST_API_KEY: &str =
-    "AekFIdmCDmPkaeQjCjaPtEE9IvYtpoceePvvelkthAh7tEtvMAm7oHzcxkhbmxl0";
+    "XEUwQO3rcZj91HOdYRekbD6RSEJb03KHogXFHR4rvILCmTqqgqjxCEpr0O25SFQs";
 #[allow(dead_code)]
 pub const BINANCE_TEST_API_SECRET: &str =
-    "epU83XZHBcHuvznmccDQCbCcxbGeVq6sl4AspOyALCTqWkeG1CVlJx6BzXIC2wXK";
+    "ld3CZkxrqsjwJi5b20aSbTVatjZcSb1J46tcF5wP043OZ4jATtwGDHiroLCllnVw";
 // Binance Spot Live Network API credentials
 #[allow(dead_code)]
 pub const BINANCE_LIVE_API: &str = "https://api.binance.us";
