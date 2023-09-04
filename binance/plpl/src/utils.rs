@@ -128,25 +128,20 @@ pub fn plpl_long(
         Side::Short,
         OrderType::TakeProfitLimit,
         long_qty,
-        Some(trailing_take_profit_tracker.trigger),
-        Some(trailing_take_profit_tracker.extreme),
+        Some(trailing_take_profit_tracker.exit),
+        Some(trailing_take_profit_tracker.exit_trigger),
         None,
         Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
-    // half way between limit entry and stop loss trigger
-    let stop_price = precise_round!(
-        stop_loss_tracker.trigger + ((stop_loss_tracker.trigger - limit).abs() / 4.0),
-        2
-    );
     let loss = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),
         Side::Short,
         OrderType::StopLossLimit,
         long_qty,
-        Some(stop_loss_tracker.trigger),
-        Some(stop_price),
+        Some(stop_loss_tracker.exit),
+        Some(stop_loss_tracker.exit_trigger),
         None,
         Some(10000),
     );
@@ -191,25 +186,20 @@ pub fn plpl_short(
         Side::Long,
         OrderType::TakeProfitLimit,
         short_qty,
-        Some(trailing_take_profit_tracker.trigger),
-        Some(trailing_take_profit_tracker.extreme),
+        Some(trailing_take_profit_tracker.exit),
+        Some(trailing_take_profit_tracker.exit_trigger),
         None,
         Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
-    // half way between limit entry and stop loss trigger
-    let stop_price = precise_round!(
-        stop_loss_tracker.trigger - ((stop_loss_tracker.trigger - limit).abs() / 4.0),
-        2
-    );
     let loss = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),
         Side::Long,
         OrderType::StopLossLimit,
         short_qty,
-        Some(stop_loss_tracker.trigger),
-        Some(stop_price),
+        Some(stop_loss_tracker.exit),
+        Some(stop_loss_tracker.exit_trigger),
         None,
         Some(10000),
     );
@@ -267,10 +257,10 @@ fn check_trailing_take_profit(
                         res.symbol,
                         orig_client_order_id,
                         exit_side.clone(),
-                        OrderType::Limit,
+                        OrderType::TakeProfitLimit,
                         tp.quantity,
-                        Some(active_order.take_profit_tracker.trigger),
-                        None,
+                        Some(active_order.take_profit_tracker.exit),
+                        Some(active_order.take_profit_tracker.exit_trigger),
                         None,
                         Some(10000),
                     );

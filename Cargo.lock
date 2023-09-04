@@ -1999,6 +1999,7 @@ name = "returns"
 version = "0.2.5"
 dependencies = [
  "log",
+ "rand",
  "simplelog",
  "time 0.3.17",
 ]

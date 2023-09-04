@@ -186,6 +186,12 @@ impl Account {
         res
     }
 
+    pub fn update_account_assets(&mut self) -> Result<()> {
+        let account_info = self.account_info()?;
+        self.assets = account_info.account_assets(&self.quote_asset, &self.base_asset)?;
+        Ok(())
+    }
+
     /// Get all assets
     /// Not available on testnet
     pub fn all_assets(&self) -> Result<Vec<CoinInfo>> {
@@ -231,7 +237,7 @@ impl Account {
 
     /// Cancel all open orders for a single symbol
     pub fn cancel_all_open_orders(&self) -> Result<Vec<OrderCanceled>> {
-        debug!("Canceling all active orders");
+        info!("Canceling all active orders");
         let req = CancelOrders::request(self.ticker.clone(), Some(10000));
         let res = self
             .client
@@ -469,22 +475,22 @@ impl Account {
         match &self.active_order {
             None => debug!("No active order"),
             Some(active_order) => {
-                let take_profit = match &active_order.take_profit {
+                let take_profit_status = match &active_order.take_profit {
                     PendingOrActiveOrder::Active(take_profit) => {
                         format!("{:?}", take_profit.status)
                     }
                     PendingOrActiveOrder::Pending(_) => "Pending".to_string(),
                     PendingOrActiveOrder::Empty => "Empty".to_string(),
                 };
-                let tp_trigger = active_order.take_profit_tracker.trigger;
-                let stop_loss = match &active_order.stop_loss {
+                let tp_price = active_order.take_profit_tracker.exit;
+                let stop_loss_status = match &active_order.stop_loss {
                     PendingOrActiveOrder::Active(stop_loss) => {
                         format!("{:?}", stop_loss.status)
                     }
                     PendingOrActiveOrder::Pending(_) => "Pending".to_string(),
                     PendingOrActiveOrder::Empty => "Empty".to_string(),
                 };
-                let sl_trigger = active_order.stop_loss_tracker.trigger;
+                let sl_price = active_order.stop_loss_tracker.exit;
                 match &active_order.entry {
                     Some(entry) => {
                         let entry_status = match &active_order.entry {
@@ -502,10 +508,10 @@ impl Account {
                             active_order.side,
                             entry_status,
                             entry_trigger,
-                            take_profit,
-                            tp_trigger,
-                            stop_loss,
-                            sl_trigger
+                            take_profit_status,
+                            tp_price,
+                            stop_loss_status,
+                            sl_price
                         );
                     }
                     None => {
@@ -514,14 +520,14 @@ impl Account {
                             Some(entry) => format!("{:?}", entry.status),
                         };
                         info!(
-                            "Active Order: {:?}, {:?}, entry: {}, take_profit: {} @ {}, stop_loss: {} @ {}",
+                            "Active Order ID: {:?}, {:?}, entry: {}, take_profit: {} @ {}, stop_loss: {} @ {}",
                             active_order.id,
                             active_order.side,
                             entry_status,
-                            take_profit,
-                            tp_trigger,
-                            stop_loss,
-                            sl_trigger
+                            take_profit_status,
+                            tp_price,
+                            stop_loss_status,
+                            sl_price
                         );
                     }
                 }

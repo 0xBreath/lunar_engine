@@ -118,8 +118,8 @@ async fn main() -> Result<()> {
     let plpl_system = PLPLSystem::new(PLPLSystemConfig {
         planet,
         origin: Origin::Heliocentric,
-        first_date: Time::new(2023, &Month::from_num(7), &Day::from_num(1), None, None),
-        last_date: Time::new(2050, &Month::from_num(7), &Day::from_num(1), None, None),
+        first_date: Time::new(2023, &Month::from_num(9), &Day::from_num(1), None, None),
+        last_date: Time::new(2050, &Month::from_num(9), &Day::from_num(1), None, None),
         plpl_scale,
         plpl_price,
         num_plpls,
@@ -141,9 +141,7 @@ async fn main() -> Result<()> {
     // equalize base and quote assets to 50/50
     account.equalize_assets()?;
     // get initial asset balances
-    account.assets = account
-        .account_info()?
-        .account_assets(&account.quote_asset, &account.base_asset)?;
+    account.update_account_assets()?;
     account.log_assets();
 
     let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
