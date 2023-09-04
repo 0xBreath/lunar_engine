@@ -229,8 +229,7 @@ fn check_trailing_take_profit(
                         candle.close,
                         date.to_string()
                     );
-                    account.cancel_all_open_orders()?;
-                    account.active_order = None;
+                    account.reset_active_order()?;
                 }
             }
         }
@@ -256,7 +255,7 @@ fn check_trailing_take_profit(
                     let trade = BinanceTrade::new(
                         res.symbol,
                         orig_client_order_id,
-                        exit_side.clone(),
+                        exit_side,
                         OrderType::TakeProfitLimit,
                         tp.quantity,
                         Some(active_order.take_profit_tracker.exit),
@@ -264,16 +263,7 @@ fn check_trailing_take_profit(
                         None,
                         Some(10000),
                     );
-                    if let Err(e) = account.trade::<LimitOrderResponse>(trade) {
-                        error!(
-                            "Error updating take profit {} with error: {:?}",
-                            exit_side.fmt_binance(),
-                            e
-                        );
-                        account.cancel_all_open_orders()?;
-                        account.active_order = None;
-                        return Err(e);
-                    }
+                    account.trade_or_reset::<LimitOrderResponse>(trade)?;
                 }
                 PendingOrActiveOrder::Pending(_) => {
                     debug!("Take profit order is pending, ignore cancel and update");
@@ -321,20 +311,7 @@ fn handle_long_signal(
     account.log_active_order();
 
     // place entry order
-    let side = order_builder.entry.side.clone();
-    let client_order_id = order_builder.entry.client_order_id.clone();
-    let order_type = OrderBundle::client_order_id_suffix(&client_order_id);
-    if let Err(e) = account.trade::<LimitOrderResponse>(order_builder.entry) {
-        error!(
-            "Error entering {} for {}: {:?}",
-            side.fmt_binance(),
-            order_type,
-            e
-        );
-        account.cancel_all_open_orders()?;
-        account.active_order = None;
-        return Err(e);
-    }
+    account.trade_or_reset::<LimitOrderResponse>(order_builder.entry)?;
     Ok(())
 }
 
@@ -377,19 +354,7 @@ fn handle_short_signal(
     account.log_active_order();
 
     // place entry order
-    let side = order_builder.entry.side.clone();
-    let order_type = OrderBundle::client_order_id_suffix(&order_builder.entry.client_order_id);
-    if let Err(e) = account.trade::<LimitOrderResponse>(order_builder.entry) {
-        error!(
-            "Error entering {} for {}: {:?}",
-            side.fmt_binance(),
-            order_type,
-            e
-        );
-        account.cancel_all_open_orders()?;
-        account.active_order = None;
-        return Err(e);
-    }
+    account.trade_or_reset::<LimitOrderResponse>(order_builder.entry)?;
     Ok(())
 }
 
@@ -451,37 +416,10 @@ pub fn handle_signal(
                     if let Some(entry) = active_order.entry {
                         if entry.status == OrderStatus::Filled {
                             // place take profit order
-                            let side = take_profit.side.clone();
-                            let order_type =
-                                OrderBundle::client_order_id_suffix(&take_profit.client_order_id);
-                            if let Err(e) = account.trade::<LimitOrderResponse>(take_profit.clone())
-                            {
-                                error!(
-                                    "Error entering {} for {}: {:?}",
-                                    side.fmt_binance(),
-                                    order_type,
-                                    e
-                                );
-                                account.cancel_all_open_orders()?;
-                                account.active_order = None;
-                                return Err(e);
-                            }
+                            account.trade_or_reset::<LimitOrderResponse>(take_profit.clone())?;
 
                             // place stop loss order
-                            let side = stop_loss.side.clone();
-                            let order_type =
-                                OrderBundle::client_order_id_suffix(&stop_loss.client_order_id);
-                            if let Err(e) = account.trade::<LimitOrderResponse>(stop_loss.clone()) {
-                                error!(
-                                    "Error entering {} for {}: {:?}",
-                                    side.fmt_binance(),
-                                    order_type,
-                                    e
-                                );
-                                account.cancel_all_open_orders()?;
-                                account.active_order = None;
-                                return Err(e);
-                            }
+                            account.trade_or_reset::<LimitOrderResponse>(stop_loss.clone())?;
                         }
                     }
                 }

@@ -160,6 +160,29 @@ impl Account {
         self.client.post_signed::<T>(API::Spot(Spot::Order), req)
     }
 
+    pub fn trade_or_reset<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
+        let res = self.trade::<T>(trade.clone());
+        match res {
+            Ok(res) => Ok(res),
+            Err(e) => {
+                let order_type = OrderBundle::client_order_id_suffix(&trade.client_order_id);
+                error!(
+                    "Error entering {} for {}: {:?}",
+                    trade.side.fmt_binance(),
+                    order_type,
+                    e
+                );
+                self.reset_active_order()?;
+                Err(e)
+            }
+        }
+    }
+
+    pub fn reset_active_order(&mut self) -> Result<Vec<OrderCanceled>> {
+        self.active_order = None;
+        self.cancel_all_open_orders()
+    }
+
     /// Get account info which includes token balances
     pub fn account_info(&self) -> Result<AccountInfoResponse> {
         let builder = AccountInfo::request(None);
@@ -389,6 +412,7 @@ impl Account {
                             "Order bundle {} orders all filled. Should never happen.",
                             id
                         );
+                        updated_order = None;
                     }
                     // If enter is NEW && take profit is NEW && stop loss is NEW
                     //      -> do nothing, order is active, return Some
