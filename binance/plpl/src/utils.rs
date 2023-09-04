@@ -120,21 +120,21 @@ pub fn plpl_long(
         None,
         Some(10000),
     );
-    let trailing_take_profit_tracker =
+    let take_profit_tracker =
         TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Short);
-    let profit = BinanceTrade::new(
+    let take_profit = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "TAKE_PROFIT"),
         Side::Short,
         OrderType::TakeProfitLimit,
         long_qty,
-        Some(trailing_take_profit_tracker.exit),
-        Some(trailing_take_profit_tracker.exit_trigger),
+        Some(take_profit_tracker.exit),
+        Some(take_profit_tracker.exit_trigger),
         None,
         Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
-    let loss = BinanceTrade::new(
+    let stop_loss = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),
         Side::Short,
@@ -147,9 +147,9 @@ pub fn plpl_long(
     );
     Ok(OrderBuilder {
         entry,
-        take_profit: profit,
-        stop_loss: loss,
-        take_profit_tracker: trailing_take_profit_tracker,
+        take_profit,
+        stop_loss,
+        take_profit_tracker,
         stop_loss_tracker,
     })
 }
@@ -178,21 +178,21 @@ pub fn plpl_short(
         None,
         Some(10000),
     );
-    let trailing_take_profit_tracker =
+    let take_profit_tracker =
         TrailingTakeProfitTracker::new(limit, trailing_take_profit, Side::Long);
-    let profit = BinanceTrade::new(
+    let take_profit = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "TAKE_PROFIT"),
         Side::Long,
         OrderType::TakeProfitLimit,
         short_qty,
-        Some(trailing_take_profit_tracker.exit),
-        Some(trailing_take_profit_tracker.exit_trigger),
+        Some(take_profit_tracker.exit),
+        Some(take_profit_tracker.exit_trigger),
         None,
         Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
-    let loss = BinanceTrade::new(
+    let stop_loss = BinanceTrade::new(
         ticker.to_string(),
         format!("{}-{}", timestamp, "STOP_LOSS"),
         Side::Long,
@@ -205,9 +205,9 @@ pub fn plpl_short(
     );
     Ok(OrderBuilder {
         entry,
-        take_profit: profit,
-        stop_loss: loss,
-        take_profit_tracker: trailing_take_profit_tracker,
+        take_profit,
+        stop_loss,
+        take_profit_tracker,
         stop_loss_tracker,
     })
 }

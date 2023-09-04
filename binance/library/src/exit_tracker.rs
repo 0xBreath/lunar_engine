@@ -22,7 +22,6 @@ pub struct TrailingTakeProfitTracker {
     // exit side is opposite entry side
     pub exit_side: Side,
     pub exit_trigger: f64,
-    pub update_exit_trigger: f64,
     pub exit: f64,
 }
 
@@ -36,27 +35,22 @@ impl TrailingTakeProfitTracker {
                     // bips away from entry
                     let exit = precise_round!(entry + (entry * bips / 100.0), 2);
                     let exit_trigger = precise_round!(exit + (exit * bips / 100.0), 2);
-                    let update_exit_trigger =
-                        precise_round!(exit_trigger + (exit_trigger * bips / 100.0), 2);
                     Self {
                         entry,
                         method,
                         exit_side,
                         exit_trigger,
-                        update_exit_trigger,
                         exit,
                     }
                 }
                 ExitType::Fixed(pip) => {
                     let exit = precise_round!(entry + pip as f64 / 100.0, 2);
                     let exit_trigger = precise_round!(exit + pip as f64 / 100.0, 2);
-                    let update_exit_trigger = precise_round!(exit_trigger + pip as f64 / 100.0, 2);
                     Self {
                         entry,
                         method,
                         exit_side,
                         exit_trigger,
-                        update_exit_trigger,
                         exit,
                     }
                 }
@@ -67,27 +61,22 @@ impl TrailingTakeProfitTracker {
                 ExitType::Percent(bips) => {
                     let exit = precise_round!(entry - (entry * bips / 100.0), 2);
                     let exit_trigger = precise_round!(exit - (exit * bips / 100.0), 2);
-                    let update_exit_trigger =
-                        precise_round!(exit_trigger - (exit_trigger * (bips * 2.0) / 100.0), 2);
                     Self {
                         entry,
                         method,
                         exit_side,
                         exit_trigger,
-                        update_exit_trigger,
                         exit,
                     }
                 }
                 ExitType::Fixed(pip) => {
                     let exit = precise_round!(entry - pip as f64 / 100.0, 2);
                     let exit_trigger = precise_round!(exit - pip as f64 / 100.0, 2);
-                    let update_exit_trigger = precise_round!(exit_trigger - pip as f64 / 100.0, 2);
                     Self {
                         entry,
                         method,
                         exit_side,
                         exit_trigger,
-                        update_exit_trigger,
                         exit,
                     }
                 }
@@ -106,9 +95,7 @@ impl TrailingTakeProfitTracker {
                 ExitType::Percent(bips) => {
                     if candle.low < self.exit {
                         UpdateAction::Close
-                    } else if candle.high > self.update_exit_trigger {
-                        self.update_exit_trigger =
-                            precise_round!(candle.high + (candle.high * bips / 100.0), 2);
+                    } else if candle.high > self.exit_trigger {
                         self.exit_trigger = candle.high;
                         self.exit = precise_round!(candle.high - (candle.high * bips / 100.0), 2);
                         UpdateAction::CancelAndUpdate
@@ -119,9 +106,7 @@ impl TrailingTakeProfitTracker {
                 ExitType::Fixed(pip) => {
                     if candle.low < self.exit {
                         UpdateAction::Close
-                    } else if candle.high > self.update_exit_trigger {
-                        self.update_exit_trigger =
-                            precise_round!(candle.high + pip as f64 / 100.0, 2);
+                    } else if candle.high > self.exit_trigger {
                         self.exit_trigger = candle.high;
                         self.exit = precise_round!(candle.high - pip as f64 / 100.0, 2);
                         UpdateAction::CancelAndUpdate
@@ -137,9 +122,7 @@ impl TrailingTakeProfitTracker {
                 ExitType::Percent(bips) => {
                     if candle.high > self.exit {
                         UpdateAction::Close
-                    } else if candle.low < self.update_exit_trigger {
-                        self.update_exit_trigger =
-                            precise_round!(candle.low - (candle.low * bips / 100.0), 2);
+                    } else if candle.low < self.exit_trigger {
                         self.exit_trigger = candle.low;
                         self.exit = precise_round!(candle.low + (candle.low * bips / 100.0), 2);
                         UpdateAction::CancelAndUpdate
@@ -150,9 +133,7 @@ impl TrailingTakeProfitTracker {
                 ExitType::Fixed(pip) => {
                     if candle.high > self.exit {
                         UpdateAction::Close
-                    } else if candle.low < self.update_exit_trigger {
-                        self.update_exit_trigger =
-                            precise_round!(candle.low - pip as f64 / 100.0, 2);
+                    } else if candle.low < self.exit_trigger {
                         self.exit_trigger = candle.low;
                         self.exit = precise_round!(candle.low + pip as f64 / 100.0, 2);
                         UpdateAction::CancelAndUpdate
