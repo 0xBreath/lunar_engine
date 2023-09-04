@@ -67,11 +67,23 @@ fn simulated_trades(win_rate_pct: f64, num_trades: u32) -> Vec<TradeResult> {
 fn main() {
     init_logger();
 
+    let win_rate_pct = std::env::var("WIN_RATE")
+        .unwrap_or_else(|_| "66.0".to_string())
+        .parse::<f64>()
+        .expect("Failed to parse WIN_RATE_PCT");
+
+    let win_pct_return = std::env::var("WIN")
+        .unwrap_or_else(|_| "0.0134".to_string())
+        .parse::<f64>()
+        .expect("Failed to parse WIN");
+
+    let loss_pct_return = std::env::var("LOSS")
+        .unwrap_or_else(|_| "0.05".to_string())
+        .parse::<f64>()
+        .expect("Failed to parse LOSS");
+
     let trade_capital = 1_000.0;
-    let win_pct_return = 0.03;
-    let loss_pct_return = 0.05;
     let num_trades = 10_000;
-    let win_rate_pct = 66.0;
 
     let returned = compounded_win_loss_return(
         win_rate_pct,
@@ -80,6 +92,9 @@ fn main() {
         num_trades,
         trade_capital,
     );
+    println!("Win Rate: {:.1}%", win_rate_pct);
+    println!("Avg Win: {:.5}%", win_pct_return);
+    println!("Avg Loss: {:.5}%", loss_pct_return);
     println!("Total Return: {:.2}%", returned);
 }
 
