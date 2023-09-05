@@ -244,19 +244,24 @@ fn check_trailing_take_profit(
                         "Old take profit price: {}, new price: {}",
                         tp.price, update_action_info.exit
                     );
-
-                    let trade = BinanceTrade::new(
-                        res.symbol,
-                        orig_client_order_id,
-                        exit_side,
-                        OrderType::TakeProfitLimit,
-                        tp.quantity,
-                        Some(update_action_info.exit),
-                        Some(update_action_info.exit_trigger),
-                        None,
-                        Some(10000),
-                    );
-                    account.trade_or_reset::<LimitOrderResponse>(trade)?;
+                    let old_exit = tp.price;
+                    let new_exit = update_action_info.exit;
+                    if old_exit != new_exit {
+                        let trade = BinanceTrade::new(
+                            res.symbol,
+                            orig_client_order_id,
+                            exit_side,
+                            OrderType::TakeProfitLimit,
+                            tp.quantity,
+                            Some(update_action_info.exit),
+                            Some(update_action_info.exit_trigger),
+                            None,
+                            Some(10000),
+                        );
+                        account.trade_or_reset::<LimitOrderResponse>(trade)?;
+                    } else {
+                        debug!("Take profit price is the same, no update");
+                    }
                 }
                 PendingOrActiveOrder::Pending(_) => {
                     debug!("Take profit order is pending, ignore cancel and update");
