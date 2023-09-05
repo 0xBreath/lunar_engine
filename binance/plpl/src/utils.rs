@@ -224,7 +224,7 @@ fn check_trailing_take_profit(
             // cancel take profit order and place new one
             match active_order.take_profit {
                 PendingOrActiveOrder::Empty => {
-                    error!("No take profit order to cancel");
+                    error!("🛑 No take profit order to cancel");
                     return Err(BinanceError::Custom(
                         "No take profit order to cancel".to_string(),
                     ));

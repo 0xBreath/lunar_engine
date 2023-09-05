@@ -167,7 +167,7 @@ impl Account {
             Err(e) => {
                 let order_type = OrderBundle::client_order_id_suffix(&trade.client_order_id);
                 error!(
-                    "Error entering {} for {}: {:?}",
+                    "🛑 Error entering {} for {}: {:?}",
                     trade.side.fmt_binance(),
                     order_type,
                     e
@@ -203,7 +203,7 @@ impl Account {
                 .unwrap();
             // difference between now and req_time
             let diff = now - req_time;
-            error!("Failed to get account info in {}ms: {:?}", diff, e);
+            error!("🛑 Failed to get account info in {}ms: {:?}", diff, e);
             return Err(e);
         }
         res
@@ -268,7 +268,7 @@ impl Account {
         if let Err(e) = &res {
             if let BinanceError::Binance(err) = &e {
                 if err.code != -2011 {
-                    error!("Failed to cancel all active orders: {:?}", e);
+                    error!("🛑 Failed to cancel all active orders: {:?}", e);
                     return Err(BinanceError::Binance(err.clone()));
                 } else {
                     debug!("No open orders to cancel");
@@ -288,7 +288,7 @@ impl Account {
         if let Err(e) = &res {
             if let BinanceError::Binance(err) = &e {
                 if err.code != -2011 {
-                    error!("Failed to cancel order: {:?}", e);
+                    error!("🛑 Failed to cancel order: {:?}", e);
                     return Err(BinanceError::Binance(err.clone()));
                 } else {
                     debug!("No order to cancel");
@@ -340,7 +340,7 @@ impl Account {
                                 // TODO: remove after debug
                                 match &updated_order.entry {
                                     None => {
-                                        error!("Take profit active before entry order placed!");
+                                        error!("🛑 Take profit active before entry order placed!");
                                         return Err(BinanceError::Custom(
                                             "Take profit active before entry order placed!".into(),
                                         ));
@@ -349,7 +349,7 @@ impl Account {
                                         if entry.status == OrderStatus::New
                                             || entry.status == OrderStatus::PartiallyFilled
                                         {
-                                            error!("Take profit active before entry filled!");
+                                            error!("🛑 Take profit active before entry filled!");
                                             return Err(BinanceError::Custom(
                                                 "Take profit active before entry filled!".into(),
                                             ));
@@ -366,7 +366,7 @@ impl Account {
                         }
                         "EQUALIZE_BASE" => debug!("Equalizing base asset"),
                         "EQUALIZE_QUOTE" => debug!("Equalizing quote asset"),
-                        _ => error!("Invalid order event order type to update active order"),
+                        _ => error!("🛑 Invalid order event order type to update active order"),
                     }
                     self.active_order = Some(updated_order);
                 }
@@ -376,7 +376,7 @@ impl Account {
             None => {
                 let order_status = OrderStatus::from_str(&event.order_status)?;
                 if order_status == OrderStatus::New {
-                    error!("Active order should have been created on order placement!");
+                    error!("🛑 Active order should have been created on order placement!");
                     return Err(BinanceError::Custom(
                         "Active order should have been created on order placement!".to_string(),
                     ));
@@ -409,7 +409,7 @@ impl Account {
                         self.cancel_all_open_orders()?;
                         let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
                         error!(
-                            "Order bundle {} orders all filled. Should never happen.",
+                            "🛑 Order bundle {} orders all filled. Should never happen.",
                             id
                         );
                         updated_order = None;
@@ -477,7 +477,7 @@ impl Account {
                         debug!("Order bundle {} is active", id);
                     }
                     _ => {
-                        error!("Invalid active order status combination. Canceling all orders to start from scratch.");
+                        error!("🛑 Invalid active order status combination. Canceling all orders to start from scratch.");
                         self.cancel_all_open_orders()?;
                         updated_order = None;
                     }
@@ -602,7 +602,7 @@ impl Account {
                 None,
             );
             if let Err(e) = self.trade::<LimitOrderResponse>(buy_base) {
-                error!("Error equalizing quote asset with error: {:?}", e);
+                error!("🛑 Error equalizing quote asset with error: {:?}", e);
                 return Err(e);
             }
         }
@@ -628,7 +628,7 @@ impl Account {
                 None,
             );
             if let Err(e) = self.trade::<LimitOrderResponse>(sell_base) {
-                error!("Error equalizing base asset with error: {:?}", e);
+                error!("🛑 Error equalizing base asset with error: {:?}", e);
                 return Err(e);
             }
         }

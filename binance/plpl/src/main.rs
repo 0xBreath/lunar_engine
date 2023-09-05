@@ -159,7 +159,7 @@ async fn main() -> Result<()> {
                     );
                     info!("Keep alive user stream @ {}", now.to_string())
                 }
-                Err(e) => error!("Error on user stream keep alive: {}", e),
+                Err(e) => error!("🛑 Error on user stream keep alive: {}", e),
             }
             user_stream_keep_alive_time = now;
         }
@@ -199,7 +199,7 @@ async fn main() -> Result<()> {
                     }
                     (None, Some(_)) => {
                         error!(
-                            "Previous candle is None and current candle is Some. Should never occur."
+                            "🛑 Previous candle is None and current candle is Some. Should never occur."
                         );
                     }
                     (Some(_prev_candle), Some(curr_candle)) => {
@@ -251,7 +251,7 @@ async fn main() -> Result<()> {
                         Ok(())
                     }
                     Err(e) => {
-                        error!("Error updating active order: {:?}", e);
+                        error!("🛑 Error updating active order: {:?}", e);
                         Err(e)
                     }
                 };
@@ -264,14 +264,14 @@ async fn main() -> Result<()> {
     let subs = vec![KLINE_STREAM.to_string(), listen_key.clone()];
     match ws.connect_multiple_streams(&subs, testnet) {
         Err(e) => {
-            error!("Failed to connect to Binance websocket: {}", e);
+            error!("🛑 Failed to connect to Binance websocket: {}", e);
             return Err(e);
         }
         Ok(_) => info!("Binance websocket connected"),
     }
 
     if let Err(e) = ws.event_loop(&AtomicBool::new(true)) {
-        error!("Binance websocket error: {}", e);
+        error!("🛑 Binance websocket error: {}", e);
         return Err(e);
     }
 
@@ -279,10 +279,10 @@ async fn main() -> Result<()> {
 
     match ws.disconnect() {
         Err(e) => {
-            error!("Failed to disconnect from Binance websocket: {}", e);
+            error!("🛑 Failed to disconnect from Binance websocket: {}", e);
             match ws.connect_multiple_streams(&subs, testnet) {
                 Err(e) => {
-                    error!("Failed to connect to Binance websocket: {}", e);
+                    error!("🛑 Failed to connect to Binance websocket: {}", e);
                     Err(e)
                 }
                 Ok(_) => {
