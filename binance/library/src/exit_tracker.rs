@@ -28,8 +28,8 @@ impl ExitType {
             ExitType::Ticks(ticks) => ExitType::ticks_to_bips(ticks, origin),
         };
         match exit_side {
-            Side::Short => precise_round!(origin - (origin * trailing_bips as f64 / 100.0), 2),
-            Side::Long => precise_round!(origin + (origin * trailing_bips as f64 / 100.0), 2),
+            Side::Short => precise_round!(origin - (origin * trailing_bips as f64 / 10_000.0), 2),
+            Side::Long => precise_round!(origin + (origin * trailing_bips as f64 / 10_000.0), 2),
         }
     }
 }
@@ -221,56 +221,30 @@ impl StopLossTracker {
         match exit_side {
             // exit is Short, so entry is Long
             // therefore stop loss is below entry
-            Side::Short => match method {
-                ExitType::Bips(bips) => {
-                    let exit = precise_round!(entry - (entry * bips as f64 / 100.0), 2);
-                    let exit_trigger = precise_round!(exit + ((exit - entry).abs() / 4.0), 2);
-                    StopLossTracker {
-                        entry,
-                        method,
-                        exit_side,
-                        exit_trigger,
-                        exit,
-                    }
+            Side::Short => {
+                let exit = ExitType::calc_exit(exit_side.clone(), method.clone(), entry);
+                let exit_trigger = precise_round!(exit + ((exit - entry).abs() / 4.0), 2);
+                StopLossTracker {
+                    entry,
+                    method,
+                    exit_side,
+                    exit_trigger,
+                    exit,
                 }
-                ExitType::Ticks(pip) => {
-                    let exit = precise_round!(entry - pip as f64 / 100.0, 2);
-                    let exit_trigger = precise_round!(exit + ((exit - entry).abs() / 4.0), 2);
-                    StopLossTracker {
-                        entry,
-                        method,
-                        exit_side,
-                        exit_trigger,
-                        exit,
-                    }
-                }
-            },
+            }
             // exit is Long, so entry is Short
             // therefore stop loss is above entry
-            Side::Long => match method {
-                ExitType::Bips(bips) => {
-                    let exit = precise_round!(entry + (entry * bips as f64 / 100.0), 2);
-                    let exit_trigger = precise_round!(exit - ((exit - entry).abs() / 4.0), 2);
-                    StopLossTracker {
-                        entry,
-                        method,
-                        exit_side,
-                        exit_trigger,
-                        exit,
-                    }
+            Side::Long => {
+                let exit = ExitType::calc_exit(exit_side.clone(), method.clone(), entry);
+                let exit_trigger = precise_round!(exit - ((exit - entry).abs() / 4.0), 2);
+                StopLossTracker {
+                    entry,
+                    method,
+                    exit_side,
+                    exit_trigger,
+                    exit,
                 }
-                ExitType::Ticks(pip) => {
-                    let exit = precise_round!(entry + pip as f64 / 100.0, 2);
-                    let exit_trigger = precise_round!(exit - ((exit - entry).abs() / 4.0), 2);
-                    StopLossTracker {
-                        entry,
-                        method,
-                        exit_side,
-                        exit,
-                        exit_trigger,
-                    }
-                }
-            },
+            }
         }
     }
 }

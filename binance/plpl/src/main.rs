@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
 
     // PLPL parameters; tuned for 5 minute candles
     let trailing_take_profit = ExitType::Ticks(350);
-    let stop_loss = ExitType::Bips(50);
+    let stop_loss = ExitType::Bips(5);
     let planet = Planet::from("Jupiter");
     let plpl_scale = 0.5;
     let plpl_price = 20000.0;
