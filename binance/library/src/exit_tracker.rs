@@ -134,6 +134,19 @@ impl TrailingTakeProfitTracker {
             // and new candle highs increment take profit further above entry
             Side::Short => {
                 if candle.high > self.exit_trigger {
+                    info!(
+                        "Take profit exit trigger, Old: {}, New: {}",
+                        self.exit_trigger, candle.high
+                    );
+                    info!(
+                        "Take profit exit, Old: {}, New: {}",
+                        self.exit,
+                        ExitType::calc_exit(
+                            self.exit_side.clone(),
+                            self.method.clone(),
+                            self.exit_trigger,
+                        )
+                    );
                     self.exit_trigger = candle.high;
                     self.exit = ExitType::calc_exit(
                         self.exit_side.clone(),

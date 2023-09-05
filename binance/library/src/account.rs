@@ -321,12 +321,12 @@ impl Account {
                     let mut updated_order = order_bundle.clone();
                     match &*order_type {
                         "ENTRY" => {
-                            info!("Updating active order entry as {}", event.order_status);
+                            debug!("Updating active order entry as {}", event.order_status);
                             updated_order.entry = Some(TradeInfo::from_order_trade_event(&event)?);
                             updated_order.id = Some(event_id);
                         }
                         "TAKE_PROFIT" => {
-                            info!(
+                            debug!(
                                 "Updating active order take profit as {}",
                                 event.order_status
                             );
@@ -359,7 +359,7 @@ impl Account {
                             }
                         }
                         "STOP_LOSS" => {
-                            info!("Updating active order stop loss as {}", event.order_status);
+                            debug!("Updating active order stop loss as {}", event.order_status);
                             updated_order.stop_loss = PendingOrActiveOrder::Active(
                                 TradeInfo::from_order_trade_event(&event)?,
                             );
