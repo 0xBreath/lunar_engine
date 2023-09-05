@@ -144,14 +144,14 @@ impl TrailingTakeProfitTracker {
                         ExitType::calc_exit(
                             self.exit_side.clone(),
                             self.method.clone(),
-                            self.exit_trigger,
+                            candle.high,
                         )
                     );
                     self.exit_trigger = candle.high;
                     self.exit = ExitType::calc_exit(
                         self.exit_side.clone(),
                         self.method.clone(),
-                        self.exit_trigger,
+                        candle.high,
                     );
                     UpdateAction::CancelAndUpdate
                 } else {
@@ -173,14 +173,14 @@ impl TrailingTakeProfitTracker {
                         ExitType::calc_exit(
                             self.exit_side.clone(),
                             self.method.clone(),
-                            self.exit_trigger,
+                            candle.low,
                         )
                     );
                     self.exit_trigger = candle.low;
                     self.exit = ExitType::calc_exit(
                         self.exit_side.clone(),
                         self.method.clone(),
-                        self.exit_trigger,
+                        candle.low,
                     );
                     UpdateAction::CancelAndUpdate
                 } else {
