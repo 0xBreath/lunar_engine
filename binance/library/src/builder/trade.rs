@@ -20,7 +20,7 @@ pub struct BinanceTrade {
     /// Stop loss trigger price
     pub stop_price: Option<f64>,
     /// Trailing stop
-    pub trailing_stop: Option<f64>,
+    pub trailing_delta: Option<u32>,
     /// The number of milliseconds the request is valid for
     pub recv_window: u32,
 }
@@ -35,7 +35,7 @@ impl BinanceTrade {
         quantity: f64,
         price: Option<f64>,
         stop_price: Option<f64>,
-        trailing_stop: Option<f64>,
+        trailing_delta: Option<u32>,
         recv_window: Option<u32>,
     ) -> Self {
         let recv_window = recv_window.unwrap_or(10000);
@@ -47,7 +47,7 @@ impl BinanceTrade {
             client_order_id,
             price,
             stop_price,
-            trailing_stop,
+            trailing_delta,
             recv_window,
         }
     }
@@ -78,8 +78,8 @@ impl BinanceTrade {
         if let Some(price) = self.price {
             btree.push(("price".to_string(), price.to_string()));
         }
-        if let Some(trailing_stop) = self.trailing_stop {
-            btree.push(("trailingDelta".to_string(), trailing_stop.to_string()));
+        if let Some(trailing_delta) = self.trailing_delta {
+            btree.push(("trailingDelta".to_string(), trailing_delta.to_string()));
         }
         if let Some(stop_loss) = self.stop_price {
             btree.push(("stopPrice".to_string(), stop_loss.to_string()));

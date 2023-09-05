@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.6"
+version = "0.2.7"
 authors = ["Lunar Engine <drew@lunarengine.xyz>"]
 repository = "https://github.com/LunarEngine/lunar_engine"
 homepage = "https://lunarengine.xyz/"

@@ -82,7 +82,7 @@ fn main() {
         .parse::<f64>()
         .expect("Failed to parse LOSS");
 
-    let trade_capital = 1_000.0;
+    let trade_capital = 4_320.0; // trade every 10 minutes for a month
     let num_trades = 10_000;
 
     let returned = compounded_win_loss_return(

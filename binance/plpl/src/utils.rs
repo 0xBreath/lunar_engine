@@ -130,7 +130,7 @@ pub fn plpl_long(
         long_qty,
         Some(take_profit_tracker.exit),
         Some(take_profit_tracker.exit_trigger),
-        None,
+        Some(take_profit_tracker.trailing_bips),
         Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
@@ -188,7 +188,7 @@ pub fn plpl_short(
         short_qty,
         Some(take_profit_tracker.exit),
         Some(take_profit_tracker.exit_trigger),
-        None,
+        Some(take_profit_tracker.trailing_bips),
         Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
@@ -222,15 +222,13 @@ fn check_trailing_take_profit(
     match take_profit_action {
         UpdateAction::None => debug!("Take profit checked, no update"),
         UpdateAction::Close => {
-            if let PendingOrActiveOrder::Active(tp) = active_order.take_profit {
-                if tp.status == OrderStatus::Filled || tp.status == OrderStatus::PartiallyFilled {
-                    info!(
-                        "Take profit triggered @ {} | {}",
-                        candle.close,
-                        date.to_string()
-                    );
-                    account.reset_active_order()?;
-                }
+            if let PendingOrActiveOrder::Active(_) = active_order.take_profit {
+                warn!(
+                    "Take profit should trigger @ {} | {}",
+                    candle.close,
+                    date.to_string()
+                );
+                // account.reset_active_order()?;
             }
         }
         UpdateAction::CancelAndUpdate => {
@@ -243,7 +241,7 @@ fn check_trailing_take_profit(
                     ));
                 }
                 PendingOrActiveOrder::Active(tp) => {
-                    // cancel exiting trailing take profit order
+                    // cancel existing trailing take profit order
                     let res = account.cancel_order(tp.order_id)?;
                     let orig_client_order_id =
                         res.orig_client_order_id.ok_or(BinanceError::Custom(
@@ -260,7 +258,7 @@ fn check_trailing_take_profit(
                         tp.quantity,
                         Some(active_order.take_profit_tracker.exit),
                         Some(active_order.take_profit_tracker.exit_trigger),
-                        None,
+                        Some(active_order.take_profit_tracker.trailing_bips),
                         Some(10000),
                     );
                     account.trade_or_reset::<LimitOrderResponse>(trade)?;

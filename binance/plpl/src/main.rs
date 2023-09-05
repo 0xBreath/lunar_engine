@@ -106,8 +106,8 @@ async fn main() -> Result<()> {
     info!("Starting Binance PLPL!");
 
     // PLPL parameters; tuned for 5 minute candles
-    let trailing_take_profit = ExitType::Fixed(350);
-    let stop_loss = ExitType::Percent(0.05);
+    let trailing_take_profit = ExitType::Ticks(350);
+    let stop_loss = ExitType::Bips(50);
     let planet = Planet::from("Jupiter");
     let plpl_scale = 0.5;
     let plpl_price = 20000.0;
