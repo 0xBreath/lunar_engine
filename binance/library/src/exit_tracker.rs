@@ -134,25 +134,26 @@ impl TrailingTakeProfitTracker {
             // and new candle highs increment take profit further above entry
             Side::Short => {
                 if candle.high > self.exit_trigger {
-                    info!(
-                        "Take profit exit trigger, Old: {}, New: {}",
-                        self.exit_trigger, candle.high
-                    );
-                    info!(
-                        "Take profit exit, Old: {}, New: {}",
-                        self.exit,
-                        ExitType::calc_exit(
-                            self.exit_side.clone(),
-                            self.method.clone(),
-                            candle.high,
-                        )
-                    );
-                    self.exit_trigger = candle.high;
-                    self.exit = ExitType::calc_exit(
+                    let old_exit_trigger = self.exit_trigger;
+                    let new_exit_trigger = candle.high;
+                    let old_exit = self.exit;
+                    let new_exit = ExitType::calc_exit(
                         self.exit_side.clone(),
                         self.method.clone(),
                         candle.high,
                     );
+                    info!(
+                        "Pre-Update TP exit trigger, Old: {}, New: {}",
+                        old_exit_trigger, new_exit_trigger
+                    );
+                    info!("Pre-Update TP exit, Old: {}, New: {}", old_exit, new_exit);
+                    self.exit_trigger = new_exit_trigger;
+                    self.exit = new_exit;
+                    info!(
+                        "Post-Update TP exit trigger, Old: {}, New: {}",
+                        old_exit_trigger, self.exit_trigger
+                    );
+                    info!("Post-Update TP exit, Old: {}, New: {}", old_exit, self.exit);
                     UpdateAction::CancelAndUpdate
                 } else {
                     UpdateAction::None
@@ -163,25 +164,26 @@ impl TrailingTakeProfitTracker {
             // and new candle lows decrement take profit further below entry
             Side::Long => {
                 if candle.low < self.exit_trigger {
-                    info!(
-                        "Take profit exit trigger, Old: {}, New: {}",
-                        self.exit_trigger, candle.low
-                    );
-                    info!(
-                        "Take profit exit, Old: {}, New: {}",
-                        self.exit,
-                        ExitType::calc_exit(
-                            self.exit_side.clone(),
-                            self.method.clone(),
-                            candle.low,
-                        )
-                    );
-                    self.exit_trigger = candle.low;
-                    self.exit = ExitType::calc_exit(
+                    let old_exit_trigger = self.exit_trigger;
+                    let new_exit_trigger = candle.low;
+                    let old_exit = self.exit;
+                    let new_exit = ExitType::calc_exit(
                         self.exit_side.clone(),
                         self.method.clone(),
                         candle.low,
                     );
+                    info!(
+                        "Pre-Update TP exit trigger, Old: {}, New: {}",
+                        old_exit_trigger, new_exit_trigger
+                    );
+                    info!("Pre-Update TP exit, Old: {}, New: {}", old_exit, new_exit);
+                    self.exit_trigger = new_exit_trigger;
+                    self.exit = new_exit;
+                    info!(
+                        "Post-Update TP exit trigger, Old: {}, New: {}",
+                        old_exit_trigger, self.exit_trigger
+                    );
+                    info!("Post-Update TP exit, Old: {}, New: {}", old_exit, self.exit);
                     UpdateAction::CancelAndUpdate
                 } else {
                     UpdateAction::None
