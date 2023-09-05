@@ -130,7 +130,7 @@ pub fn plpl_long(
         long_qty,
         Some(take_profit_tracker.exit),
         Some(take_profit_tracker.exit_trigger),
-        Some(take_profit_tracker.trailing_bips),
+        None,
         Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Short);
@@ -188,7 +188,7 @@ pub fn plpl_short(
         short_qty,
         Some(take_profit_tracker.exit),
         Some(take_profit_tracker.exit_trigger),
-        Some(take_profit_tracker.trailing_bips),
+        None,
         Some(10000),
     );
     let stop_loss_tracker = StopLossTracker::new(limit, stop_loss, Side::Long);
@@ -214,23 +214,12 @@ pub fn plpl_short(
 
 fn check_trailing_take_profit(
     candle: &Candle,
-    date: &Time,
     account: &mut MutexGuard<Account>,
     mut active_order: OrderBundle,
 ) -> Result<Option<OrderBundle>> {
-    let take_profit_action = active_order.take_profit_tracker.check(candle);
-    match take_profit_action {
+    let update_action_info = active_order.take_profit_tracker.check(candle);
+    match update_action_info.action {
         UpdateAction::None => debug!("Take profit checked, no update"),
-        UpdateAction::Close => {
-            if let PendingOrActiveOrder::Active(_) = active_order.take_profit {
-                warn!(
-                    "Take profit should trigger @ {} | {}",
-                    candle.close,
-                    date.to_string()
-                );
-                // account.reset_active_order()?;
-            }
-        }
         UpdateAction::CancelAndUpdate => {
             // cancel take profit order and place new one
             match active_order.take_profit {
@@ -256,9 +245,9 @@ fn check_trailing_take_profit(
                         exit_side,
                         OrderType::TakeProfitLimit,
                         tp.quantity,
-                        Some(active_order.take_profit_tracker.exit),
-                        Some(active_order.take_profit_tracker.exit_trigger),
-                        Some(active_order.take_profit_tracker.trailing_bips),
+                        Some(update_action_info.exit),
+                        Some(update_action_info.exit_trigger),
+                        None,
                         Some(10000),
                     );
                     account.trade_or_reset::<LimitOrderResponse>(trade)?;
@@ -403,7 +392,7 @@ pub fn handle_signal(
                 // check if trailing take profit should be updated
                 (PendingOrActiveOrder::Active(_), PendingOrActiveOrder::Active(_)) => {
                     account.active_order =
-                        check_trailing_take_profit(candle, date, account, active_order)?;
+                        check_trailing_take_profit(candle, account, active_order)?;
                 }
                 // check if exit orders should be placed
                 (
