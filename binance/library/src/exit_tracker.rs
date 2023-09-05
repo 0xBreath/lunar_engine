@@ -1,4 +1,5 @@
 use crate::Side;
+use log::info;
 use time_series::*;
 
 #[derive(Debug, Clone)]
@@ -149,6 +150,19 @@ impl TrailingTakeProfitTracker {
             // and new candle lows decrement take profit further below entry
             Side::Long => {
                 if candle.low < self.exit_trigger {
+                    info!(
+                        "Take profit exit trigger, Old: {}, New: {}",
+                        self.exit_trigger, candle.low
+                    );
+                    info!(
+                        "Take profit exit, Old: {}, New: {}",
+                        self.exit,
+                        ExitType::calc_exit(
+                            self.exit_side.clone(),
+                            self.method.clone(),
+                            self.exit_trigger,
+                        )
+                    );
                     self.exit_trigger = candle.low;
                     self.exit = ExitType::calc_exit(
                         self.exit_side.clone(),

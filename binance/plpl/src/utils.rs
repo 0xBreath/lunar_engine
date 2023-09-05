@@ -239,6 +239,12 @@ fn check_trailing_take_profit(
                     info!("Cancel and update take profit: {:?}", orig_client_order_id);
                     // place new take profit order with updated trigger price
                     let exit_side = active_order.take_profit_tracker.exit_side;
+
+                    info!(
+                        "Old take profit price: {}, new price: {}",
+                        tp.price, update_action_info.exit
+                    );
+
                     let trade = BinanceTrade::new(
                         res.symbol,
                         orig_client_order_id,
