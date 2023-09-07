@@ -235,7 +235,7 @@ async fn main() -> Result<()> {
             WebSocketEvent::OrderTrade(event) => {
                 let order_type = OrderBundle::client_order_id_suffix(&event.new_client_order_id);
                 let entry_price = precise_round!(event.price.parse::<f64>()?, 2);
-                debug!(
+                info!(
                     "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",
                     event.symbol,
                     event.new_client_order_id,
