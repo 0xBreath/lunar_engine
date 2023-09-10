@@ -6,7 +6,7 @@ edition = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-library = { path = "../library" }
+binance_lib = { path = "../binance_lib" }
 time_series = { path = "../../time_series" }
 actix-web = "4"
 serde = { version = "1.0", features = ["derive"] }

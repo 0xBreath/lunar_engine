@@ -1,6 +1,6 @@
+use binance_lib::*;
 use ephemeris::*;
 use lazy_static::lazy_static;
-use library::*;
 use log::*;
 use model::Assets;
 use std::path::PathBuf;
