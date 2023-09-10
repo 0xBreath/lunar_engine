@@ -23,7 +23,9 @@ git pull origin main
 screen -R plpl
 
 # Start the algorithm on Binance testnet
-TESTNET=true cargo run -r -p plpl
+TESTNET=true cargo run -r -p binance_plpl
+# or start the algorithm on Alpaca testnet
+TESTNET=true cargo run -r -p alpaca_plpl
 
 # Exit screen with Ctrl+A then D
 

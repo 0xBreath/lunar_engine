@@ -1,13 +1,23 @@
 [workspace]
 members = [
-    "bin/*",
+    "bin/cycles",
+    "bin/date",
+    "bin/fractals",
+    "bin/hda",
+    "bin/hda_pfs",
+    "bin/hurst",
+    "bin/pfs_days",
+    "bin/pfs_months",
+    "bin/pfs_years",
+    "bin/returns",
     "ephemeris",
     "time_series",
-    "binance/*"
+    "binance/*",
+    "alpaca/*"
 ]
 
 [workspace.package]
-version = "0.2.7"
+version = "0.2.8"
 authors = ["Lunar Engine <drew@lunarengine.xyz>"]
 repository = "https://github.com/LunarEngine/lunar_engine"
 homepage = "https://lunarengine.xyz/"

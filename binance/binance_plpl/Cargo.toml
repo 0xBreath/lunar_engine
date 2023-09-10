@@ -1,5 +1,5 @@
 [package]
-name = "plpl"
+name = "binance_plpl"
 version = { workspace = true }
 edition = { workspace = true }
 
