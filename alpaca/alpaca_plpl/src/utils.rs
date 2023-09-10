@@ -23,3 +23,12 @@ pub fn init_logger(log_file: &PathBuf) -> Result<()> {
     ])
     .map_err(AlpacaError::Logger)
 }
+
+#[derive(Default)]
+pub struct Crypto;
+
+impl ToString for Crypto {
+    fn to_string(&self) -> String {
+        "wss://stream.data.alpaca.markets/v1beta3/crypto/us".into()
+    }
+}
