@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
     let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
     let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
 
-    // Subscribe with the websocket server.
+    // Subscribe to bars from the websocket server.
     let client = Client::new(API_INFO.clone());
     let (mut stream, mut subscription) = client
         .subscribe::<RealtimeData<CustomUrl<Crypto>>>()
@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
     let subscribe = subscription.subscribe(&data).boxed();
     let () = drive(subscribe, &mut stream).await?.unwrap()?;
 
-    // handle each websocket message
+    // handle each bar
     let () = stream
         .map_err(AlpacaError::WebSocket)
         .try_for_each(|result| async {
@@ -157,6 +157,11 @@ async fn main() -> Result<()> {
             Ok(())
         })
         .await?;
+
+    // TODO: subscribe to order updates to track account balances and order statuses
+    // [order updates example](https://github.com/d-e-s-o/apca/blob/2ea9b2198580e0337ed5f5553d03c8e8e8309713/src/api/v2/updates.rs#L742)
+
+    // TODO: get account for every candle and track equity
 
     Ok(())
 }

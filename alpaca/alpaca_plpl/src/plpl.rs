@@ -1,5 +1,5 @@
 use crate::error::*;
-use crate::utils::{BracketStopLoss, BracketTrailingTakeProfit, ExitType};
+use crate::utils::{account, BracketStopLoss, BracketTrailingTakeProfit, ExitType};
 use apca::api::v2::order::{Amount, Class, OrderReqInit, Post, Side, StopLoss, TimeInForce, Type};
 use apca::Client;
 use ephemeris::PLPLSystem;
@@ -17,12 +17,13 @@ pub async fn process_candle(
     trailing_take_profit: ExitType,
     stop_loss: ExitType,
 ) -> Result<()> {
-    let plpl = plpl_system.closest_plpl(&candle)?;
+    let plpl = plpl_system.closest_plpl(candle)?;
     if plpl_system.long_signal(prev_candle, candle, plpl) {
         info!("🟢 Long");
-        info!("🔔 Prev: {}, Current: {}", prev_candle.close, candle.close);
-        info!("🔔 Current: {}", candle.close);
-        info!("🪐 PLPL: {}", plpl);
+        info!(
+            "🔔 Prev: {}, Current: {}, 🪐 PLPL: {}",
+            prev_candle.close, candle.close, plpl
+        );
         handle_signal(
             client,
             candle,
@@ -34,8 +35,10 @@ pub async fn process_candle(
         .await?;
     } else if plpl_system.short_signal(prev_candle, candle, plpl) {
         info!("🔴Short");
-        info!("🔔 Prev: {}, Current: {}", prev_candle.close, candle.close);
-        info!("🪐 PLPL: {}", plpl);
+        info!(
+            "🔔 Prev: {}, Current: {}, 🪐 PLPL: {}",
+            prev_candle.close, candle.close, plpl
+        );
         handle_signal(
             client,
             candle,
@@ -58,10 +61,14 @@ async fn handle_signal(
     stop_loss: ExitType,
     side: Side,
 ) -> Result<()> {
+    // TODO: quantity based on account balance
+    let account = account(client).await.unwrap();
+    let cash = account.cash.to_f64().unwrap();
+    let buying_power = account.buying_power.to_f64().unwrap();
+    info!("Cash: {}, Buying Power: {}", cash, buying_power);
+
     let tp = BracketTrailingTakeProfit::new(trailing_take_profit);
     let sl = BracketStopLoss::new(candle.close, side, stop_loss);
-
-    // TODO: quantity based on account balance
 
     let request = OrderReqInit {
         class: Class::Bracket,
@@ -74,10 +81,10 @@ async fn handle_signal(
         time_in_force: TimeInForce::UntilCanceled,
         ..Default::default()
     }
-    .init("BTC/USD", side, Amount::quantity(1));
+    .init("BTC/USD", side, Amount::quantity(account.buying_power));
 
     let order = client.issue::<Post>(&request).await.unwrap();
-    info!("{:?}", order);
+    info!("Created order: {:?}", order.client_order_id);
 
     Ok(())
 }

@@ -1,6 +1,8 @@
 use crate::{AlpacaError, Result};
+use apca::api::v2::account::{Account, Get};
 use apca::api::v2::order::Side;
 use apca::data::v2::stream::Bar;
+use apca::Client;
 use log::*;
 use num_decimal::Num;
 use simplelog::{
@@ -139,4 +141,8 @@ impl BracketTrailingTakeProfit {
             }
         }
     }
+}
+
+pub async fn account(client: &Client) -> Result<Account> {
+    Ok(client.issue::<Get>(&()).await?)
 }

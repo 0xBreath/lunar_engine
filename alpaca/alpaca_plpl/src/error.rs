@@ -1,3 +1,4 @@
+use apca::RequestError;
 use log::error;
 use std::fmt::Debug;
 use std::sync::PoisonError;
@@ -17,6 +18,7 @@ pub enum AlpacaError {
     SystemTime(std::time::SystemTimeError),
     EnvMissing(std::env::VarError),
     WebSocket(tungstenite::Error),
+    ApcaRequest(String),
 }
 
 impl std::fmt::Display for AlpacaError {
@@ -73,6 +75,10 @@ impl std::fmt::Display for AlpacaError {
             AlpacaError::WebSocket(e) => {
                 error!("WebSocket error: {:?}", e);
                 write!(f, "WebSocket error: {:?}", e)
+            }
+            AlpacaError::ApcaRequest(e) => {
+                error!("ApcaRequest error: {:?}", e);
+                write!(f, "ApcaRequest error: {:?}", e)
             }
         }
     }
@@ -149,5 +155,11 @@ impl<T: Debug, E: Debug> From<std::result::Result<T, E>> for AlpacaError {
 impl From<tungstenite::Error> for AlpacaError {
     fn from(e: tungstenite::Error) -> Self {
         AlpacaError::WebSocket(e)
+    }
+}
+
+impl<T> From<RequestError<T>> for AlpacaError {
+    fn from(e: RequestError<T>) -> Self {
+        AlpacaError::ApcaRequest(e.to_string())
     }
 }
