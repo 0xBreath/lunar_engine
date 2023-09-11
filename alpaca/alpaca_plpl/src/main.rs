@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
         .unwrap()
         .unwrap();
 
-    let read = stream
+    let () = stream
         .map_err(Error::WebSocket)
         .try_for_each(|result| async {
             let data = result.map_err(Error::Json)?;
@@ -68,13 +68,13 @@ async fn main() -> Result<()> {
             }
 
             Ok(())
-        });
-    info!("Starting stream...");
+        })
+        .await?;
 
-    match read.await {
-        Ok(()) => info!("done"),
-        Err(e) => error!("error: {}", e),
-    };
+    // match read.await {
+    //     Ok(()) => info!("done"),
+    //     Err(e) => error!("error: {}", e),
+    // };
 
     Ok(())
 }
