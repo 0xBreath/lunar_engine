@@ -2513,6 +2513,7 @@ dependencies = [
  "futures",
  "linreg",
  "log",
+ "num-decimal",
  "plotters",
  "rayon",
  "reqwest",

@@ -1,3 +1,4 @@
+use crate::model::Side;
 use binance_lib::*;
 use ephemeris::PLPLSystem;
 use log::*;
@@ -8,7 +9,7 @@ use simplelog::{
 use std::fs::File;
 use std::path::PathBuf;
 use std::sync::MutexGuard;
-use time_series::{precise_round, Candle, ExitType, Time};
+use time_series::{precise_round, Candle, Time};
 
 pub fn init_logger(log_file: &PathBuf) -> Result<()> {
     CombinedLogger::init(vec![

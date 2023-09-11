@@ -20,7 +20,7 @@ use lazy_static::lazy_static;
 use log::*;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use time_series::{Candle, Day, ExitType, Month, Time};
+use time_series::{Candle, Day, Month, Time};
 use utils::*;
 
 /// Paper trading API credentials
@@ -58,8 +58,8 @@ async fn main() -> Result<()> {
     init_logger(&PathBuf::from("alpaca.log"))?;
 
     // PLPL parameters; tuned for 5 minute candles
-    let trailing_take_profit = ExitType::Ticks(350);
-    let stop_loss = ExitType::Bips(5);
+    let trailing_take_profit = ExitType::Price(3.5);
+    let stop_loss = ExitType::Percent(0.05);
     let planet = Planet::from("Jupiter");
     let plpl_scale = 0.5;
     let plpl_price = 20000.0;
@@ -89,6 +89,7 @@ async fn main() -> Result<()> {
         .unwrap();
     let mut data = MarketData::default();
     data.set_bars(["BTC/USD"]);
+    data.set_trades(["BTC/USD"]);
     let subscribe = subscription.subscribe(&data).boxed();
     let () = drive(subscribe, &mut stream).await?.unwrap()?;
 
@@ -106,29 +107,27 @@ async fn main() -> Result<()> {
                     debug!("quote: {:?}", quote);
                 }
                 Data::Trade(trade) => {
-                    debug!("trade: {:?}", trade);
+                    info!("{:?}", trade);
                 }
                 Data::Bar(bar) => {
                     debug!("bar: {:?}", bar);
                     // compute closest PLPL to current Candle
                     let candle = utils::bar_to_candle(bar);
-                    let plpl = plpl_system.closest_plpl(&candle)?;
                     // compare previous candle to current candle to check crossover of PLPL signal threshold
                     match (&*prev, &*curr) {
                         (None, None) => *prev = Some(candle),
                         (Some(prev_candle), None) => {
                             *curr = Some(candle.clone());
 
-                            handle_signal(
+                            process_candle(
+                                &client,
                                 &plpl_system,
-                                plpl,
                                 prev_candle,
                                 &candle,
-                                &candle.date,
                                 candle.date.to_unix_ms().to_string(),
                                 trailing_take_profit.clone(),
                                 stop_loss.clone(),
-                            )?;
+                            ).await?;
                         }
                         (None, Some(_)) => {
                             error!(
@@ -136,16 +135,15 @@ async fn main() -> Result<()> {
                             );
                         }
                         (Some(_prev_candle), Some(curr_candle)) => {
-                            handle_signal(
+                            process_candle(
+                                &client,
                                 &plpl_system,
-                                plpl,
                                 curr_candle,
                                 &candle,
-                                &candle.date,
                                 candle.date.to_unix_ms().to_string(),
                                 trailing_take_profit.clone(),
                                 stop_loss.clone(),
-                            )?;
+                            ).await?;
 
                             *prev = Some(curr_candle.clone());
                             *curr = Some(candle);

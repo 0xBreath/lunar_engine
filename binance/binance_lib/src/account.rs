@@ -3,13 +3,13 @@ use crate::builder::*;
 use crate::client::Client;
 use crate::errors::Result;
 use crate::model::*;
-use crate::BinanceError;
+use crate::{BinanceError, StopLossTracker, TrailingTakeProfitTracker};
 use log::*;
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::str::FromStr;
 use std::time::SystemTime;
-use time_series::{precise_round, StopLossTracker, TrailingTakeProfitTracker};
+use time_series::precise_round;
 
 #[derive(Debug, Clone)]
 pub struct TradeInfo {

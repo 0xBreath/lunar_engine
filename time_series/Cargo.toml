@@ -18,6 +18,7 @@ plotters = "0.3.4"
 thiserror = "1.0.39"
 linreg = "0.2.0"
 rayon = "1.5.1"
+num-decimal = {version = "0.2.4", default-features = false, features = ["num-v04", "serde"]}
 
 [dev-dependencies]
 futures = "0.3.24" # for our async / await blocks
