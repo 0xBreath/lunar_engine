@@ -290,6 +290,7 @@ dependencies = [
  "time 0.3.17",
  "time_series",
  "tokio",
+ "tungstenite",
 ]
 
 [[package]]

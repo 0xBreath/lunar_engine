@@ -1,4 +1,6 @@
 use log::error;
+use std::fmt::Debug;
+use std::sync::PoisonError;
 
 #[derive(Debug)]
 pub enum AlpacaError {
@@ -6,7 +8,6 @@ pub enum AlpacaError {
     Apca(apca::Error),
     Logger(log::SetLoggerError),
     Io(std::io::Error),
-
     NoActiveOrder,
     ParseFloat(std::num::ParseFloatError),
     ParseBool(std::str::ParseBoolError),
@@ -15,6 +16,7 @@ pub enum AlpacaError {
     Custom(String),
     SystemTime(std::time::SystemTimeError),
     EnvMissing(std::env::VarError),
+    WebSocket(tungstenite::Error),
 }
 
 impl std::fmt::Display for AlpacaError {
@@ -67,6 +69,10 @@ impl std::fmt::Display for AlpacaError {
             AlpacaError::EnvMissing(e) => {
                 error!("EnvMissing error: {:?}", e);
                 write!(f, "EnvMissing error: {:?}", e)
+            }
+            AlpacaError::WebSocket(e) => {
+                error!("WebSocket error: {:?}", e);
+                write!(f, "WebSocket error: {:?}", e)
             }
         }
     }
@@ -125,5 +131,23 @@ impl From<std::time::SystemTimeError> for AlpacaError {
 impl From<std::env::VarError> for AlpacaError {
     fn from(e: std::env::VarError) -> Self {
         AlpacaError::EnvMissing(e)
+    }
+}
+
+impl<T> From<PoisonError<T>> for AlpacaError {
+    fn from(e: PoisonError<T>) -> Self {
+        AlpacaError::Custom(format!("Poison error: {:?}", e))
+    }
+}
+
+impl<T: Debug, E: Debug> From<std::result::Result<T, E>> for AlpacaError {
+    fn from(e: std::result::Result<T, E>) -> Self {
+        AlpacaError::Custom(format!("Result error: {:?}", e))
+    }
+}
+
+impl From<tungstenite::Error> for AlpacaError {
+    fn from(e: tungstenite::Error) -> Self {
+        AlpacaError::WebSocket(e)
     }
 }

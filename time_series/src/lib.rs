@@ -11,6 +11,7 @@ pub mod rapid_api;
 pub mod square_of_nine;
 pub mod ticker_data;
 pub mod time;
+pub mod orders;
 
 pub use backtest::*;
 pub use candle::*;
@@ -25,3 +26,4 @@ pub use rapid_api::*;
 pub use square_of_nine::*;
 pub use ticker_data::*;
 pub use time::*;
+pub use orders::*;

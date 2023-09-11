@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use time_series::{precise_round, Candle, Day, Month, Time};
+use time_series::{precise_round, Candle, Day, ExitType, Month, Time};
 
 mod utils;
 use utils::*;
