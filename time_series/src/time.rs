@@ -23,6 +23,18 @@ pub struct Time {
     pub minute: Option<u32>,
 }
 
+impl From<DateTime<Utc>> for Time {
+    fn from(dt: DateTime<Utc>) -> Self {
+        Self {
+            year: dt.year(),
+            month: Month::from_num(dt.month()),
+            day: Day::from_num(dt.day()),
+            hour: Some(dt.hour()),
+            minute: Some(dt.minute()),
+        }
+    }
+}
+
 impl Time {
     pub fn new(
         year: i32,

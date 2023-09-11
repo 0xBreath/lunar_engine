@@ -1,48 +1,20 @@
-// pub const ALPACA_TEST_API_KEY: &str =
-//     "XEUwQO3rcZj91HOdYRekbD6RSEJb03KHogXFHR4rvILCmTqqgqjxCEpr0O25SFQs";
-// pub const ALPACA_TEST_API_SECRET: &str =
-//     "ld3CZkxrqsjwJi5b20aSbTVatjZcSb1J46tcF5wP043OZ4jATtwGDHiroLCllnVw";
-//
-// pub const ALPACA_LIVE_API_KEY: &str =
-//     "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
-// pub const ALPACA_LIVE_API_SECRET: &str =
-//     "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
-
-// /// The API base URL used for paper trading.
-// pub(crate) const API_PAPER_URL: &str = "https://paper-api.alpaca.markets";
-// /// The API base URL used for live trading.
-// pub const API_LIVE_URL: &str = "https://api.alpaca.markets/";
-//
-// /// The HTTP header representing the key ID.
-// pub(crate) const HDR_KEY_ID: &str = "APCA-API-KEY-ID";
-// /// The HTTP header representing the secret key.
-// pub(crate) const HDR_SECRET: &str = "APCA-API-SECRET-KEY";
-//
-// /// The API base URL used for retrieving market data.
-// pub(crate) const DATA_HTTP_URL: &str = "https://data.alpaca.markets";
-// /// The base URL for streaming market data over a websocket connection.
-// pub(crate) const DATA_WS_URL: &str = "wss://stream.data.alpaca.markets";
-
 #![allow(clippy::let_unit_value)]
+
+mod error;
+mod plpl;
+mod utils;
 
 use apca::data::v2::stream::drive;
 use apca::data::v2::stream::RealtimeData;
-use apca::data::v2::stream::IEX;
 use apca::data::v2::stream::{CustomUrl, MarketData};
 use apca::ApiInfo;
 use apca::Client;
 use apca::Error;
-use std::path::PathBuf;
-
-use futures::FutureExt as _;
-use futures::StreamExt as _;
-use futures::TryStreamExt as _;
-
-mod error;
-mod utils;
-
 use error::*;
+use futures::FutureExt as _;
+use futures::TryStreamExt as _;
 use log::*;
+use std::path::PathBuf;
 use utils::*;
 
 /// Paper trading API credentials
@@ -55,9 +27,9 @@ pub const ALPACA_LIVE_API_SECRET: &str = "9K0AZhmryDkiKzhI32xg8UvbbPs325MiAcu8pj
 pub const ALPACA_API_LIVE_URL: &str = "https://api.alpaca.markets";
 /// Data API endpoints (paper or live)
 #[allow(dead_code)]
-pub(crate) const DATA_HTTP_URL: &str = "https://data.alpaca.markets";
+pub const DATA_HTTP_URL: &str = "https://data.alpaca.markets";
 #[allow(dead_code)]
-pub(crate) const DATA_WS_URL: &str = "wss://stream.data.alpaca.markets";
+pub const DATA_WS_URL: &str = "wss://stream.data.alpaca.markets";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -88,8 +60,13 @@ async fn main() -> Result<()> {
     let read = stream
         .map_err(Error::WebSocket)
         .try_for_each(|result| async {
-            let res = result.map_err(Error::Json);
-            info!("{:?}", res);
+            let data = result.map_err(Error::Json)?;
+
+            match plpl::handle_stream(data) {
+                Ok(()) => {}
+                Err(e) => error!("error: {}", e),
+            }
+
             Ok(())
         });
     info!("Starting stream...");
