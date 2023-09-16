@@ -1,3 +1,4 @@
+use apca::api::v2::{account, order};
 use apca::RequestError;
 use log::error;
 use std::fmt::Debug;
@@ -9,16 +10,24 @@ pub enum AlpacaError {
     Apca(apca::Error),
     Logger(log::SetLoggerError),
     Io(std::io::Error),
-    NoActiveOrder,
     ParseFloat(std::num::ParseFloatError),
     ParseBool(std::str::ParseBoolError),
     Json(serde_json::Error),
     Time(std::time::SystemTimeError),
     Custom(String),
-    SystemTime(std::time::SystemTimeError),
     EnvMissing(std::env::VarError),
     WebSocket(tungstenite::Error),
-    ApcaRequest(String),
+    ApcaPostOrder(RequestError<order::PostError>),
+    ApcaGetOrder(RequestError<order::GetError>),
+    ApcaDeleteOrder(RequestError<order::DeleteError>),
+    ApcaGetAccount(RequestError<account::GetError>),
+    NumUnwrap,
+    NoEntryOrder,
+    NoExitOrder,
+    BothExitsFilled,
+    ExitNotCanceled,
+    InvalidActiveOrder,
+    ParseLevelError(log::ParseLevelError),
 }
 
 impl std::fmt::Display for AlpacaError {
@@ -40,10 +49,6 @@ impl std::fmt::Display for AlpacaError {
                 error!("IO error: {:?}", e);
                 write!(f, "IO error: {:?}", e)
             }
-            AlpacaError::NoActiveOrder => {
-                error!("No active order");
-                write!(f, "No active order")
-            }
             AlpacaError::ParseFloat(e) => {
                 error!("ParseFloat error: {:?}", e);
                 write!(f, "ParseFloat error: {:?}", e)
@@ -64,10 +69,6 @@ impl std::fmt::Display for AlpacaError {
                 error!("Custom error: {:?}", e);
                 write!(f, "Custom error: {:?}", e)
             }
-            AlpacaError::SystemTime(e) => {
-                error!("SystemTime error: {:?}", e);
-                write!(f, "SystemTime error: {:?}", e)
-            }
             AlpacaError::EnvMissing(e) => {
                 error!("EnvMissing error: {:?}", e);
                 write!(f, "EnvMissing error: {:?}", e)
@@ -76,9 +77,49 @@ impl std::fmt::Display for AlpacaError {
                 error!("WebSocket error: {:?}", e);
                 write!(f, "WebSocket error: {:?}", e)
             }
-            AlpacaError::ApcaRequest(e) => {
-                error!("ApcaRequest error: {:?}", e);
-                write!(f, "ApcaRequest error: {:?}", e)
+            AlpacaError::ApcaPostOrder(e) => {
+                error!("Apca post order error: {:?}", e);
+                write!(f, "Apca post order error: {:?}", e)
+            }
+            AlpacaError::ApcaGetOrder(e) => {
+                error!("Apca get order error: {:?}", e);
+                write!(f, "Apca get order error: {:?}", e)
+            }
+            AlpacaError::ApcaDeleteOrder(e) => {
+                error!("Apca delete order error: {:?}", e);
+                write!(f, "Apca delete order error: {:?}", e)
+            }
+            AlpacaError::ApcaGetAccount(e) => {
+                error!("Apca get account error: {:?}", e);
+                write!(f, "Apca get account error: {:?}", e)
+            }
+            AlpacaError::NumUnwrap => {
+                error!("Failed to unwrap f64 to Num");
+                write!(f, "Failed to unwrap f64 to Num")
+            }
+            AlpacaError::NoEntryOrder => {
+                error!("No entry order found");
+                write!(f, "No entry order found")
+            }
+            AlpacaError::NoExitOrder => {
+                error!("Both exits should exist or not exist");
+                write!(f, "Both exits should exist or not exist")
+            }
+            AlpacaError::BothExitsFilled => {
+                error!("Both exit orders filled");
+                write!(f, "Both exit orders filled")
+            }
+            AlpacaError::ExitNotCanceled => {
+                error!("Exit order not canceled");
+                write!(f, "Exit order not canceled")
+            }
+            AlpacaError::InvalidActiveOrder => {
+                error!("Invalid active order");
+                write!(f, "Invalid active order")
+            }
+            AlpacaError::ParseLevelError(e) => {
+                error!("ParseLevelError: {:?}", e);
+                write!(f, "ParseLevelError: {:?}", e)
             }
         }
     }
@@ -158,8 +199,32 @@ impl From<tungstenite::Error> for AlpacaError {
     }
 }
 
-impl<T> From<RequestError<T>> for AlpacaError {
-    fn from(e: RequestError<T>) -> Self {
-        AlpacaError::ApcaRequest(e.to_string())
+impl From<log::ParseLevelError> for AlpacaError {
+    fn from(e: log::ParseLevelError) -> Self {
+        AlpacaError::ParseLevelError(e)
+    }
+}
+
+impl From<RequestError<order::PostError>> for AlpacaError {
+    fn from(e: RequestError<order::PostError>) -> Self {
+        AlpacaError::ApcaPostOrder(e)
+    }
+}
+
+impl From<RequestError<order::GetError>> for AlpacaError {
+    fn from(e: RequestError<order::GetError>) -> Self {
+        AlpacaError::ApcaGetOrder(e)
+    }
+}
+
+impl From<RequestError<order::DeleteError>> for AlpacaError {
+    fn from(e: RequestError<order::DeleteError>) -> Self {
+        AlpacaError::ApcaDeleteOrder(e)
+    }
+}
+
+impl From<RequestError<account::GetError>> for AlpacaError {
+    fn from(e: RequestError<account::GetError>) -> Self {
+        AlpacaError::ApcaGetAccount(e)
     }
 }

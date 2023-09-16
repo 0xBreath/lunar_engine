@@ -1,4 +1,5 @@
 #![allow(clippy::let_unit_value)]
+#![allow(dead_code)]
 
 mod endpoints;
 mod error;
@@ -6,6 +7,7 @@ mod plpl;
 mod utils;
 
 use crate::plpl::*;
+use apca::api::v2::updates::OrderUpdates;
 use apca::data::v2::stream::RealtimeData;
 use apca::data::v2::stream::{drive, Data};
 use apca::data::v2::stream::{CustomUrl, MarketData};
@@ -24,8 +26,8 @@ use time_series::{Candle, Day, Month, Time};
 use utils::*;
 
 /// Paper trading API credentials
-pub const ALPACA_TEST_API_KEY: &str = "PK0BAA17L2UG3CN8MJDQ";
-pub const ALPACA_TEST_API_SECRET: &str = "VRBfQRPIHonueNlpuTJI97m3D08Ual0kCQLm7PB2";
+pub const ALPACA_TEST_API_KEY: &str = "PKYIM924ABM29BNIRAXA";
+pub const ALPACA_TEST_API_SECRET: &str = "gFedYbEywA95f41z5k7VTDkikAAYsZbnGgebfXHX";
 /// Live trading API credentials
 pub const ALPACA_LIVE_API_KEY: &str = "AK4ZHDVHCN9AZJSLKXET";
 pub const ALPACA_LIVE_API_SECRET: &str = "9K0AZhmryDkiKzhI32xg8UvbbPs325MiAcu8pjhY";
@@ -51,6 +53,7 @@ lazy_static! {
     // cache previous and current Kline/Candle to assess PLPL trade signal
     static ref PREV_CANDLE: Mutex<Option<Candle>> = Mutex::new(None);
     static ref CURR_CANDLE: Mutex<Option<Candle>> = Mutex::new(None);
+    static ref TICKER: String = "BTC/USD".to_string();
 }
 
 #[tokio::main]
@@ -58,11 +61,11 @@ async fn main() -> Result<()> {
     init_logger(&PathBuf::from("alpaca.log"))?;
 
     // PLPL parameters; tuned for 5 minute candles
-    let trailing_take_profit = ExitType::Price(3.5);
-    let stop_loss = ExitType::Percent(0.05);
+    let trailing_take_profit = ExitType::Percent(0.5);
+    let stop_loss = ExitType::Percent(0.5);
     let planet = Planet::from("Jupiter");
     let plpl_scale = 0.5;
-    let plpl_price = 20000.0;
+    let plpl_price = 400.0;
     let num_plpls = 8000;
     let cross_margin_pct = 55.0;
 
@@ -78,55 +81,79 @@ async fn main() -> Result<()> {
         cross_margin_pct,
     })?;
 
-    let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
-    let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
-
-    // Subscribe to bars from the websocket server.
     let client = Client::new(API_INFO.clone());
-    let (mut stream, mut subscription) = client
+
+    // PLPL engine
+    let engine = Engine::new(
+        client,
+        TICKER.clone(),
+        plpl_system,
+        trailing_take_profit,
+        stop_loss,
+    );
+
+    // Subscribe to websocket bar updates.
+    let (mut stream, mut subscription) = engine
+        .client
         .subscribe::<RealtimeData<CustomUrl<Crypto>>>()
-        .await
-        .unwrap();
+        .await?;
     let mut data = MarketData::default();
-    data.set_bars(["BTC/USD"]);
-    data.set_trades(["BTC/USD"]);
+    data.set_bars([TICKER.as_str()]);
     let subscribe = subscription.subscribe(&data).boxed();
     let () = drive(subscribe, &mut stream).await?.unwrap()?;
 
-    // handle each bar
+    // Subscribe to websocket order updates.
+    let (stream_orders, _subscription_orders) = engine.client.subscribe::<OrderUpdates>().await?;
+
+    let engine = Mutex::new(engine);
+
+    // handle websocket order updates
+    let () = stream_orders
+        .map_err(AlpacaError::WebSocket)
+        .try_for_each(|result| async {
+            let data = result.map_err(AlpacaError::Json)?;
+            info!("{:?}", data.order.id);
+            let suffix = order_id_suffix(&data.order);
+            let mut engine = engine.lock()?;
+            if suffix == "ENTRY" || suffix == "TAKE_PROFIT" || suffix == "STOP_LOSS" {
+                engine.update_active_order(data)?;
+                engine.check_active_order().await?;
+            }
+            Ok(())
+        })
+        .await?;
+
+    // handle websocket bar updates
     let () = stream
         .map_err(AlpacaError::WebSocket)
         .try_for_each(|result| async {
             let data = result.map_err(AlpacaError::Json)?;
 
-            let mut prev = prev_candle.lock()?;
-            let mut curr = curr_candle.lock()?;
+            let mut prev = PREV_CANDLE.lock()?;
+            let mut curr = CURR_CANDLE.lock()?;
+            let mut engine = engine.lock()?;
 
             match data {
                 Data::Quote(quote) => {
                     debug!("quote: {:?}", quote);
                 }
                 Data::Trade(trade) => {
-                    info!("{:?}", trade);
+                    debug!("{:?}", trade);
                 }
                 Data::Bar(bar) => {
                     debug!("bar: {:?}", bar);
                     // compute closest PLPL to current Candle
-                    let candle = utils::bar_to_candle(bar);
+                    let candle = bar_to_candle(bar);
                     // compare previous candle to current candle to check crossover of PLPL signal threshold
                     match (&*prev, &*curr) {
                         (None, None) => *prev = Some(candle),
                         (Some(prev_candle), None) => {
                             *curr = Some(candle.clone());
 
-                            process_candle(
-                                &client,
-                                &plpl_system,
+                            engine.process_candle(
                                 prev_candle,
                                 &candle,
                                 candle.date.to_unix_ms().to_string(),
-                                trailing_take_profit.clone(),
-                                stop_loss.clone(),
                             ).await?;
                         }
                         (None, Some(_)) => {
@@ -135,14 +162,10 @@ async fn main() -> Result<()> {
                             );
                         }
                         (Some(_prev_candle), Some(curr_candle)) => {
-                            process_candle(
-                                &client,
-                                &plpl_system,
+                            engine.process_candle(
                                 curr_candle,
                                 &candle,
                                 candle.date.to_unix_ms().to_string(),
-                                trailing_take_profit.clone(),
-                                stop_loss.clone(),
                             ).await?;
 
                             *prev = Some(curr_candle.clone());
@@ -151,17 +174,12 @@ async fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    debug!("other: {:?}", data);
+                    debug!("Other websocket data: {:?}", data);
                 }
             }
             Ok(())
         })
         .await?;
-
-    // TODO: subscribe to order updates to track account balances and order statuses
-    // [order updates example](https://github.com/d-e-s-o/apca/blob/2ea9b2198580e0337ed5f5553d03c8e8e8309713/src/api/v2/updates.rs#L742)
-
-    // TODO: get account for every candle and track equity
 
     Ok(())
 }
