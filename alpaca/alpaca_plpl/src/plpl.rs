@@ -489,9 +489,16 @@ impl Engine {
             Amount::quantity(f64_to_num!(precise_round!(cash / 3.0 / candle.close, 5))),
         );
         trace!("Entry order: {:?}", entry);
-        let res = self.client.issue::<Post>(&entry).await;
-        debug!("Entry order response: {:?}", res);
-        res.map_err(AlpacaError::ApcaPostOrder)
+        match self.client.issue::<Post>(&entry).await {
+            Ok(res) => {
+                info!("Entry order response: {:?}", res);
+                Ok(res)
+            }
+            Err(e) => {
+                error!("Failed to create entry order: {:?}", e);
+                Err(AlpacaError::from(e))
+            }
+        }
     }
 
     async fn create_take_profit_order(&self) -> Result<Order> {
@@ -509,6 +516,8 @@ impl Engine {
                     class: Class::Simple,
                     type_: Type::TrailingStop,
                     client_order_id: Some(format!("{}-{}", order_id_prefix(entry), "TAKE_PROFIT")),
+                    trail_price: self.active_order.take_profit_handler.trail_price.clone(),
+                    trail_percent: self.active_order.take_profit_handler.trail_percent.clone(),
                     time_in_force: TimeInForce::UntilCanceled,
                     ..Default::default()
                 }
@@ -517,13 +526,16 @@ impl Engine {
                     tp_side,
                     Amount::quantity(entry.filled_quantity.clone()),
                 );
-                let res = self
-                    .client
-                    .issue::<Post>(&tp)
-                    .await
-                    .map_err(AlpacaError::ApcaPostOrder);
-                debug!("Take profit order response: {:?}", res);
-                res
+                match self.client.issue::<Post>(&tp).await {
+                    Ok(res) => {
+                        info!("Take profit order response: {:?}", res);
+                        Ok(res)
+                    }
+                    Err(e) => {
+                        error!("Failed to create take profit order: {:?}", e);
+                        Err(AlpacaError::from(e))
+                    }
+                }
             }
         }
     }
@@ -557,13 +569,16 @@ impl Engine {
                     sl_side,
                     Amount::quantity(entry.filled_quantity.clone()),
                 );
-                let res = self
-                    .client
-                    .issue::<Post>(&sl)
-                    .await
-                    .map_err(AlpacaError::ApcaPostOrder);
-                debug!("Stop loss order response: {:?}", res);
-                res
+                match self.client.issue::<Post>(&sl).await {
+                    Ok(res) => {
+                        info!("Stop loss order response: {:?}", res);
+                        Ok(res)
+                    }
+                    Err(e) => {
+                        error!("Failed to create stop loss order: {:?}", e);
+                        Err(AlpacaError::from(e))
+                    }
+                }
             }
         }
     }
