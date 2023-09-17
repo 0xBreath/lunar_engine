@@ -1,6 +1,10 @@
-use apca::api::v2::{account, order};
+use crate::utils::WebSocketEvent;
+use apca::api::v2::{account, assets, order, orders, position};
+use apca::data::v2::bars;
 use apca::RequestError;
+use crossbeam::channel::SendError;
 use log::error;
+use num_decimal::Num;
 use std::fmt::Debug;
 use std::sync::PoisonError;
 
@@ -17,17 +21,25 @@ pub enum AlpacaError {
     Custom(String),
     EnvMissing(std::env::VarError),
     WebSocket(tungstenite::Error),
-    ApcaPostOrder(RequestError<order::PostError>),
-    ApcaGetOrder(RequestError<order::GetError>),
-    ApcaDeleteOrder(RequestError<order::DeleteError>),
-    ApcaGetAccount(RequestError<account::GetError>),
     NumUnwrap,
+    NumCastF64,
     NoEntryOrder,
     NoExitOrder,
     BothExitsFilled,
     ExitNotCanceled,
     InvalidActiveOrder,
     ParseLevelError(log::ParseLevelError),
+    QueueSend(SendError<WebSocketEvent>),
+    BarsEmpty,
+    ApcaPostOrder(RequestError<order::PostError>),
+    ApcaGetOrder(RequestError<order::GetError>),
+    ApcaDeleteOrder(RequestError<order::DeleteError>),
+    ApcaGetAccount(RequestError<account::GetError>),
+    ApcaGetAssets(RequestError<assets::GetError>),
+    ApcaGetPosition(RequestError<position::GetError>),
+    ApcaDeletePosition(RequestError<position::DeleteError>),
+    ApcaGetBars(RequestError<bars::GetError>),
+    ApcaGetOrders(RequestError<orders::GetError>),
 }
 
 impl std::fmt::Display for AlpacaError {
@@ -77,25 +89,13 @@ impl std::fmt::Display for AlpacaError {
                 error!("WebSocket error: {:?}", e);
                 write!(f, "WebSocket error: {:?}", e)
             }
-            AlpacaError::ApcaPostOrder(e) => {
-                error!("Apca post order error: {:?}", e);
-                write!(f, "Apca post order error: {:?}", e)
-            }
-            AlpacaError::ApcaGetOrder(e) => {
-                error!("Apca get order error: {:?}", e);
-                write!(f, "Apca get order error: {:?}", e)
-            }
-            AlpacaError::ApcaDeleteOrder(e) => {
-                error!("Apca delete order error: {:?}", e);
-                write!(f, "Apca delete order error: {:?}", e)
-            }
-            AlpacaError::ApcaGetAccount(e) => {
-                error!("Apca get account error: {:?}", e);
-                write!(f, "Apca get account error: {:?}", e)
-            }
             AlpacaError::NumUnwrap => {
                 error!("Failed to unwrap f64 to Num");
                 write!(f, "Failed to unwrap f64 to Num")
+            }
+            AlpacaError::NumCastF64 => {
+                error!("Failed to cast Num to f64");
+                write!(f, "Failed to cast Num to f64")
             }
             AlpacaError::NoEntryOrder => {
                 error!("No entry order found");
@@ -121,11 +121,64 @@ impl std::fmt::Display for AlpacaError {
                 error!("ParseLevelError: {:?}", e);
                 write!(f, "ParseLevelError: {:?}", e)
             }
+            AlpacaError::QueueSend(e) => {
+                error!("QueueSend: {:?}", e);
+                write!(f, "QueueSend: {:?}", e)
+            }
+            AlpacaError::BarsEmpty => {
+                error!("Bars empty");
+                write!(f, "Bars empty")
+            }
+            AlpacaError::ApcaPostOrder(e) => {
+                error!("Apca post order error: {:?}", e);
+                write!(f, "Apca post order error: {:?}", e)
+            }
+            AlpacaError::ApcaGetOrder(e) => {
+                error!("Apca get order error: {:?}", e);
+                write!(f, "Apca get order error: {:?}", e)
+            }
+            AlpacaError::ApcaDeleteOrder(e) => {
+                error!("Apca delete order error: {:?}", e);
+                write!(f, "Apca delete order error: {:?}", e)
+            }
+            AlpacaError::ApcaGetAccount(e) => {
+                error!("Apca get account error: {:?}", e);
+                write!(f, "Apca get account error: {:?}", e)
+            }
+            AlpacaError::ApcaGetAssets(e) => {
+                error!("Apca get assets error: {:?}", e);
+                write!(f, "Apca get assets error: {:?}", e)
+            }
+            AlpacaError::ApcaGetPosition(e) => {
+                error!("Apca get position error: {:?}", e);
+                write!(f, "Apca get position error: {:?}", e)
+            }
+            AlpacaError::ApcaDeletePosition(e) => {
+                error!("Apca delete position error: {:?}", e);
+                write!(f, "Apca delete position error: {:?}", e)
+            }
+            AlpacaError::ApcaGetBars(e) => {
+                error!("Apca get bars error: {:?}", e);
+                write!(f, "Apca get bars error: {:?}", e)
+            }
+            AlpacaError::ApcaGetOrders(e) => {
+                error!("Apca get orders error: {:?}", e);
+                write!(f, "Apca get orders error: {:?}", e)
+            }
         }
     }
 }
 
 pub type Result<T> = std::result::Result<T, AlpacaError>;
+
+impl AlpacaError {
+    pub fn num_unwrap(value: Option<Num>) -> Result<Num> {
+        match value {
+            Some(v) => Ok(v),
+            None => Err(AlpacaError::NumUnwrap),
+        }
+    }
+}
 
 impl From<ephemeris::PLPLError> for AlpacaError {
     fn from(e: ephemeris::PLPLError) -> Self {
@@ -205,6 +258,12 @@ impl From<log::ParseLevelError> for AlpacaError {
     }
 }
 
+impl From<SendError<WebSocketEvent>> for AlpacaError {
+    fn from(e: SendError<WebSocketEvent>) -> Self {
+        AlpacaError::QueueSend(e)
+    }
+}
+
 impl From<RequestError<order::PostError>> for AlpacaError {
     fn from(e: RequestError<order::PostError>) -> Self {
         AlpacaError::ApcaPostOrder(e)
@@ -226,5 +285,35 @@ impl From<RequestError<order::DeleteError>> for AlpacaError {
 impl From<RequestError<account::GetError>> for AlpacaError {
     fn from(e: RequestError<account::GetError>) -> Self {
         AlpacaError::ApcaGetAccount(e)
+    }
+}
+
+impl From<RequestError<assets::GetError>> for AlpacaError {
+    fn from(e: RequestError<assets::GetError>) -> Self {
+        AlpacaError::ApcaGetAssets(e)
+    }
+}
+
+impl From<RequestError<position::DeleteError>> for AlpacaError {
+    fn from(e: RequestError<position::DeleteError>) -> Self {
+        AlpacaError::Custom(format!("RequestError: {:?}", e))
+    }
+}
+
+impl From<RequestError<position::GetError>> for AlpacaError {
+    fn from(e: RequestError<position::GetError>) -> Self {
+        AlpacaError::ApcaGetPosition(e)
+    }
+}
+
+impl From<RequestError<bars::GetError>> for AlpacaError {
+    fn from(e: RequestError<bars::GetError>) -> Self {
+        AlpacaError::ApcaGetBars(e)
+    }
+}
+
+impl From<RequestError<orders::GetError>> for AlpacaError {
+    fn from(e: RequestError<orders::GetError>) -> Self {
+        AlpacaError::ApcaGetOrders(e)
     }
 }

@@ -1,13 +1,17 @@
 use crate::error::*;
 use crate::utils::*;
-use apca::api::v2::account::{Account, Get};
+use apca::api::v2::account::{Account, Get as GetAccount};
+use apca::api::v2::asset::Symbol;
 use apca::api::v2::order::*;
+use apca::api::v2::orders::{Get as GetOrders, OrdersReq, Status as OrdersStatus};
+use apca::api::v2::position::{Get as GetPosition, Position};
 use apca::api::v2::updates::OrderUpdate;
+use apca::data::v2::bars::{BarsReqInit, Get as GetBars, TimeFrame};
 use apca::Client;
 use ephemeris::PLPLSystem;
 use log::*;
 use num_decimal::Num;
-use time_series::{f64_to_num, precise_round, Candle};
+use time_series::{f64_to_num, num_to_f64, num_unwrap_f64, precise_round, Candle, Time};
 
 #[derive(Debug, Clone)]
 pub struct ActiveOrder {
@@ -76,35 +80,218 @@ impl Engine {
     }
 
     async fn account(&self) -> Result<Account> {
-        let res = self.client.issue::<Get>(&()).await;
-        debug!("Get account: {:?}", res);
+        let res = self.client.issue::<GetAccount>(&()).await;
+        trace!("Get account: {:?}", res);
         res.map_err(AlpacaError::ApcaGetAccount)
+    }
+
+    // TODO: fix this
+    pub async fn candle(&self) -> Result<Candle> {
+        let start = chrono::Utc::now() - chrono::Duration::minutes(3);
+        let end = chrono::Utc::now();
+        let request = BarsReqInit {
+            limit: Some(1),
+            ..Default::default()
+        }
+        .init(&self.ticker, start, end, TimeFrame::OneMinute);
+
+        let res = match self.client.issue::<GetBars>(&request).await {
+            Ok(res) => res,
+            Err(e) => {
+                error!("Failed to get bars: {:?}", e);
+                return Err(AlpacaError::from(e));
+            }
+        };
+        let bars = res.bars;
+        if bars.len() != 1 {
+            return Err(AlpacaError::BarsEmpty);
+        }
+        let bar = bars[0].clone();
+        Ok(Candle {
+            date: Time::from_datetime(bar.time),
+            open: num_to_f64!(bar.open)?,
+            high: num_to_f64!(bar.high)?,
+            low: num_to_f64!(bar.low)?,
+            close: num_to_f64!(bar.close)?,
+            volume: None,
+        })
+    }
+
+    async fn position(&self) -> Option<Position> {
+        let symbol = Symbol::Sym(self.ticker.to_string());
+        match self.client.issue::<GetPosition>(&symbol).await {
+            Ok(res) => Some(res),
+            Err(e) => {
+                warn!("No position {e}");
+                None
+            }
+        }
+    }
+
+    /// Cancel open orders for this ticker
+    pub async fn cancel_open_orders(&self) -> Result<()> {
+        info!("Canceling open orders");
+        let request = OrdersReq {
+            status: OrdersStatus::Open,
+            ..Default::default()
+        };
+        let orders = self.client.issue::<GetOrders>(&request).await?;
+        for order in orders {
+            match self.client.issue::<Delete>(&order.id).await {
+                Ok(_) => debug!("Canceled open order: {}", order.client_order_id),
+                Err(e) => {
+                    error!("Failed to cancel open order: {:?}", e);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn equalize_assets(&self) -> Result<()> {
+        info!("Equalizing assets");
+        // get quote balance for ticker (cash, USD, USDT, etc)
+        let account = self.account().await?;
+        // get base balance for ticker
+        let ticker_position = self.position().await;
+        match ticker_position {
+            Some(ticker_position) => {
+                let qty = num_to_f64!(ticker_position.quantity)?;
+
+                // both converted to base units (i.e. BTC units for BTC/USD)
+                let base_balance = num_unwrap_f64!(ticker_position.market_value)?;
+                let price = base_balance / qty;
+                let quote_balance = num_to_f64!(account.cash)? / price;
+
+                let sum = quote_balance + base_balance;
+                let equal = precise_round!(sum / 2_f64, 5);
+                let quote_diff = precise_round!(quote_balance - equal, 5);
+                let base_diff = precise_round!(base_balance - equal, 5);
+                let min_notional = 0.001;
+
+                // buy base asset
+                if quote_diff > 0_f64 && quote_diff > min_notional {
+                    let long_qty = precise_round!(quote_diff, 5);
+                    let long = OrderReqInit {
+                        type_: Type::Limit,
+                        limit_price: Some(f64_to_num!(price)),
+                        client_order_id: Some(format!(
+                            "{}-{}",
+                            chrono::Utc::now().naive_utc().timestamp(),
+                            "EQUALIZE_LONG"
+                        )),
+                        time_in_force: TimeInForce::UntilCanceled,
+                        ..Default::default()
+                    }
+                    .init(
+                        &self.ticker,
+                        Side::Buy,
+                        Amount::quantity(f64_to_num!(long_qty)),
+                    );
+                    return match self.client.issue::<Post>(&long).await {
+                        Ok(_) => {
+                            info!(
+                                "Quote asset too high = {}, 50/50 = {}, buy base asset = {}",
+                                quote_balance * price,
+                                equal * price,
+                                long_qty,
+                            );
+                            Ok(())
+                        }
+                        Err(e) => {
+                            error!("Failed to buy base asset to equalize: {:?}", e);
+                            Err(AlpacaError::from(e))
+                        }
+                    };
+                }
+                // sell base asset
+                else if base_diff > 0_f64 && base_diff > min_notional {
+                    let short_qty = precise_round!(base_diff, 5);
+                    let short = OrderReqInit {
+                        type_: Type::Limit,
+                        limit_price: Some(f64_to_num!(price)),
+                        client_order_id: Some(format!(
+                            "{}-{}",
+                            chrono::Utc::now().naive_utc().timestamp(),
+                            "EQUALIZE_SHORT"
+                        )),
+                        time_in_force: TimeInForce::UntilCanceled,
+                        ..Default::default()
+                    }
+                    .init(
+                        &self.ticker,
+                        Side::Sell,
+                        Amount::quantity(f64_to_num!(short_qty)),
+                    );
+                    return match self.client.issue::<Post>(&short).await {
+                        Ok(_) => {
+                            info!(
+                                "Base asset too high = {}, 50/50 = {}, sell base asset = {}",
+                                base_balance, equal, short_qty,
+                            );
+                            Ok(())
+                        }
+                        Err(e) => {
+                            error!("Failed to sell base asset to equalize: {:?}", e);
+                            Err(AlpacaError::from(e))
+                        }
+                    };
+                }
+            }
+            None => {
+                let cash = num_to_f64!(account.cash)?;
+                let long_notional = precise_round!(cash / 2.0, 2);
+                let long = OrderReqInit {
+                    type_: Type::Market,
+                    client_order_id: Some(format!(
+                        "{}-{}",
+                        chrono::Utc::now().naive_utc().timestamp(),
+                        "EQUALIZE_LONG"
+                    )),
+                    time_in_force: TimeInForce::UntilCanceled,
+                    ..Default::default()
+                }
+                .init(
+                    &self.ticker,
+                    Side::Buy,
+                    Amount::notional(f64_to_num!(long_notional)),
+                );
+                return match self.client.issue::<Post>(&long).await {
+                    Ok(_) => {
+                        info!(
+                            "Quote asset too high = {}, 50/50 = {}, buy base asset = {}",
+                            cash,
+                            cash - long_notional,
+                            long_notional,
+                        );
+                        Ok(())
+                    }
+                    Err(e) => {
+                        error!("Failed to buy base asset to equalize: {:?}", e);
+                        Err(AlpacaError::from(e))
+                    }
+                };
+            }
+        }
+        Ok(())
     }
 
     fn take_profit_pnl(&self, entry: &Option<Order>, take_profit: &Option<Order>) -> Result<f64> {
         match (entry, take_profit) {
             (Some(entry), Some(take_profit)) => {
-                if let (Some(entry_price), Some(take_profit_price)) =
-                    (&entry.average_fill_price, &take_profit.average_fill_price)
-                {
-                    let entry_price = entry_price.to_f64().ok_or(AlpacaError::NumUnwrap)?;
-                    let take_profit_price =
-                        take_profit_price.to_f64().ok_or(AlpacaError::NumUnwrap)?;
-                    let pnl = precise_round!(
-                        match entry.side {
-                            Side::Buy => {
-                                (take_profit_price - entry_price) / entry_price * 100_f64
-                            }
-                            Side::Sell => {
-                                (entry_price - take_profit_price) / entry_price * 100_f64
-                            }
-                        },
-                        5
-                    );
-                    Ok(pnl)
-                } else {
-                    Err(AlpacaError::NumUnwrap)
-                }
+                let entry_price = num_unwrap_f64!(entry.clone().average_fill_price)?;
+                let take_profit_price = num_unwrap_f64!(take_profit.clone().average_fill_price)?;
+                let pnl = precise_round!(
+                    match entry.side {
+                        Side::Buy => {
+                            (take_profit_price - entry_price) / entry_price * 100_f64
+                        }
+                        Side::Sell => {
+                            (entry_price - take_profit_price) / entry_price * 100_f64
+                        }
+                    },
+                    5
+                );
+                Ok(pnl)
             }
             _ => Err(AlpacaError::NumUnwrap),
         }
@@ -113,26 +300,20 @@ impl Engine {
     fn stop_loss_pnl(&self, entry: &Option<Order>, stop_loss: &Option<Order>) -> Result<f64> {
         match (entry, stop_loss) {
             (Some(entry), Some(stop_loss)) => {
-                if let (Some(entry_price), Some(stop_loss_price)) =
-                    (&entry.average_fill_price, &stop_loss.average_fill_price)
-                {
-                    let entry_price = entry_price.to_f64().ok_or(AlpacaError::NumUnwrap)?;
-                    let stop_loss_price = stop_loss_price.to_f64().ok_or(AlpacaError::NumUnwrap)?;
-                    let pnl = precise_round!(
-                        match entry.side {
-                            Side::Buy => {
-                                (stop_loss_price - entry_price) / entry_price * 100_f64
-                            }
-                            Side::Sell => {
-                                (entry_price - stop_loss_price) / entry_price * 100_f64
-                            }
-                        },
-                        5
-                    );
-                    Ok(pnl)
-                } else {
-                    Err(AlpacaError::NumUnwrap)
-                }
+                let entry_price = num_unwrap_f64!(entry.clone().average_fill_price)?;
+                let stop_loss_price = num_unwrap_f64!(stop_loss.clone().average_fill_price)?;
+                let pnl = precise_round!(
+                    match entry.side {
+                        Side::Buy => {
+                            (stop_loss_price - entry_price) / entry_price * 100_f64
+                        }
+                        Side::Sell => {
+                            (entry_price - stop_loss_price) / entry_price * 100_f64
+                        }
+                    },
+                    5
+                );
+                Ok(pnl)
             }
             _ => Err(AlpacaError::NumUnwrap),
         }
@@ -146,18 +327,8 @@ impl Engine {
     ) -> Result<()> {
         let plpl = self.plpl_system.closest_plpl(candle)?;
         if self.plpl_system.long_signal(prev_candle, candle, plpl) {
-            info!("🟢 Long");
-            info!(
-                "🔔 Prev: {}, Current: {}, 🪐 PLPL: {}",
-                prev_candle.close, candle.close, plpl
-            );
             self.handle_signal(candle, timestamp, Side::Buy).await?;
         } else if self.plpl_system.short_signal(prev_candle, candle, plpl) {
-            info!("🔴Short");
-            info!(
-                "🔔 Prev: {}, Current: {}, 🪐 PLPL: {}",
-                prev_candle.close, candle.close, plpl
-            );
             self.handle_signal(candle, timestamp, Side::Sell).await?;
         }
 
@@ -172,16 +343,18 @@ impl Engine {
     ) -> Result<()> {
         if self.active_order.entry.is_none() {
             let account = self.account().await?;
-            let cash = account.cash.to_f64().ok_or(AlpacaError::NumUnwrap)?;
+            let cash = num_to_f64!(account.cash)?;
             info!("Cash: {}", cash);
             let entry = self
                 .create_entry_order(candle, timestamp, side, cash)
                 .await?;
             self.active_order.add_entry(entry);
-        }
-        // if active order entry is Some, exit orders will be placed in `update_active_order`
-        // as websocket trade updates come in, it checks if entry is filled before placing exit orders
 
+            match side {
+                Side::Buy => info!("🟢 Long"),
+                Side::Sell => info!("🔴Short"),
+            };
+        }
         Ok(())
     }
 
@@ -199,7 +372,52 @@ impl Engine {
             }
             _ => debug!("Unknown order id: {}", id),
         }
+        self.log_active_order()?;
+        Ok(())
+    }
 
+    pub fn log_active_order(&self) -> Result<()> {
+        let id = match &self.active_order.entry {
+            Some(entry) => order_id_prefix(entry),
+            None => "None".to_string(),
+        };
+        let entry_price = match &self.active_order.entry {
+            Some(entry) => match &entry.limit_price {
+                None => "None".to_string(),
+                Some(price) => num_to_f64!(price)?.to_string(),
+            },
+            None => "None".to_string(),
+        };
+        let entry_status = match &self.active_order.entry {
+            Some(entry) => status_to_string(entry.status),
+            None => "None".to_string(),
+        };
+        let tp_price = match &self.active_order.take_profit {
+            None => "None".to_string(),
+            Some(tp) => match &tp.average_fill_price {
+                None => "None".to_string(),
+                Some(price) => num_to_f64!(price)?.to_string(),
+            },
+        };
+        let tp_status = match &self.active_order.take_profit {
+            Some(tp) => status_to_string(tp.status),
+            None => "None".to_string(),
+        };
+        let sl_price = match &self.active_order.stop_loss {
+            None => "None".to_string(),
+            Some(sl) => match &sl.average_fill_price {
+                None => "None".to_string(),
+                Some(price) => num_to_f64!(price)?.to_string(),
+            },
+        };
+        let sl_status = match &self.active_order.stop_loss {
+            Some(sl) => status_to_string(sl.status),
+            None => "None".to_string(),
+        };
+        info!(
+            "Active Order, ID: {}, Entry: {} @ {}, TP: {} @ {}, SL: {} @ {}",
+            id, entry_status, entry_price, tp_status, tp_price, sl_status, sl_price
+        );
         Ok(())
     }
 
@@ -270,7 +488,7 @@ impl Engine {
             side,
             Amount::quantity(f64_to_num!(precise_round!(cash / 3.0 / candle.close, 5))),
         );
-        debug!("Entry order: {:?}", entry);
+        trace!("Entry order: {:?}", entry);
         let res = self.client.issue::<Post>(&entry).await;
         debug!("Entry order response: {:?}", res);
         res.map_err(AlpacaError::ApcaPostOrder)
@@ -299,10 +517,13 @@ impl Engine {
                     tp_side,
                     Amount::quantity(entry.filled_quantity.clone()),
                 );
-                self.client
+                let res = self
+                    .client
                     .issue::<Post>(&tp)
                     .await
-                    .map_err(AlpacaError::ApcaPostOrder)
+                    .map_err(AlpacaError::ApcaPostOrder);
+                debug!("Take profit order response: {:?}", res);
+                res
             }
         }
     }
@@ -318,16 +539,11 @@ impl Engine {
                     Side::Buy => Side::Sell,
                     Side::Sell => Side::Buy,
                 };
-                let entry_price = entry
-                    .limit_price
-                    .clone()
-                    .ok_or(AlpacaError::NumUnwrap)?
-                    .to_f64()
-                    .ok_or(AlpacaError::NumUnwrap)?;
+                let entry_price = num_unwrap_f64!(entry.limit_price.clone())?;
                 let (stop_price, limit_price) = self
                     .active_order
                     .stop_loss_handler
-                    .build(entry_price, entry.side);
+                    .build(entry_price, entry.side)?;
                 let sl = OrderReqInit {
                     class: Class::Simple,
                     type_: Type::Limit,
@@ -341,10 +557,13 @@ impl Engine {
                     sl_side,
                     Amount::quantity(entry.filled_quantity.clone()),
                 );
-                self.client
+                let res = self
+                    .client
                     .issue::<Post>(&sl)
                     .await
-                    .map_err(AlpacaError::ApcaPostOrder)
+                    .map_err(AlpacaError::ApcaPostOrder);
+                debug!("Stop loss order response: {:?}", res);
+                res
             }
         }
     }
