@@ -124,7 +124,7 @@ async fn main() -> Result<()> {
     let user_stream_keep_alive_time = Mutex::new(SystemTime::now());
     let user_stream = USER_STREAM.lock()?;
     let answer = user_stream.start()?;
-    let listen_key = Mutex::new(answer.listen_key);
+    let listen_key = answer.listen_key;
 
     // cancel all open orders to start with a clean slate
     engine.cancel_all_open_orders()?;
@@ -138,7 +138,6 @@ async fn main() -> Result<()> {
     let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
         let now = SystemTime::now();
         let mut keep_alive = user_stream_keep_alive_time.lock()?;
-        let mut listen_key = listen_key.lock()?;
         // check if timestamp is 10 minutes after last UserStream keep alive ping
         let secs_since_keep_alive = now.duration_since(*keep_alive).map(|d| d.as_secs())?;
 
@@ -212,8 +211,7 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    let listen_key_lock = listen_key.lock()?;
-    let subs = vec![KLINE_STREAM.to_string(), listen_key_lock.clone()];
+    let subs = vec![KLINE_STREAM.to_string(), listen_key.clone()];
     match ws.connect_multiple_streams(&subs, testnet) {
         Err(e) => {
             error!("🛑 Failed to connect to Binance websocket: {}", e);
@@ -227,25 +225,27 @@ async fn main() -> Result<()> {
         return Err(e);
     }
 
-    user_stream.close(&listen_key_lock)?;
+    Ok(())
 
-    match ws.disconnect() {
-        Err(e) => {
-            error!("🛑 Failed to disconnect from Binance websocket: {}", e);
-            match ws.connect_multiple_streams(&subs, testnet) {
-                Err(e) => {
-                    error!("🛑 Failed to connect to Binance websocket: {}", e);
-                    Err(e)
-                }
-                Ok(_) => {
-                    info!("Binance websocket reconnected");
-                    Ok(())
-                }
-            }
-        }
-        Ok(_) => {
-            warn!("Binance websocket disconnected");
-            Ok(())
-        }
-    }
+    // user_stream.close(&listen_key)?;
+    //
+    // match ws.disconnect() {
+    //     Err(e) => {
+    //         error!("🛑 Failed to disconnect from Binance websocket: {}", e);
+    //         match ws.connect_multiple_streams(&subs, testnet) {
+    //             Err(e) => {
+    //                 error!("🛑 Failed to connect to Binance websocket: {}", e);
+    //                 Err(e)
+    //             }
+    //             Ok(_) => {
+    //                 info!("Binance websocket reconnected");
+    //                 Ok(())
+    //             }
+    //         }
+    //     }
+    //     Ok(_) => {
+    //         warn!("Binance websocket disconnected");
+    //         Ok(())
+    //     }
+    // }
 }
