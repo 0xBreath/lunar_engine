@@ -190,7 +190,7 @@ async fn main() -> Result<()> {
             WebSocketEvent::OrderTrade(event) => {
                 let order_type = ActiveOrder::client_order_id_suffix(&event.new_client_order_id);
                 let entry_price = precise_round!(event.price.parse::<f64>()?, 2);
-                info!(
+                debug!(
                     "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",
                     event.symbol,
                     event.new_client_order_id,

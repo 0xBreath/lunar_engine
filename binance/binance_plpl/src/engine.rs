@@ -152,7 +152,11 @@ impl Engine {
                 let tp_state = self
                     .active_order
                     .take_profit_handler
-                    .init(candle.close, Side::Long)?;
+                    .init(candle.close, Side::Short)?;
+                info!(
+                    "TP Short: Entry {}, Exit Trigger {}, Exit {}",
+                    tp_state.entry, tp_state.exit_trigger, tp_state.exit
+                );
                 let take_profit = BinanceTrade::new(
                     self.ticker.to_string(),
                     format!("{}-{}", timestamp, "TAKE_PROFIT"),
@@ -167,7 +171,11 @@ impl Engine {
                 let sl_state = self
                     .active_order
                     .stop_loss_handler
-                    .init(candle.close, Side::Long)?;
+                    .init(candle.close, Side::Short)?;
+                info!(
+                    "SL Short: Entry {}, Exit Trigger {}, Exit {}",
+                    sl_state.entry, sl_state.exit_trigger, sl_state.exit
+                );
                 let stop_loss = BinanceTrade::new(
                     self.ticker.to_string(),
                     format!("{}-{}", timestamp, "STOP_LOSS"),
@@ -216,6 +224,10 @@ impl Engine {
                     .active_order
                     .take_profit_handler
                     .init(candle.close, Side::Long)?;
+                info!(
+                    "TP Long: Entry {}, Exit Trigger {}, Exit {}",
+                    tp_state.entry, tp_state.exit_trigger, tp_state.exit
+                );
                 let take_profit = BinanceTrade::new(
                     self.ticker.to_string(),
                     format!("{}-{}", timestamp, "TAKE_PROFIT"),
@@ -231,6 +243,10 @@ impl Engine {
                     .active_order
                     .stop_loss_handler
                     .init(candle.close, Side::Long)?;
+                info!(
+                    "SL Long: Entry {}, Exit Trigger {}, Exit {}",
+                    sl_state.entry, sl_state.exit_trigger, sl_state.exit
+                );
                 let stop_loss = BinanceTrade::new(
                     self.ticker.to_string(),
                     format!("{}-{}", timestamp, "STOP_LOSS"),
