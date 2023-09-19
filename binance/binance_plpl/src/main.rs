@@ -121,10 +121,10 @@ async fn main() -> Result<()> {
         ),
     };
 
-    let mut user_stream_keep_alive_time = SystemTime::now();
+    let user_stream_keep_alive_time = Mutex::new(SystemTime::now());
     let user_stream = USER_STREAM.lock()?;
     let answer = user_stream.start()?;
-    let listen_key = answer.listen_key;
+    let listen_key = Mutex::new(answer.listen_key);
 
     // cancel all open orders to start with a clean slate
     engine.cancel_all_open_orders()?;
@@ -137,10 +137,10 @@ async fn main() -> Result<()> {
     let engine = Mutex::new(engine);
     let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
         let now = SystemTime::now();
+        let mut keep_alive = user_stream_keep_alive_time.lock()?;
+        let mut listen_key = listen_key.lock()?;
         // check if timestamp is 10 minutes after last UserStream keep alive ping
-        let secs_since_keep_alive = now
-            .duration_since(user_stream_keep_alive_time)
-            .map(|d| d.as_secs())?;
+        let secs_since_keep_alive = now.duration_since(*keep_alive).map(|d| d.as_secs())?;
 
         if secs_since_keep_alive > 30 * 60 {
             match user_stream.keep_alive(&listen_key) {
@@ -152,7 +152,7 @@ async fn main() -> Result<()> {
                 }
                 Err(e) => error!("🛑 Error on user stream keep alive: {}", e),
             }
-            user_stream_keep_alive_time = now;
+            *keep_alive = now;
         }
 
         let mut engine = engine.lock()?;
@@ -212,7 +212,8 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    let subs = vec![KLINE_STREAM.to_string(), listen_key.clone()];
+    let listen_key_lock = listen_key.lock()?;
+    let subs = vec![KLINE_STREAM.to_string(), listen_key_lock.clone()];
     match ws.connect_multiple_streams(&subs, testnet) {
         Err(e) => {
             error!("🛑 Failed to connect to Binance websocket: {}", e);
@@ -226,7 +227,7 @@ async fn main() -> Result<()> {
         return Err(e);
     }
 
-    user_stream.close(&listen_key)?;
+    user_stream.close(&listen_key_lock)?;
 
     match ws.disconnect() {
         Err(e) => {
