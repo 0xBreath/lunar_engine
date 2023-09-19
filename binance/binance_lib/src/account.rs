@@ -1,120 +1,8 @@
-use crate::api::*;
-use crate::builder::*;
-use crate::client::Client;
-use crate::errors::Result;
-use crate::model::*;
-use crate::{BinanceError, StopLossTracker, TrailingTakeProfitTracker};
+use crate::*;
 use log::*;
 use serde::de::DeserializeOwned;
-use std::fmt::Debug;
-use std::str::FromStr;
 use std::time::SystemTime;
 use time_series::precise_round;
-
-#[derive(Debug, Clone)]
-pub struct TradeInfo {
-    pub client_order_id: String,
-    pub order_id: u64,
-    pub order_type: OrderType,
-    pub status: OrderStatus,
-    pub event_time: u64,
-    pub quantity: f64,
-    pub price: f64,
-}
-
-impl TradeInfo {
-    pub fn from_historical_order(historical_order: &HistoricalOrder) -> Result<Self> {
-        Ok(Self {
-            client_order_id: historical_order.client_order_id.clone(),
-            order_id: historical_order.order_id,
-            order_type: OrderType::from_str(historical_order._type.as_str())?,
-            status: OrderStatus::from_str(&historical_order.status)?,
-            event_time: historical_order.update_time as u64,
-            quantity: historical_order.executed_qty.parse::<f64>()?,
-            price: historical_order.price.parse::<f64>()?,
-        })
-    }
-
-    pub fn from_order_trade_event(order_trade_event: &OrderTradeEvent) -> Result<Self> {
-        let order_type = OrderType::from_str(order_trade_event.order_type.as_str())?;
-        let status = OrderStatus::from_str(&order_trade_event.order_status)?;
-        Ok(Self {
-            client_order_id: order_trade_event.new_client_order_id.clone(),
-            order_id: order_trade_event.order_id,
-            order_type,
-            status,
-            event_time: order_trade_event.event_time,
-            quantity: order_trade_event.qty.parse::<f64>()?,
-            price: order_trade_event.price.parse::<f64>()?,
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum PendingOrActiveOrder {
-    Pending(BinanceTrade),
-    Active(TradeInfo),
-    Empty,
-}
-
-impl PendingOrActiveOrder {
-    pub fn is_pending(&self) -> bool {
-        matches!(self, Self::Pending(_))
-    }
-
-    pub fn is_active(&self) -> bool {
-        matches!(self, Self::Active(_))
-    }
-
-    pub fn is_empty(&self) -> bool {
-        matches!(self, Self::Empty)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct OrderBundle {
-    pub id: Option<String>,
-    pub timestamp: Option<u64>,
-    pub side: Side,
-    pub entry: Option<TradeInfo>,
-    pub take_profit_tracker: TrailingTakeProfitTracker,
-    pub take_profit: PendingOrActiveOrder,
-    pub stop_loss_tracker: StopLossTracker,
-    pub stop_loss: PendingOrActiveOrder,
-}
-
-impl OrderBundle {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        id: Option<String>,
-        timestamp: Option<u64>,
-        side: Side,
-        entry: Option<TradeInfo>,
-        take_profit: PendingOrActiveOrder,
-        take_profit_tracker: TrailingTakeProfitTracker,
-        stop_loss: PendingOrActiveOrder,
-        stop_loss_tracker: StopLossTracker,
-    ) -> Self {
-        Self {
-            id,
-            timestamp,
-            side,
-            entry,
-            take_profit,
-            take_profit_tracker,
-            stop_loss,
-            stop_loss_tracker,
-        }
-    }
-
-    pub fn client_order_id_prefix(client_order_id: &str) -> String {
-        client_order_id.split('-').next().unwrap().to_string()
-    }
-
-    pub fn client_order_id_suffix(client_order_id: &str) -> String {
-        client_order_id.split('-').last().unwrap().to_string()
-    }
-}
 
 #[derive(Clone)]
 pub struct Account {
@@ -123,8 +11,6 @@ pub struct Account {
     pub base_asset: String,
     pub quote_asset: String,
     pub ticker: String,
-    pub active_order: Option<OrderBundle>,
-    pub assets: Assets,
 }
 
 impl Account {
@@ -142,8 +28,6 @@ impl Account {
             base_asset,
             quote_asset,
             ticker,
-            active_order: None,
-            assets: Assets::default(),
         }
     }
 
@@ -152,35 +36,6 @@ impl Account {
         let req = ExchangeInfo::request(symbol);
         self.client
             .get::<ExchangeInformation>(API::Spot(Spot::ExchangeInfo), Some(req))
-    }
-
-    /// Place a trade
-    pub fn trade<T: DeserializeOwned>(&self, trade: BinanceTrade) -> Result<T> {
-        let req = trade.request();
-        self.client.post_signed::<T>(API::Spot(Spot::Order), req)
-    }
-
-    pub fn trade_or_reset<T: DeserializeOwned>(&mut self, trade: BinanceTrade) -> Result<T> {
-        let res = self.trade::<T>(trade.clone());
-        match res {
-            Ok(res) => Ok(res),
-            Err(e) => {
-                let order_type = OrderBundle::client_order_id_suffix(&trade.client_order_id);
-                error!(
-                    "🛑 Error entering {} for {}: {:?}",
-                    trade.side.fmt_binance(),
-                    order_type,
-                    e
-                );
-                self.reset_active_order()?;
-                Err(e)
-            }
-        }
-    }
-
-    pub fn reset_active_order(&mut self) -> Result<Vec<OrderCanceled>> {
-        self.active_order = None;
-        self.cancel_all_open_orders()
     }
 
     /// Get account info which includes token balances
@@ -207,12 +62,6 @@ impl Account {
             return Err(e);
         }
         res
-    }
-
-    pub fn update_account_assets(&mut self) -> Result<()> {
-        let account_info = self.account_info()?;
-        self.assets = account_info.account_assets(&self.quote_asset, &self.base_asset)?;
-        Ok(())
     }
 
     /// Get all assets
@@ -267,13 +116,13 @@ impl Account {
             .delete_signed::<Vec<OrderCanceled>>(API::Spot(Spot::OpenOrders), Some(req));
         if let Err(e) = &res {
             if let BinanceError::Binance(err) = &e {
-                if err.code != -2011 {
+                return if err.code != -2011 {
                     error!("🛑 Failed to cancel all active orders: {:?}", e);
-                    return Err(BinanceError::Binance(err.clone()));
+                    Err(BinanceError::Binance(err.clone()))
                 } else {
                     debug!("No open orders to cancel");
-                    return Ok(vec![]);
-                }
+                    Ok(vec![])
+                };
             }
         }
         res
@@ -298,265 +147,9 @@ impl Account {
         res
     }
 
-    /// Update active order via websocket stream of [`OrderTradeEvent`]
-    ///
-    /// If no active order exists, initialize with either entry, take profit, or stop loss, depending on event order type.
-    ///
-    /// If active order exists, update either entry, take profit, or stop loss, depending on event order type.
-    pub fn update_active_order(&mut self, event: OrderTradeEvent) -> Result<Option<OrderBundle>> {
-        // update active order with new OrderTradeEvent
-        match &self.active_order {
-            // existing active order
-            // if order ID matches active order ID, update one of the 3 orders based on order type
-            Some(order_bundle) => {
-                let active_id = &order_bundle.id;
-                let event_id = OrderBundle::client_order_id_prefix(&event.new_client_order_id);
-                let order_type = OrderBundle::client_order_id_suffix(&event.new_client_order_id);
-                let order_status = OrderStatus::from_str(&event.order_status)?;
-                let should_update = match active_id {
-                    Some(active_id) => active_id == &event_id,
-                    None => true,
-                } && order_status != OrderStatus::Canceled;
-                if should_update {
-                    let mut updated_order = order_bundle.clone();
-                    match &*order_type {
-                        "ENTRY" => {
-                            debug!("Updating active order entry as {}", event.order_status);
-                            updated_order.entry = Some(TradeInfo::from_order_trade_event(&event)?);
-                            updated_order.id = Some(event_id);
-                        }
-                        "TAKE_PROFIT" => {
-                            debug!(
-                                "Updating active order take profit as {}",
-                                event.order_status
-                            );
-                            if order_status == OrderStatus::Canceled {
-                                info!("Take profit trigger updated, removing");
-                                updated_order.take_profit = PendingOrActiveOrder::Empty;
-                            } else {
-                                updated_order.take_profit = PendingOrActiveOrder::Active(
-                                    TradeInfo::from_order_trade_event(&event)?,
-                                );
-                                // TODO: remove after debug
-                                match &updated_order.entry {
-                                    None => {
-                                        error!("🛑 Take profit active before entry order placed!");
-                                        return Err(BinanceError::Custom(
-                                            "Take profit active before entry order placed!".into(),
-                                        ));
-                                    }
-                                    Some(entry) => {
-                                        if entry.status == OrderStatus::New
-                                            || entry.status == OrderStatus::PartiallyFilled
-                                        {
-                                            error!("🛑 Take profit active before entry filled!");
-                                            return Err(BinanceError::Custom(
-                                                "Take profit active before entry filled!".into(),
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        "STOP_LOSS" => {
-                            debug!("Updating active order stop loss as {}", event.order_status);
-                            updated_order.stop_loss = PendingOrActiveOrder::Active(
-                                TradeInfo::from_order_trade_event(&event)?,
-                            );
-                        }
-                        "EQUALIZE_BASE" => debug!("Equalizing base asset"),
-                        "EQUALIZE_QUOTE" => debug!("Equalizing quote asset"),
-                        _ => error!("🛑 Invalid order event order type to update active order"),
-                    }
-                    self.active_order = Some(updated_order);
-                }
-            }
-            // active order should be set to Some before getting order updates via websocket
-            // unless the update is canceling of remaining orders in active order
-            None => {
-                let order_status = OrderStatus::from_str(&event.order_status)?;
-                if order_status == OrderStatus::New {
-                    error!("🛑 Active order should have been created on order placement!");
-                    return Err(BinanceError::Custom(
-                        "Active order should have been created on order placement!".to_string(),
-                    ));
-                }
-            }
-        }
-
-        // ==================================================================================
-        // if all 3 orders exist in active order
-        // determine whether to cancel, update, or do nothing based on trade status of each order
-        if let Some(order_bundle) = &self.active_order {
-            if let (
-                Some(entry),
-                PendingOrActiveOrder::Active(take_profit),
-                PendingOrActiveOrder::Active(stop_loss),
-            ) = (
-                &order_bundle.entry,
-                &order_bundle.take_profit,
-                &order_bundle.stop_loss,
-            ) {
-                let mut updated_order = self.active_order.clone();
-                match (&entry.status, &take_profit.status, &stop_loss.status) {
-                    // If enter is FILLED && take profit is FILLED && stop loss is FILLED
-                    //      -> cancel open orders, log error, return None
-                    (
-                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                    ) => {
-                        self.cancel_all_open_orders()?;
-                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        error!(
-                            "🛑 Order bundle {} orders all filled. Should never happen.",
-                            id
-                        );
-                        updated_order = None;
-                    }
-                    // If enter is NEW && take profit is NEW && stop loss is NEW
-                    //      -> do nothing, order is active, return Some
-                    (OrderStatus::New, OrderStatus::New, OrderStatus::New) => {
-                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        debug!("Order bundle {} orders all new", id);
-                    }
-                    // If entry is FILLED && take profit is NEW && stop loss is FILLED
-                    //      -> trade closed, cancel remaining exit order, return None
-                    (
-                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                        OrderStatus::New,
-                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                    ) => {
-                        self.cancel_all_open_orders()?;
-                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        let pnl = precise_round!(
-                            match order_bundle.side {
-                                Side::Long => {
-                                    (stop_loss.price - entry.price) / entry.price * 100_f64
-                                }
-                                Side::Short => {
-                                    (entry.price - stop_loss.price) / entry.price * 100_f64
-                                }
-                            },
-                            5
-                        );
-                        info!("❌ LOSS -- order {} exited with {} % loss", id, pnl);
-                        updated_order = None;
-                    }
-                    // If entry is FILLED && take profit is FILLED && stop loss is NEW
-                    //      -> trade closed, cancel remaining exit order, return None
-                    (
-                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                        OrderStatus::New,
-                    ) => {
-                        self.cancel_all_open_orders()?;
-                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        let pnl = precise_round!(
-                            match order_bundle.side {
-                                Side::Long => {
-                                    (take_profit.price - entry.price) / entry.price * 100_f64
-                                }
-                                Side::Short => {
-                                    (entry.price - take_profit.price) / entry.price * 100_f64
-                                }
-                            },
-                            5
-                        );
-                        info!("✅ WIN -- order {} exited with {} % profit", id, pnl);
-                        updated_order = None;
-                    }
-                    // If enter is FILLED && take profit is NEW && stop loss is NEW
-                    //      -> trade is active, no nothing, return Some(active_order)
-                    (
-                        OrderStatus::Filled | OrderStatus::PartiallyFilled,
-                        OrderStatus::New,
-                        OrderStatus::New,
-                    ) => {
-                        let id = OrderBundle::client_order_id_prefix(&entry.client_order_id);
-                        debug!("Order bundle {} is active", id);
-                    }
-                    _ => {
-                        error!("🛑 Invalid active order status combination. Canceling all orders to start from scratch.");
-                        self.cancel_all_open_orders()?;
-                        updated_order = None;
-                    }
-                }
-                self.active_order = updated_order;
-            }
-        }
-        // =========================================
-
-        // return updated active order
-        Ok(self.active_order.clone())
-    }
-
-    pub fn active_order(&self) -> Option<OrderBundle> {
-        self.active_order.clone()
-    }
-
-    pub fn log_active_order(&self) {
-        match &self.active_order {
-            None => debug!("No active order"),
-            Some(active_order) => {
-                let take_profit_status = match &active_order.take_profit {
-                    PendingOrActiveOrder::Active(take_profit) => {
-                        format!("{:?}", take_profit.status)
-                    }
-                    PendingOrActiveOrder::Pending(_) => "Pending".to_string(),
-                    PendingOrActiveOrder::Empty => "Empty".to_string(),
-                };
-                let tp_price = active_order.take_profit_tracker.exit;
-                let stop_loss_status = match &active_order.stop_loss {
-                    PendingOrActiveOrder::Active(stop_loss) => {
-                        format!("{:?}", stop_loss.status)
-                    }
-                    PendingOrActiveOrder::Pending(_) => "Pending".to_string(),
-                    PendingOrActiveOrder::Empty => "Empty".to_string(),
-                };
-                let sl_price = active_order.stop_loss_tracker.exit;
-                match &active_order.entry {
-                    Some(entry) => {
-                        let entry_status = match &active_order.entry {
-                            None => "None".to_string(),
-                            Some(entry) => format!("{:?}", entry.status),
-                        };
-                        let entry_trigger = entry.price;
-                        let id = match &active_order.id {
-                            None => "None".to_string(),
-                            Some(id) => id.to_string(),
-                        };
-                        info!(
-                            "Active Order ID: {}, {:?}, entry: {} @ {}, take_profit: {} @ {}, stop_loss: {} @ {}",
-                            id,
-                            active_order.side,
-                            entry_status,
-                            entry_trigger,
-                            take_profit_status,
-                            tp_price,
-                            stop_loss_status,
-                            sl_price
-                        );
-                    }
-                    None => {
-                        let entry_status = match &active_order.entry {
-                            None => "None".to_string(),
-                            Some(entry) => format!("{:?}", entry.status),
-                        };
-                        info!(
-                            "Active Order ID: {:?}, {:?}, entry: {}, take_profit: {} @ {}, stop_loss: {} @ {}",
-                            active_order.id,
-                            active_order.side,
-                            entry_status,
-                            take_profit_status,
-                            tp_price,
-                            stop_loss_status,
-                            sl_price
-                        );
-                    }
-                }
-            }
-        }
+    pub fn trade<T: DeserializeOwned>(&self, trade: BinanceTrade) -> Result<T> {
+        let req = trade.request();
+        self.client.post_signed::<T>(API::Spot(Spot::Order), req)
     }
 
     pub fn equalize_assets(&self) -> Result<()> {
@@ -634,27 +227,5 @@ impl Account {
         }
 
         Ok(())
-    }
-
-    pub fn update_assets(&mut self, update: Assets) -> Result<()> {
-        self.assets = update;
-        Ok(())
-    }
-
-    pub fn assets(&self) -> Assets {
-        self.assets.clone()
-    }
-
-    pub fn log_assets(&self) {
-        let assets = &self.assets;
-        info!(
-            "Account Assets  |  {}, Free: {}, Locked: {}  |  {}, Free: {}, Locked: {}",
-            self.quote_asset,
-            assets.free_quote,
-            assets.locked_quote,
-            self.base_asset,
-            assets.free_base,
-            assets.locked_base
-        );
     }
 }

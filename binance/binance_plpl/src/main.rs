@@ -2,14 +2,15 @@ use binance_lib::*;
 use ephemeris::*;
 use lazy_static::lazy_static;
 use log::*;
-use model::Assets;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use time_series::{precise_round, Candle, Day, Month, Time};
+use time_series::{precise_round, Day, Month, Time};
 
+mod engine;
 mod utils;
+use engine::*;
 use utils::*;
 
 // Binance Spot Test Network API credentials
@@ -36,68 +37,29 @@ pub const QUOTE_ASSET: &str = "USDT";
 pub const TICKER: &str = "BTCUSDT";
 
 lazy_static! {
-    static ref ACCOUNT: Mutex<Account> = match is_testnet()
-      .expect("Failed to parse env TESTNET to boolean")
-    {
-        true => {
-            Mutex::new(Account {
-                client: Client::new(
-                    Some(BINANCE_TEST_API_KEY.to_string()),
-                    Some(BINANCE_TEST_API_SECRET.to_string()),
-                    BINANCE_TEST_API.to_string()
-                ),
-                recv_window: 10000,
-                base_asset: BASE_ASSET.to_string(),
-                quote_asset: QUOTE_ASSET.to_string(),
-                ticker: TICKER.to_string(),
-                active_order: None,
-                assets: Assets::default(),
-            })
-        },
-        false => {
-            Mutex::new(Account {
-                client: Client::new(
-                    Some(BINANCE_LIVE_API_KEY.to_string()),
-                    Some(BINANCE_LIVE_API_SECRET.to_string()),
-                    BINANCE_LIVE_API.to_string()
-                ),
-                recv_window: 10000,
-                base_asset: BASE_ASSET.to_string(),
-                quote_asset: QUOTE_ASSET.to_string(),
-                ticker: TICKER.to_string(),
-                active_order: None,
-                assets: Assets::default(),
-            })
-        }
-    };
-    static ref USER_STREAM: Mutex<UserStream> = match is_testnet()
-        .expect("Failed to parse env TESTNET to boolean")
-    {
-        true => {
-            Mutex::new(UserStream {
-                client: Client::new(
-                    Some(BINANCE_TEST_API_KEY.to_string()),
-                    Some(BINANCE_TEST_API_SECRET.to_string()),
-                    BINANCE_TEST_API.to_string()
-                ),
-                recv_window: 10000,
-            })
-        },
-        false => {
-            Mutex::new(UserStream {
-                client: Client::new(
-                    Some(BINANCE_LIVE_API_KEY.to_string()),
-                    Some(BINANCE_LIVE_API_SECRET.to_string()),
-                    BINANCE_LIVE_API.to_string()
-                ),
-                recv_window: 10000,
-            })
-        }
-    };
-    // cache previous and current Kline/Candle to assess PLPL trade signal
-    static ref PREV_CANDLE: Mutex<Option<Candle>> = Mutex::new(None);
-    static ref CURR_CANDLE: Mutex<Option<Candle>> = Mutex::new(None);
-    static ref COUNTER: Mutex<AtomicUsize> = Mutex::new(AtomicUsize::new(0));
+    static ref USER_STREAM: Mutex<UserStream> =
+        match is_testnet().expect("Failed to parse env TESTNET to boolean") {
+            true => {
+                Mutex::new(UserStream {
+                    client: Client::new(
+                        Some(BINANCE_TEST_API_KEY.to_string()),
+                        Some(BINANCE_TEST_API_SECRET.to_string()),
+                        BINANCE_TEST_API.to_string(),
+                    ),
+                    recv_window: 10000,
+                })
+            }
+            false => {
+                Mutex::new(UserStream {
+                    client: Client::new(
+                        Some(BINANCE_LIVE_API_KEY.to_string()),
+                        Some(BINANCE_LIVE_API_SECRET.to_string()),
+                        BINANCE_LIVE_API.to_string(),
+                    ),
+                    recv_window: 10000,
+                })
+            }
+        };
 }
 
 #[tokio::main]
@@ -127,9 +89,37 @@ async fn main() -> Result<()> {
     })?;
 
     let testnet = is_testnet()?;
-    let prev_candle: Mutex<Option<Candle>> = Mutex::new(None);
-    let curr_candle: Mutex<Option<Candle>> = Mutex::new(None);
-    let mut account = ACCOUNT.lock()?;
+
+    let mut engine = match testnet {
+        true => Engine::new(
+            Client::new(
+                Some(BINANCE_TEST_API_KEY.to_string()),
+                Some(BINANCE_TEST_API_SECRET.to_string()),
+                BINANCE_TEST_API.to_string(),
+            ),
+            plpl_system,
+            10000,
+            BASE_ASSET.to_string(),
+            QUOTE_ASSET.to_string(),
+            TICKER.to_string(),
+            trailing_take_profit,
+            stop_loss,
+        ),
+        false => Engine::new(
+            Client::new(
+                Some(BINANCE_LIVE_API_KEY.to_string()),
+                Some(BINANCE_LIVE_API_SECRET.to_string()),
+                BINANCE_LIVE_API.to_string(),
+            ),
+            plpl_system,
+            10000,
+            BASE_ASSET.to_string(),
+            QUOTE_ASSET.to_string(),
+            TICKER.to_string(),
+            trailing_take_profit,
+            stop_loss,
+        ),
+    };
 
     let mut user_stream_keep_alive_time = SystemTime::now();
     let user_stream = USER_STREAM.lock()?;
@@ -137,13 +127,14 @@ async fn main() -> Result<()> {
     let listen_key = answer.listen_key;
 
     // cancel all open orders to start with a clean slate
-    account.cancel_all_open_orders()?;
+    engine.cancel_all_open_orders()?;
     // equalize base and quote assets to 50/50
-    account.equalize_assets()?;
+    engine.equalize_assets()?;
     // get initial asset balances
-    account.update_account_assets()?;
-    account.log_assets();
+    engine.update_assets()?;
+    engine.log_assets();
 
+    let engine = Mutex::new(engine);
     let mut ws = WebSockets::new(testnet, |event: WebSocketEvent| {
         let now = SystemTime::now();
         // check if timestamp is 10 minutes after last UserStream keep alive ping
@@ -164,38 +155,18 @@ async fn main() -> Result<()> {
             user_stream_keep_alive_time = now;
         }
 
+        let mut engine = engine.lock()?;
+
         match event {
             WebSocketEvent::Kline(kline_event) => {
-                let kline_event_time = kline_event.event_time as i64;
-                let date = Time::from_unix_msec(kline_event_time);
-                let timestamp = format!("{}", kline_event_time);
                 let candle = kline_to_candle(&kline_event)?;
-                let mut prev = prev_candle.lock()?;
-                let mut curr = curr_candle.lock()?;
-
-                // compute closest PLPL to current Candle
-                let plpl = plpl_system.closest_plpl(&candle)?;
-                // active order bundle on Binance
-                let active_order = account.active_order();
-                let mut trade_placed = false;
 
                 // compare previous candle to current candle to check crossover of PLPL signal threshold
-                match (&*prev, &*curr) {
-                    (None, None) => *prev = Some(candle),
+                match (&engine.prev_candle.clone(), &engine.candle.clone()) {
+                    (None, None) => engine.prev_candle = Some(candle),
                     (Some(prev_candle), None) => {
-                        *curr = Some(candle.clone());
-                        trade_placed = handle_signal(
-                            &plpl_system,
-                            plpl,
-                            prev_candle,
-                            &candle,
-                            &date,
-                            timestamp,
-                            &mut account,
-                            active_order,
-                            trailing_take_profit.clone(),
-                            stop_loss.clone(),
-                        )?;
+                        engine.candle = Some(candle.clone());
+                        engine.process_candle(prev_candle, &candle)?;
                     }
                     (None, Some(_)) => {
                         error!(
@@ -203,37 +174,21 @@ async fn main() -> Result<()> {
                         );
                     }
                     (Some(_prev_candle), Some(curr_candle)) => {
-                        trade_placed = handle_signal(
-                            &plpl_system,
-                            plpl,
-                            curr_candle,
-                            &candle,
-                            &date,
-                            timestamp,
-                            &mut account,
-                            active_order,
-                            trailing_take_profit.clone(),
-                            stop_loss.clone(),
-                        )?;
-                        *prev = Some(curr_candle.clone());
-                        *curr = Some(candle);
+                        engine.process_candle(curr_candle, &candle)?;
+                        engine.prev_candle = Some(curr_candle.clone());
+                        engine.candle = Some(candle);
                     }
-                }
-                // time to process
-                let elapsed = SystemTime::now().duration_since(now)?;
-                if trade_placed {
-                    debug!("Time to process PLPL trade: {:?}ms", elapsed.as_millis());
                 }
             }
             WebSocketEvent::AccountUpdate(account_update) => {
-                let assets = account_update.assets(&account.quote_asset, &account.base_asset)?;
+                let assets = account_update.assets(&engine.quote_asset, &engine.base_asset)?;
                 debug!(
                     "Account Update, {}: {}, {}: {}",
-                    account.quote_asset, assets.free_quote, account.base_asset, assets.free_base
+                    engine.quote_asset, assets.free_quote, engine.base_asset, assets.free_base
                 );
             }
             WebSocketEvent::OrderTrade(event) => {
-                let order_type = OrderBundle::client_order_id_suffix(&event.new_client_order_id);
+                let order_type = ActiveOrder::client_order_id_suffix(&event.new_client_order_id);
                 let entry_price = precise_round!(event.price.parse::<f64>()?, 2);
                 info!(
                     "{},  {},  {} @ {},  Execution: {},  Status: {},  Order: {}",
@@ -245,16 +200,12 @@ async fn main() -> Result<()> {
                     event.order_status,
                     order_type
                 );
-                return match account.update_active_order(event) {
-                    Ok(_) => {
-                        account.log_active_order();
-                        Ok(())
-                    }
-                    Err(e) => {
-                        error!("🛑 Error updating active order: {:?}", e);
-                        Err(e)
-                    }
-                };
+                // update state
+                engine.update_active_order(event)?;
+                // create or cancel orders depending on state
+                engine.check_active_order()?;
+                // check trailing take profit and update if necessary
+                engine.check_trailing_take_profit()?;
             }
             _ => (),
         };

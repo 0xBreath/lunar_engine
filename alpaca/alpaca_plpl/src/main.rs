@@ -7,9 +7,9 @@ mod plpl;
 mod utils;
 
 use apca::api::v2::updates::OrderUpdates;
-use apca::data::v2::stream::RealtimeData;
 use apca::data::v2::stream::{drive, Data};
 use apca::data::v2::stream::{CustomUrl, MarketData};
+use apca::data::v2::stream::{RealtimeData, IEX};
 use apca::ApiInfo;
 use apca::Client;
 use crossbeam::channel::unbounded;
@@ -54,7 +54,7 @@ lazy_static! {
     // cache previous and current Kline/Candle to assess PLPL trade signal
     static ref PREV_CANDLE: Mutex<Option<Candle>> = Mutex::new(None);
     static ref CURR_CANDLE: Mutex<Option<Candle>> = Mutex::new(None);
-    static ref TICKER: String = "BTC/USD".to_string();
+    static ref TICKER: String = "SPY".to_string();
 }
 
 #[tokio::main]
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
     let stop_loss = ExitType::Percent(0.5);
     let planet = Planet::from("Jupiter");
     let plpl_scale = 0.5;
-    let plpl_price = 25000.0;
+    let plpl_price = 400.0;
     let num_plpls = 8000;
     let cross_margin_pct = 55.0;
 
@@ -98,10 +98,7 @@ async fn main() -> Result<()> {
     engine.equalize_assets().await?;
 
     // Subscribe to websocket bar updates.
-    let (mut stream, mut subscription) = engine
-        .client
-        .subscribe::<RealtimeData<CustomUrl<Crypto>>>()
-        .await?;
+    let (mut stream, mut subscription) = engine.client.subscribe::<RealtimeData<IEX>>().await?;
     let mut data = MarketData::default();
     data.set_bars([TICKER.as_str()]);
     let subscribe = subscription.subscribe(&data).boxed();

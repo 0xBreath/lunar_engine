@@ -481,14 +481,15 @@ impl Engine {
             limit_price: Some(f64_to_num!(candle.close)),
             client_order_id: Some(format!("{}-{}", timestamp, "ENTRY")),
             time_in_force: TimeInForce::UntilCanceled,
+            extended_hours: true,
             ..Default::default()
         }
         .init(
             &self.ticker,
             side,
-            Amount::quantity(f64_to_num!(precise_round!(cash / 3.0 / candle.close, 5))),
+            Amount::quantity(f64_to_num!(precise_round!(cash / 3.0 / candle.close, 0))),
         );
-        trace!("Entry order: {:?}", entry);
+        debug!("Entry order: {:?}", entry);
         match self.client.issue::<Post>(&entry).await {
             Ok(res) => {
                 info!("Entry order response: {:?}", res);
@@ -519,6 +520,7 @@ impl Engine {
                     trail_price: self.active_order.take_profit_handler.trail_price.clone(),
                     trail_percent: self.active_order.take_profit_handler.trail_percent.clone(),
                     time_in_force: TimeInForce::UntilCanceled,
+                    extended_hours: true,
                     ..Default::default()
                 }
                 .init(
@@ -526,6 +528,7 @@ impl Engine {
                     tp_side,
                     Amount::quantity(entry.filled_quantity.clone()),
                 );
+                debug!("Take profit order: {:?}", tp);
                 match self.client.issue::<Post>(&tp).await {
                     Ok(res) => {
                         info!("Take profit order response: {:?}", res);
@@ -562,6 +565,7 @@ impl Engine {
                     stop_loss: Some(StopLoss::StopLimit(stop_price, limit_price)),
                     client_order_id: Some(format!("{}-{}", order_id_prefix(entry), "STOP_LOSS")),
                     time_in_force: TimeInForce::UntilCanceled,
+                    extended_hours: true,
                     ..Default::default()
                 }
                 .init(
@@ -569,6 +573,7 @@ impl Engine {
                     sl_side,
                     Amount::quantity(entry.filled_quantity.clone()),
                 );
+                debug!("Stop loss order: {:?}", sl);
                 match self.client.issue::<Post>(&sl).await {
                     Ok(res) => {
                         info!("Stop loss order response: {:?}", res);

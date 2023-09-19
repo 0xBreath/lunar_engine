@@ -35,6 +35,8 @@ pub enum BinanceError {
     Custom(String),
     SystemTime(SystemTimeError),
     EnvMissing(VarError),
+    ExitHandlersInitializedEarly,
+    ExitHandlersNotBothInitialized,
 }
 
 impl std::fmt::Display for BinanceError {
@@ -119,6 +121,14 @@ impl std::fmt::Display for BinanceError {
             BinanceError::EnvMissing(e) => {
                 error!("Env var missing: {:?}", e);
                 write!(f, "Env var missing: {:?}", e)
+            }
+            BinanceError::ExitHandlersInitializedEarly => {
+                error!("Exit handlers initialized before order placement");
+                write!(f, "Exit handlers initialized before order placement")
+            }
+            BinanceError::ExitHandlersNotBothInitialized => {
+                error!("Exit handlers not both initialized");
+                write!(f, "Exit handlers not both initialized")
             }
         }
     }

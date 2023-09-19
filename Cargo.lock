@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "alpaca_plpl"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "apca",
  "chrono",
@@ -375,7 +375,7 @@ checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 
 [[package]]
 name = "binance_lib"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "actix",
  "actix-web",
@@ -402,7 +402,7 @@ dependencies = [
 
 [[package]]
 name = "binance_plpl"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "binance_lib",
  "chrono",
@@ -411,6 +411,7 @@ dependencies = [
  "ephemeris",
  "lazy_static",
  "log",
+ "serde",
  "simplelog",
  "time 0.3.17",
  "time_series",
@@ -419,7 +420,7 @@ dependencies = [
 
 [[package]]
 name = "binance_server"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "actix-web",
  "binance_lib",
@@ -836,7 +837,7 @@ dependencies = [
 
 [[package]]
 name = "cycles"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "log",
  "simplelog",
@@ -846,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "date"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "log",
  "simplelog",
@@ -948,7 +949,7 @@ dependencies = [
 
 [[package]]
 name = "ephemeris"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "csv",
@@ -1072,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "fractals"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "log",
@@ -1250,7 +1251,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hda"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "log",
@@ -1262,7 +1263,7 @@ dependencies = [
 
 [[package]]
 name = "hda_pfs"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "log",
@@ -1347,7 +1348,7 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 
 [[package]]
 name = "hurst"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "log",
@@ -1854,7 +1855,7 @@ dependencies = [
 
 [[package]]
 name = "pfs_days"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "log",
@@ -1866,7 +1867,7 @@ dependencies = [
 
 [[package]]
 name = "pfs_months"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "log",
@@ -1878,7 +1879,7 @@ dependencies = [
 
 [[package]]
 name = "pfs_years"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "log",
@@ -2151,7 +2152,7 @@ dependencies = [
 
 [[package]]
 name = "returns"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "log",
  "rand",
@@ -2506,7 +2507,7 @@ dependencies = [
 
 [[package]]
 name = "time_series"
-version = "0.2.9"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "csv",
