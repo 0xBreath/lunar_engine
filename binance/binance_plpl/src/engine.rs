@@ -747,7 +747,7 @@ impl Engine {
             }
             Ok(self.active_order.clone())
         } else {
-            error!("No take profit state to check");
+            debug!("No take profit state to check");
             Ok(self.active_order.clone())
         }
     }
