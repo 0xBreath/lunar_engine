@@ -153,6 +153,7 @@ async fn main() -> Result<()> {
             }
             *keep_alive = now;
         }
+        drop(keep_alive);
 
         let mut engine = engine.lock()?;
 

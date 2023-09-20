@@ -24,8 +24,13 @@ screen -R plpl
 
 # Start the algorithm on Binance testnet
 TESTNET=true cargo run -r -p binance_plpl
-# or start the algorithm on Alpaca testnet
+# or start the algorithm on Binance live
+TESTNET=false cargo run -r -p binance_plpl
+
+# Start the algorithm on Alpaca testnet
 TESTNET=true cargo run -r -p alpaca_plpl
+# or start the algortihm on Alpaca live
+TESTNET=false cargo run -r -p alpaca_plpl
 
 # Exit screen with Ctrl+A then D
 
