@@ -7,3 +7,4 @@ data/BTCUSD/output/*
 !data/BTCUSD/output/.gitkeep
 *.log
 plpl.log
+.env

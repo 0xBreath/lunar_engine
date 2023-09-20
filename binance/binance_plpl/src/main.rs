@@ -16,56 +16,27 @@ use utils::*;
 // Binance Spot Test Network API credentials
 #[allow(dead_code)]
 pub const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
-#[allow(dead_code)]
-pub const BINANCE_TEST_API_KEY: &str =
-    "XEUwQO3rcZj91HOdYRekbD6RSEJb03KHogXFHR4rvILCmTqqgqjxCEpr0O25SFQs";
-#[allow(dead_code)]
-pub const BINANCE_TEST_API_SECRET: &str =
-    "ld3CZkxrqsjwJi5b20aSbTVatjZcSb1J46tcF5wP043OZ4jATtwGDHiroLCllnVw";
 // Binance Spot Live Network API credentials
 #[allow(dead_code)]
 pub const BINANCE_LIVE_API: &str = "https://api.binance.us";
-#[allow(dead_code)]
-pub const BINANCE_LIVE_API_KEY: &str =
-    "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
-#[allow(dead_code)]
-pub const BINANCE_LIVE_API_SECRET: &str =
-    "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
 pub const KLINE_STREAM: &str = "btcusdt@kline_5m";
 pub const BASE_ASSET: &str = "BTC";
 pub const QUOTE_ASSET: &str = "USDT";
 pub const TICKER: &str = "BTCUSDT";
 
-lazy_static! {
-    static ref USER_STREAM: Mutex<UserStream> =
-        match is_testnet().expect("Failed to parse env TESTNET to boolean") {
-            true => {
-                Mutex::new(UserStream {
-                    client: Client::new(
-                        Some(BINANCE_TEST_API_KEY.to_string()),
-                        Some(BINANCE_TEST_API_SECRET.to_string()),
-                        BINANCE_TEST_API.to_string(),
-                    ),
-                    recv_window: 10000,
-                })
-            }
-            false => {
-                Mutex::new(UserStream {
-                    client: Client::new(
-                        Some(BINANCE_LIVE_API_KEY.to_string()),
-                        Some(BINANCE_LIVE_API_SECRET.to_string()),
-                        BINANCE_LIVE_API.to_string(),
-                    ),
-                    recv_window: 10000,
-                })
-            }
-        };
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     init_logger(&PathBuf::from("plpl.log".to_string()))?;
     info!("Starting Binance PLPL!");
+
+    #[allow(dead_code)]
+    let binance_test_api_key = std::env::var("BINANCE_TEST_API_KEY")?;
+    #[allow(dead_code)]
+    let binance_test_api_secret = std::env::var("BINANCE_TEST_API_SECRET")?;
+    #[allow(dead_code)]
+    let binance_live_api_key = std::env::var("BINANCE_LIVE_API_KEY")?;
+    #[allow(dead_code)]
+    let binance_live_api_secret = std::env::var("BINANCE_LIVE_API_SECRET")?;
 
     // PLPL parameters; tuned for 5 minute candles
     let trailing_take_profit = ExitType::Ticks(350);
@@ -90,11 +61,31 @@ async fn main() -> Result<()> {
 
     let testnet = is_testnet()?;
 
+    let user_stream: Mutex<UserStream> =
+        match is_testnet().expect("Failed to parse env TESTNET to boolean") {
+            true => Mutex::new(UserStream {
+                client: Client::new(
+                    Some(binance_test_api_key.to_string()),
+                    Some(binance_test_api_secret.to_string()),
+                    BINANCE_TEST_API.to_string(),
+                ),
+                recv_window: 10000,
+            }),
+            false => Mutex::new(UserStream {
+                client: Client::new(
+                    Some(binance_live_api_key.to_string()),
+                    Some(binance_live_api_secret.to_string()),
+                    BINANCE_LIVE_API.to_string(),
+                ),
+                recv_window: 10000,
+            }),
+        };
+
     let mut engine = match testnet {
         true => Engine::new(
             Client::new(
-                Some(BINANCE_TEST_API_KEY.to_string()),
-                Some(BINANCE_TEST_API_SECRET.to_string()),
+                Some(binance_test_api_key.to_string()),
+                Some(binance_test_api_secret.to_string()),
                 BINANCE_TEST_API.to_string(),
             ),
             plpl_system,
@@ -107,8 +98,8 @@ async fn main() -> Result<()> {
         ),
         false => Engine::new(
             Client::new(
-                Some(BINANCE_LIVE_API_KEY.to_string()),
-                Some(BINANCE_LIVE_API_SECRET.to_string()),
+                Some(binance_live_api_key.to_string()),
+                Some(binance_live_api_secret.to_string()),
                 BINANCE_LIVE_API.to_string(),
             ),
             plpl_system,
@@ -122,7 +113,7 @@ async fn main() -> Result<()> {
     };
 
     let user_stream_keep_alive_time = Mutex::new(SystemTime::now());
-    let user_stream = USER_STREAM.lock()?;
+    let user_stream = user_stream.lock()?;
     let answer = user_stream.start()?;
     let listen_key = answer.listen_key;
 

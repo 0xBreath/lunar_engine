@@ -10,21 +10,9 @@ use tokio::sync::Mutex;
 // Binance Spot Test Network API credentials
 #[allow(dead_code)]
 const BINANCE_TEST_API: &str = "https://testnet.binance.vision";
-#[allow(dead_code)]
-const BINANCE_TEST_API_KEY: &str =
-    "XEUwQO3rcZj91HOdYRekbD6RSEJb03KHogXFHR4rvILCmTqqgqjxCEpr0O25SFQs";
-#[allow(dead_code)]
-const BINANCE_TEST_API_SECRET: &str =
-    "ld3CZkxrqsjwJi5b20aSbTVatjZcSb1J46tcF5wP043OZ4jATtwGDHiroLCllnVw";
 // Binance Spot Live Network API credentials
 #[allow(dead_code)]
 const BINANCE_LIVE_API: &str = "https://api.binance.us";
-#[allow(dead_code)]
-const BINANCE_LIVE_API_KEY: &str =
-    "WeGpjrcMfU4Yndtb8tOqy2MQouEWsGuQbCwNHOwCSKtnxm5MUhqB6EOyQ3u7rBFY";
-#[allow(dead_code)]
-const BINANCE_LIVE_API_SECRET: &str =
-    "aLfkivKBnH31bhfcOc1P7qdg7HxLRcjCRBMDdiViVXMfO64TFEYe6V1OKr0MjyJS";
 const BASE_ASSET: &str = "BTC";
 const QUOTE_ASSET: &str = "USDT";
 const TICKER: &str = "BTCUSDT";
@@ -40,8 +28,14 @@ lazy_static! {
         true => {
             Mutex::new(Account {
                 client: Client::new(
-                    Some(BINANCE_TEST_API_KEY.to_string()),
-                    Some(BINANCE_TEST_API_SECRET.to_string()),
+                    Some(
+                        std::env::var("BINANCE_TEST_API_KEY")
+                            .expect("Failed to parse BINANCE_TEST_API_KEY from env"),
+                    ),
+                    Some(
+                        std::env::var("BINANCE_TEST_API_SECRET")
+                            .expect("Failed to parse BINANCE_TEST_API_SECRET from env"),
+                    ),
                     BINANCE_TEST_API.to_string(),
                 ),
                 recv_window: 5000,
@@ -53,8 +47,14 @@ lazy_static! {
         false => {
             Mutex::new(Account {
                 client: Client::new(
-                    Some(BINANCE_LIVE_API_KEY.to_string()),
-                    Some(BINANCE_LIVE_API_SECRET.to_string()),
+                    Some(
+                        std::env::var("BINANCE_LIVE_API_KEY")
+                            .expect("Failed to parse BINANCE_LIVE_API_KEY from env"),
+                    ),
+                    Some(
+                        std::env::var("BINANCE_LIVE_API_SECRET")
+                            .expect("Failed to parse BINANCE_LIVE_API_SECRET from env"),
+                    ),
                     BINANCE_LIVE_API.to_string(),
                 ),
                 recv_window: 5000,
