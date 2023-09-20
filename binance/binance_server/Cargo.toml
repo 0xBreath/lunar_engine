@@ -26,3 +26,4 @@ simplelog = "0.12.0"
 log = "0.4"
 time = "0.3.14"
 tungstenite = { version = "0.18.0", features = ["native-tls"] }
+dotenv = "0.15.0"

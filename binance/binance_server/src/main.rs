@@ -3,6 +3,7 @@ extern crate lazy_static;
 
 use actix_web::{get, web, App, Error, HttpResponse, HttpServer, Responder, Result};
 use binance_lib::*;
+use dotenv::dotenv;
 use log::*;
 use simplelog::{ColorChoice, Config as SimpleLogConfig, TermLogger, TerminalMode};
 use tokio::sync::Mutex;
@@ -68,6 +69,7 @@ lazy_static! {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenv().ok();
     init_logger();
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());

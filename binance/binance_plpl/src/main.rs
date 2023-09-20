@@ -1,4 +1,5 @@
 use binance_lib::*;
+use dotenv::dotenv;
 use ephemeris::*;
 use lazy_static::lazy_static;
 use log::*;
@@ -26,6 +27,7 @@ pub const TICKER: &str = "BTCUSDT";
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv().ok();
     init_logger(&PathBuf::from("plpl.log".to_string()))?;
     info!("Starting Binance PLPL!");
 

@@ -6,6 +6,16 @@
 
 [//]: # (# Lunar Engine)
 
+### Create Environment Variables
+```bash
+BINANCE_TEST_API_KEY=something
+BINANCE_TEST_API_SECRET=something
+BINANCE_LIVE_API_KEY=something
+BINANCE_LIVE_API_SECRET=something
+# true if using testnet Binance or Alpaca, false if live (real money!)
+TESTNET=true
+```
+
 ### Steps to deploy to virtual machine
 ```bash
 # GitHub, manage terminal processes, and Cargo build dependencies
@@ -22,15 +32,11 @@ git pull origin main
 # Create a screen to run the algorithm
 screen -R plpl
 
-# Start the algorithm on Binance testnet
-TESTNET=true cargo run -r -p binance_plpl
-# or start the algorithm on Binance live
-TESTNET=false cargo run -r -p binance_plpl
+# Start the algorithm on Binance
+cargo run -r -p binance_plpl
 
-# Start the algorithm on Alpaca testnet
-TESTNET=true cargo run -r -p alpaca_plpl
-# or start the algortihm on Alpaca live
-TESTNET=false cargo run -r -p alpaca_plpl
+# Start the algorithm on Alpaca
+cargo run -r -p alpaca_plpl
 
 # Exit screen with Ctrl+A then D
 
