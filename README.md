@@ -16,6 +16,10 @@ BINANCE_LIVE_API_SECRET=something
 TESTNET=true
 ```
 
+### Create Binance Test API Key
+[Binance Test Login](https://testnet.binance.vision/)
+See top of page "Log In with GitHub" to create an API key.
+
 ### Steps to deploy to virtual machine
 ```bash
 # GitHub, manage terminal processes, and Cargo build dependencies
